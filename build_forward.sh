@@ -1,0 +1,71 @@
+#!/bin/bash
+# CREATE A NEW SPECFEM RUN FOLDER BASED ON EVENT ID NUMBER
+# SHOULD BE RUN INSIDE THE SPECFEM3DMASTER RUN FOLDER
+EVENT_ID=$1
+DECOMPOSE=$2
+
+RUNFOLDER=`pwd`
+TOMO=/home/chowbr/tomo
+PRIMER=${TOMO}/primer
+STORAGE=${TOMO}/storage
+CMTSOLUTION=${PRIMER}/cmtsolution_files/${EVENT_ID}CMTSOLUTION
+TEMPLATE=${PRIMER}/simutils/run_templates/forward_simulation.sh
+
+# CHECK AND EXITS:
+# CHECK IF CMTSOLUTION FILE EXISTS
+if [ ! -f ${CMTSOLUTION} ]
+then
+	echo ${CMTSOLUTION} DOES NOT EXIST
+	exit
+fi
+# CHECK IF RUNFOLDER ALREADY EXISTS
+if [ -d ${STORAGE}/${EVENT_ID} ]
+then
+	echo OUTPUT_FILES ALREADY EXISTS IN STORAGE
+	exit
+fi
+
+# CHECK IF OUTPUT_FOLDER EXISTS IN RUNFOLDER
+if [ -d ${RUNFOLDER}/OUTPUT_FILES ]
+then
+	echo OUTPUT_FILES ALREADY EXISTS IN RUN FOLDER
+	exit
+fi
+
+# IF PASS CHECK-STOPS, CREATE AND RUN
+echo CHECKING REQUIRED FILES
+if ! [ -d ${RUNFOLDER}/DATA/tomo_files/ ]
+then
+	echo tomo_files IS NOT PRESENT IN DATA
+	exit
+fi
+if ! [ -f ${RUNFOLDER}/DATA/STATIONS ]
+then
+	echo STATIONS IS NOT PRESENT IN DATA
+	exit
+fi
+if ! [ -d ${RUNFOLDER}/MESH/ ]
+then
+	echo MESH IS NOT PRESENT
+	exit
+fi
+
+echo PARSING Par_file
+
+
+echo SYMLINKING CMTSOLUTION
+ln -s ${CMTSOLUTION} ${RUNFOLDER}/DATA/CMTSOLUTION
+
+echo COPYING STATION FILE
+cp ${PRIMER}/STATIONS ${EVENT_ID}/DATA/
+
+
+echo REPLACING RUNSCRIPT NAME
+SEDCOMMAND="sed -i '3s/.*/#SBATCH --job-name="${EVENT_ID}"/' simulation_run.sh"
+eval ${SEDCOMMAND} 
+
+echo RUNNING MAKE
+./configure FC=ftn CC=cc CXX=CC MPIFC=ftn MPICC=cc MPICXX=CC --with-mpi
+make clean
+make -s
+
