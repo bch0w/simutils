@@ -27,6 +27,7 @@ rm -rf OUTPUT_FILES/*
 cp DATA/Par_file OUTPUT_FILES/
 cp DATA/CMTSOLUTION OUTPUT_FILES/
 cp DATA/STATIONS OUTPUT_FILES/
+cp RUNFORWARD OUTPUT_FILES/
 
 # get the number of processors, ignoring comments in the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
@@ -34,7 +35,7 @@ NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
 BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
 mkdir -p $BASEMPIDIR
 
-if [[ ${DECOMPOSE} -eq 1]]
+if [[ ${DECOMPOSE} -eq 1 ]]
 then 
 	# decomposes mesh using the pre-saved mesh files in MESH-default
 	echo
