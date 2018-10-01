@@ -71,4 +71,4 @@ eval ${SED1}
 eval ${SED2}
 eval ${SED3} 
 
-#sbatch ${RUNFOLDER}/RUNFORWARD.sh
+sbatch ${RUNFOLDER}/RUNFORWARD.sh

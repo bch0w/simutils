@@ -20,6 +20,7 @@ then
 				echo OUTPUT_FILE EXISTS IN STORAGE, SORT IT OUT
 				exit
 			fi
+			mv ${RUNFOLDER}/slurm*.out ${OUTPUT_FILES}
 			mv ${OUTPUT_FILES} ${STORAGE}/${EVENT_ID}
 		fi
 	fi
