@@ -14,14 +14,14 @@ then
 		if echo | grep -q "End of the simulation" ${OUTPUT_FILES}/output_solver.txt
 		then
 			# assumes CMTSOLUTION files are created with the same format always
-			EVENT_ID="$(grep "event name:" ${OUTPUT_FILES}/CMTSOLUTION | cut -c18-)"
-			if [ -d ${STORAGE}/${EVENT_ID} ]
+			OUTPUT_ID="$(grep "event name:" ${OUTPUT_FILES}/CMTSOLUTION | cut -c18-)"
+			if [ -d ${STORAGE}/${OUTPUT_ID} ]
 			then
 				echo OUTPUT_FILE EXISTS IN STORAGE, SORT IT OUT
 				exit
 			fi
 			mv ${RUNFOLDER}/slurm*.out ${OUTPUT_FILES}
-			mv ${OUTPUT_FILES} ${STORAGE}/${EVENT_ID}
+			mv ${OUTPUT_FILES} ${STORAGE}/${OUTPUT_ID}
 		fi
 	fi
 fi

@@ -1,7 +1,6 @@
 #module list
 module load slurm
-module swap PrgEnv-cray/6.0.4 PrgEnv-gnu
-module swap gcc/4.9.3 gcc/7.1.0
-module load craype-x86-skylake
+module swap gcc/4.9.3 gcc/7.3.0 # gcc 7 required for skylake
+module load craype-x86-skylake # skylake processor
 echo modules loaded
 #module list
