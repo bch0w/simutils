@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#SBATCH --job-name=test_homog_halfs
+#SBATCH --job-name=?????
 #SBATCH --nodes=4
 #SBATCH --ntasks=144
 #SBATCH --cpus-per-task=1
 #SBATCH --account=nesi00263
-#SBATCH --partition=NeSI
+#SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
 #SBATCH --time 02:15:00
 

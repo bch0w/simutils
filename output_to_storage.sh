@@ -20,8 +20,14 @@ then
 				echo OUTPUT_FILE EXISTS IN STORAGE, SORT IT OUT
 				exit
 			fi
+			echo MOVING ${OUTPUT_ID} TO STORAGE
 			mv ${RUNFOLDER}/slurm*.out ${OUTPUT_FILES}
 			mv ${OUTPUT_FILES} ${STORAGE}/${OUTPUT_ID}
+		else
+			echo output_solver.txt HAS NO END OF SIMULATION LINE, STILL RUNNING?
+			exit
 		fi
+	else
+		echo NO output_solver.txt FILE, DISREGARDING
 	fi
 fi

@@ -20,9 +20,6 @@ DECOMPOSE=?
 mkdir -p OUTPUT_FILES
 rm -rf OUTPUT_FILES/*
 
-# make sure Par_file is set forward
-./utils/change_simulation_type.pl -F
-
 # stores setup
 cp DATA/Par_file OUTPUT_FILES/
 cp DATA/CMTSOLUTION OUTPUT_FILES/

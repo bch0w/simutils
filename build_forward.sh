@@ -52,13 +52,13 @@ fi
 if [ -d ${STORAGE}/${EVENT_ID} ]
 then
 	echo OUTPUT_FILES ALREADY EXISTS IN STORAGE
-	exit
+	#exit
 fi
 
 # CHECK IF OUTPUT_FOLDER EXISTS IN RUNFOLDER
 if [ -d ${RUNFOLDER}/OUTPUT_FILES ]
 then
-	echo OUTPUT_FILES ALREADY EXISTS IN RUN FOLDER, ATTEMPTING TO MOVE
+	echo OUTPUT_FILES ALREADY EXISTS IN RUN FOLDER, ATTEMPTING TO MOVE...
 	source ${PRIMER}/simutils/output_to_storage.sh
 	echo
 fi
@@ -79,12 +79,31 @@ then
 	echo MESH IS NOT PRESENT
 	exit
 fi
-if [ -z ${RUNFOLDER}/MPI_DATABASES ]
+# IF DATABASES DOESNT EXIST OR IS EMPTY, MAKE IT
+if [ ! -d ${RUNFOLDER}/MPI_DATABASES ] || [ -z ${RUNFOLDER}/MPI_DATABASES ]
 then
 	DECOMPOSE=1
 else
 	DECOMPOSE=0
 fi
+
+echo SYMLINKING CMTSOLUTION
+rm ${RUNFOLDER}/DATA/CMTSOLUTION
+ln -s ${CMTSOLUTION} ${RUNFOLDER}/DATA/CMTSOLUTION
+
+echo CHANGING SIMULATION TYPE
+${RUNFOLDER}/utils/change_simulation_type.pl ${2}
+echo
+
+echo CREATING FORWARD RUN SCRIPT: RUNFORWARD.sh
+rm ${RUNFOLDER}/RUNFORWARD.sh
+cp ${PRIMER}/simutils/run_templates/forward_simulation.sh ${RUNFOLDER}/RUNFORWARD.sh
+SED1="sed -i '3s/.*/#SBATCH --job-name="${EVENT_ID}"/' ${RUNFOLDER}/RUNFORWARD.sh"
+SED2="sed -i '17s/.*/DECOMPOSE="${DECOMPOSE}"/' ${RUNFOLDER}/RUNFORWARD.sh"
+SED3="sed -i '24s@.*@./utils/change_simulation_type.pl "${SIMTYPE}"@' ${RUNFOLDER}/RUNFORWARD.sh"
+eval ${SED1}
+eval ${SED2}
+eval ${SED3}
 
 echo
 echo | grep "SIMULATION_TYPE" ${RUNFOLDER}/DATA/Par_file
@@ -94,19 +113,6 @@ echo | grep "DT  " ${RUNFOLDER}/DATA/Par_file
 echo | grep "ATTENUATION" ${RUNFOLDER}/DATA/Par_file
 echo | grep "SAVE_SEISMOGRAMS_*" ${RUNFOLDER}/DATA/Par_file
 echo
-
-echo SYMLINKING CMTSOLUTION
-rm ${RUNFOLDER}/DATA/CMTSOLUTION
-ln -s ${CMTSOLUTION} ${RUNFOLDER}/DATA/CMTSOLUTION
-
-echo CREATING FORWARD RUN SCRIPT: RUNFORWARD.sh
-cp ${PRIMER}/simutils/run_templates/forward_simulation.sh ${RUNFOLDER}/RUNFORWARD.sh
-SED1="sed -i '3s/.*/#SBATCH --job-name="${EVENT_ID}"/' ${RUNFOLDER}/RUNFORWARD.sh"
-SED2="sed -i '17s/.*/DECOMPOSE="${DECOMPOSE}"/' ${RUNFOLDER}/RUNFORWARD.sh"
-SED3="sed -i '24s@.*@./utils/change_simulation_type.pl "${SIMTYPE}"@' ${RUNFOLDER}/RUNFORWARD.sh"
-eval ${SED1}
-eval ${SED2}
-eval ${SED3}
 
 echo
 if ! [ ${DRYRUN} = TRUE ]
