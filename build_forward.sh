@@ -1,6 +1,8 @@
 #!/bin/bash
 # CREATE A NEW SPECFEM RUN BASED ON EVENT ID NUMBER
 # SHOULD BE RUN INSIDE THE SPECFEM3DMASTER RUN FOLDER
+# EXAMPLE CALL:
+# 	./build_forward 2018p130600 -F dry
 EVENT_ID=$1
 
 # FLAG FOR change_simulation_type.pl
@@ -8,25 +10,7 @@ EVENT_ID=$1
 # -f -- forward calculation w/ save_forward=.false. (DEFAULT)
 # -b -- run both simultaneously
 # -F -- forward w/ save_forward=.true.
-SIMTYPE=$2
-if [ -z "$2" ]
-then
-	SIMTYPE=-f
-elif ! [ ${SIMTYPE:0:1} == "-" ]
-then
-	echo SIMULATION TYPE MUST BE IN: [-a, -f, -b, -F]
-	exit
-fi
-
-# FLAG FOR DRYRUN
-DRYRUN=$3
-if [ -z "$3" ]
-then
-	DRYRUN=TRUE
-	echo ================
-	echo THIS IS A DRYRUN
-	echo ================
-fi
+SIMTYPE="-F"
 
 RUNFOLDER=`pwd -P`
 TOMO=/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow
@@ -80,11 +64,10 @@ then
 	exit
 fi
 # IF DATABASES DOESNT EXIST OR IS EMPTY, MAKE IT
-if [ ! -d ${RUNFOLDER}/MPI_DATABASES ] || [ -z ${RUNFOLDER}/MPI_DATABASES ]
+if [ ! -d ${RUNFOLDER}/OUTPUT_FILES/DATABASES_MPI ] || [ -z ${RUNFOLDER}/OUTPUT_FILES/DATABASES_MPI ]
 then
-	DECOMPOSE=1
-else
-	DECOMPOSE=0
+	echo "DOMAIN DECOMPOSITION AND DATABASE GENERATION REQUIRED"
+	exit
 fi
 
 echo SYMLINKING CMTSOLUTION
@@ -92,30 +75,24 @@ rm ${RUNFOLDER}/DATA/CMTSOLUTION
 ln -s ${CMTSOLUTION} ${RUNFOLDER}/DATA/CMTSOLUTION
 
 echo CHANGING SIMULATION TYPE
-${RUNFOLDER}/utils/change_simulation_type.pl ${2}
+${RUNFOLDER}/utils/change_simulation_type.pl ${SIMTYPE}
 echo
 
 echo CREATING FORWARD RUN SCRIPT: RUNFORWARD.sh
-rm ${RUNFOLDER}/RUNFORWARD.sh
-cp ${PRIMER}/simutils/run_templates/forward_simulation.sh ${RUNFOLDER}/RUNFORWARD.sh
-SED1="sed -i '3s/.*/#SBATCH --job-name="${EVENT_ID}"/' ${RUNFOLDER}/RUNFORWARD.sh"
-SED2="sed -i '17s/.*/DECOMPOSE="${DECOMPOSE}"/' ${RUNFOLDER}/RUNFORWARD.sh"
-SED3="sed -i '24s@.*@./utils/change_simulation_type.pl "${SIMTYPE}"@' ${RUNFOLDER}/RUNFORWARD.sh"
+RF_ID="RUNFORWARD_${EVENT_ID}.sh"
+rm ${RUNFOLDER}/${RF_ID}
+cp ${PRIMER}/simutils/run_templates/forward_simulation.sh ${RUNFOLDER}/${RF_ID}
+SED1="sed -i '3s/.*/#SBATCH --job-name="${EVENT_ID}"_fwd/' ${RUNFOLDER}/${RF_ID}"
+SED2="sed -i '19s-.*-cp "${RF_ID}" OUTPUT_FILES/-' ${RUNFOLDER}/${RF_ID}"
 eval ${SED1}
 eval ${SED2}
-eval ${SED3}
 
 echo
 echo | grep "SIMULATION_TYPE" ${RUNFOLDER}/DATA/Par_file
 echo | grep "SAVE_FORWARD   " ${RUNFOLDER}/DATA/Par_file
 echo | grep "NSTEP" ${RUNFOLDER}/DATA/Par_file
 echo | grep "DT  " ${RUNFOLDER}/DATA/Par_file
-echo | grep "ATTENUATION" ${RUNFOLDER}/DATA/Par_file
+echo | grep "ATTENUATION 	" ${RUNFOLDER}/DATA/Par_file
 echo | grep "SAVE_SEISMOGRAMS_*" ${RUNFOLDER}/DATA/Par_file
 echo
 
-echo
-if ! [ ${DRYRUN} = TRUE ]
-then
-	sbatch ${RUNFOLDER}/RUNFORWARD.sh; echo SUBMITTING TO SLURM
-fi

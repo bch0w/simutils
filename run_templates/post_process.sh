@@ -30,13 +30,13 @@ echo "smoothing kernels"
 #	OUTPUT_DIR	- directory where smoothed kernels are written
 #	USE_GPU		- use GPUs for computation
 echo "	smoothing alpha kernel"
-srun -n 144 ./bin/xmooth_sem ${SIGMA_H} ${SIGMA_V} alpha_kernel ${SUMDIR} ${SUMDIR} .false
+srun -n 144 ./bin/xsmooth_sem ${SIGMA_H} ${SIGMA_V} alpha_kernel ${SUMDIR} ${SUMDIR} .false
 echo "	smoothing beta kernel"
-srun -n 144 ./bin/xmooth_sem ${SIGMA_H} ${SIGMA_V} beta_kernel ${SUMDIR} ${SUMDIR} .false
+srun -n 144 ./bin/xsmooth_sem ${SIGMA_H} ${SIGMA_V} beta_kernel ${SUMDIR} ${SUMDIR} .false
 echo "	smoothing rho kernel"
-srun -n 144 ./bin/xmooth_sem ${SIGMA_H} ${SIGMA_V} rho_kernel ${SUMDIR} ${SUMDIR} .false
+srun -n 144 ./bin/xsmooth_sem ${SIGMA_H} ${SIGMA_V} rho_kernel ${SUMDIR} ${SUMDIR} .false
 echo "smoothing approximate Hessian"
-srun -n 144 ./bin/xmooth_sem ${SIGMA_H} ${SIGMA_V} hess_kernel ${SUMDIR} ${SUMDIR} .false
+srun -n 144 ./bin/xsmooth_sem ${SIGMA_H} ${SIGMA_V} hess_kernel ${SUMDIR} ${SUMDIR} .false
 
 # ==============================================================================
 # xsum_preconditioned_kernels: sums transverse isotropic kernels while 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 #SBATCH --job-name=?????
 #SBATCH --nodes=4
@@ -7,16 +7,13 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 02:15:00
+#SBATCH --time 02:30:00
 
 echo "running kernel simulation: `date`"
 currentdir=`pwd`
 
 # get the number of processors, ignoring comments in the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
-
-# make sure Par_file set to backward
-./utils/change_simulation_type.pl -b
 
 if [ "$NPROC" -eq 1 ]; then
   # This is a serial simulation
@@ -36,7 +33,7 @@ if [[ $? -ne 0 ]]; then exit 1; fi
 sleep 2
 
 
-echo "finished successfully"
+echo "finished successfully at `date`"
 
 
 

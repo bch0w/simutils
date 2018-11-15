@@ -15,7 +15,7 @@ echo
 echo "srun -n 144 ./bin/xcombine_sem alpha_kernel,beta_kernel,rho_kernel kernels_list.txt OUTPUT_SUM/"
 echo
 
-srun -n 144 ./bin/xcombine_sem alpha_kernel,beta_kernel,rho_kernel kernels_list.txt OUTPUT_SUM/ 
+srun -n 144 ./bin/xcombine_sem alpha_kernel,beta_kernel,rho_kernel kernels_list.txt OUTPUT_SUM_TEST/ 
 
 echo
 echo "done"
