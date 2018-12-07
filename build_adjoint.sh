@@ -1,6 +1,8 @@
 #!/bin/bash
+# TO DO: turn off attenuation, change hessian kernel
 # CREATE A NEW SPECFEM RUN BASED ON EVENT ID NUMBER
 # SHOULD BE RUN INSIDE THE SPECFEM3DMASTER RUN FOLDER
+# EXAMPLE CALL: ./build_adjoint 2018p130600
 EVENT_ID=$1
 if [ -z "$1" ]
 then
@@ -32,10 +34,10 @@ echo CHANGING SIMULATION TYPE
 ${RUNFOLDER}/utils/change_simulation_type.pl ${SIMTYPE}
 echo
 
-echo CREATING ADJOINT RUN SCRIPT: RUNADJOINT.sh
-rm ${RUNFOLDER}/RUNADJOINT.sh
-cp ${PRIMER}/simutils/run_templates/adjoint_simulation.sh ${RUNFOLDER}/RUNADJOINT.sh
-SED1="sed -i '3s/.*/#SBATCH --job-name="${EVENT_ID}"_adj/' ${RUNFOLDER}/RUNADJOINT.sh"
+RA="RUNADJOINT_${EVENT_ID}.sh"
+echo CREATING ADJOINT RUN SCRIPT: ${RA}
+cp ${PRIMER}/simutils/run_templates/adjoint_simulation.sh ${RUNFOLDER}/${RA}
+SED1="sed -i '3s/.*/#SBATCH --job-name="${EVENT_ID}"_adj/' ${RUNFOLDER}/${RA}"
 eval ${SED1}
 
 echo

@@ -7,7 +7,7 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 02:30:00
+#SBATCH --time 01:45:00
 
 echo "running kernel simulation: `date`"
 currentdir=`pwd`

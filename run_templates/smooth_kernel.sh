@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 #SBATCH --job-name=smooth_kernel
 #SBATCH --nodes=4
@@ -7,11 +7,12 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 0:55:00
+#SBATCH --time 1:15:00
 
 # EXAMPLE CALL:
 # sbatch simutils/run_templates/smooth_kernel.sh 2018p130600 hess_kernel
-
+# default time was 55 minutes but this timed out for a few kernel smooths so
+# time was bumped up to 1:30
 
 EVENT_ID=$1
 if [ -z "$1" ]

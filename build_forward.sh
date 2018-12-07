@@ -43,7 +43,7 @@ fi
 if [ -d ${RUNFOLDER}/OUTPUT_FILES ]
 then
 	echo OUTPUT_FILES ALREADY EXISTS IN RUN FOLDER, ATTEMPTING TO MOVE...
-	source ${PRIMER}/simutils/output_to_storage.sh
+	#source ${PRIMER}/simutils/output_to_storage.sh
 	echo
 fi
 

@@ -9,9 +9,29 @@
 #SBATCH --hint=nomultithread
 #SBATCH --time 0:01:30
 
-currentdir=`pwd`
+# EXAMPLE CALL sbatch combine_vol_data_vtk 2018p130600 beta_kernel_smooth
+# TO DO add NPROC figure outer here
 
-srun -n 1 ./bin/xcombine_vol_data_vtk 0 143 beta_kernel ./OUTPUT_SUM/ ./OUTPUT_SUM/ 0
+EVENT_ID=$1
+if [ -z "$1" ]
+then
+	echo "EVENT ID REQUIRED"
+	exit
+fi
+KERNEL=$2
+if [ -z "$2" ]
+then
+	echo "KERNEL NEEDS TO BE SPECIFIED e.g. hess_kernel, beta_kernel_smooth"
+	exit
+fi
+
+echo "`date`"
+currentdir=`pwd`
+DIR_IN="./INPUT_KERNELS/${EVENT_ID}/"
+DIR_OUT=${DIR_IN}
+
+#srun -n nproc ./bin/xcombine_vol_data_vtk proc_start proc_end kernel dir_in dir_out gpu_accel
+srun -n 1 ./bin/xcombine_vol_data_vtk 0 143 ${KERNEL} ${DIR_IN} ${DIR_OUT} 0
 
 echo
 echo "done"

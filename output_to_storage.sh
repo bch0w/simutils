@@ -1,6 +1,8 @@
 # If OUTPUT_FILES are given in a SPECFEM master folder, check 
 # If it is a finished run, move it to the storage folder, if it is not finished
 # then don't do anything
+# CALL THIS FUNCTION INSIDE YOUR RUNFOLDER
+# OR CALL INSIDE RUN SCRIPT
 
 STORAGE=/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/storage
 RUNFOLDER=`pwd -P`
