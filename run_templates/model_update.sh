@@ -7,9 +7,13 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 0:01:00
+#SBATCH --time 0:00:20
 
-srun -n 144 ./bin/xmodel_update 0.03
+
+echo "xmodel_update: `date`"
+
+echo srun -n 144 ./bin/xmodel_update 0.3
+srun -n 144 ./bin/xmodel_update 0.3
 
 echo
 echo "done"

@@ -4,9 +4,10 @@
 # CALL THIS FUNCTION INSIDE YOUR RUNFOLDER
 # OR CALL INSIDE RUN SCRIPT
 
-STORAGE=/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/storage
+# STORAGE=/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/storage
 RUNFOLDER=`pwd -P`
 OUTPUT_FILES=${RUNFOLDER}/OUTPUT_FILES
+STORAGE=${OUTPUT_FILES}
 
 # CHECK FOR OUTPUT FOLDER
 if [ -d ${OUTPUT_FILES} ]

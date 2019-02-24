@@ -19,7 +19,7 @@
 #	INPUT-KERNELS-DIR/: optional directory that holds summed kernels (e.g. proc****alpha_kernel.bin), defaults to INPUT_GRADIENT/
 #	OUTPUT-MODEL-DIR/: optional directory that will hold new model files, defaults to OUTPUT_MODEL/
 
-srun -n 144 ./bin/xadd_model_iso 0.02
+srun -n 144 ./bin/xadd_model_iso 0.5
 
 echo
 echo "done"
