@@ -89,18 +89,18 @@ def edit_par_file(fid, choice):
         for i, line in enumerate(lines):
             if "SIMULATION_TYPE" in line:
                 old_value = line.strip().split()[-1]
-                lines[i].replace(old_value, simulation_type)
+                lines[i] = line.replace(old_value, simulation_type)
                 print(lines[i].strip())
             elif "SAVE_FORWARD" in line:
                 old_value = line.strip().split()[-1]
-                lines[i].replace(old_value, save_forward)
+                lines[i] = line.replace(old_value, save_forward)
                 print(lines[i].strip())
-            elif "ATTENUATION " in line and "_ATTENUATION" not in line:
+            elif ("ATTENUATION " in line) and ("_ATTENUATION" not in line):
                 old_value = line.strip().split()[-1]
-                lines[i].replace(old_value, attenuation)
+                lines[i] = line.replace(old_value, attenuation)
                 print(lines[i].strip())
-
-        fid.writelines(lines)
+                break
+        f.writelines(lines)
         print("overwrote Par_file")
 
 
@@ -165,7 +165,7 @@ def build_forward(event_id):
             lines = f_in.readlines()
         for i, line in enumerate(lines):
             if "${EVENT_ID}" in line:
-                lines[i].replace("${EVENT_ID}", event_id)
+                lines[i] = line.replace("${EVENT_ID}", event_id)
         with open(fid_out, "w") as f_out:
             f_out.writelines(lines)
 
@@ -174,4 +174,5 @@ def build_forward(event_id):
     print("forward build complete")
 
 
-i
+if __name__ == "__main__":
+	edit_par_file(fid='./DATA/Par_file', choice="forward")
