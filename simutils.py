@@ -147,15 +147,31 @@ def build_forward(event_id):
 
     # set up the run folder
     print("symlinking CMTSOLUTION")
-    os.symlink(cmtsolution, os.path.join(dir["data"],"CMTSOLUTION"))
+    os.symlink(cmtsolution, os.path.join(dir["data"], "CMTSOLUTION"))
 
     print("editing Par_file", end=".")
     edit_par_file(fid=os.path.join(dir["DATA"], "Par_file"), choice="forward")
 
     print("generating RUNFORWARD file")
-    fid = os.path.join(
+    fid_in = os.path.join(
         dir["primer"], "simutils", "run_templates", "forward_simulation.sh")
-    with open(fid, "r") as f:
-        lines = f.readlines()
+    fid_out = os.path.join(dir["runfolder"], "runforward{}.sh".format(event_id))
+
+    def generate_runforward(fid_in, fid_out, event_id):
+        """
+        generate a forward run script to be called by sbatch
+        """
+        with open(fid_in, "r") as f_in:
+            lines = f_in.readlines()
+        for i, line in enumerate(lines):
+            if "${EVENT_ID}" in line:
+                lines[i].replace("${EVENT_ID}", event_id)
+        with open(fid_out, "w") as f_out:
+            f_out.writelines(lines)
+
+    generate_runforward(fid_in, fid_out, event_id)
+
+    print("forward build complete")
 
 
+i
