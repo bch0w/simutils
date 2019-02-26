@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-#SBATCH --job-name=??????
+#SBATCH --job-name=${EVENT_ID}_fwd
 #SBATCH --nodes=4
 #SBATCH --ntasks=144
 #SBATCH --cpus-per-task=1
@@ -14,9 +14,8 @@ currentdir=`pwd`
 
 # stores setup
 cp DATA/Par_file OUTPUT_FILES/
-cp DATA/CMTSOLUTION OUTPUT_FILES/
-cp DATA/STATIONS OUTPUT_FILES/
-cp RUNFORWARD.sh OUTPUT_FILES/
+cp DATA/CMTSOLUTION OUTPUT_FILES/CMTSOLUTION
+cp RUNFORWARD_*.sh OUTPUT_FILES/
 
 # get the number of processors, ignoring comments in the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
