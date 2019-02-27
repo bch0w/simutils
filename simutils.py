@@ -413,7 +413,7 @@ def post_adjoint():
     print("post adjoint complete")
 
 
-def pre_precoondition_sum():
+def pre_precondition_sum():
     """
     working
     Summing kernels requires a few folders and symlinks to be set up beforehand
@@ -452,4 +452,31 @@ def pre_precoondition_sum():
 
 
 if __name__ == "__main__":
-    build_adjoint("2016p858260")
+    # simple argument distribution
+    available_funcs = ["build_forward", "post_forward", "build_adjoint",
+                       "post_adjoint", "pre_precondition_sum"]
+    try:
+        func = sys.argv[1]
+    except IndexError:
+        sys.exit("argument 1 must be in\n {}".format(available_funcs))
+
+    if func not in available_funcs:
+        sys.exit("argument 1 must be in\n {}".format(available_funcs))
+
+    try:
+        event_id = sys.argv[2]
+    except IndexError:
+        if "build" in func:
+            sys.exit("argument 2 must be event_id")
+
+    if func == "build_forward":
+        build_forward(event_id)
+    elif func == "build_adjoint":
+        build_adjoint(event_id)
+    elif func == "post_forward":
+        post_forward()
+    elif func == "post_adjoint":
+        post_adjoint()
+    elif func == "pre_precondition_sum":
+        pre_precondition_sum()
+
