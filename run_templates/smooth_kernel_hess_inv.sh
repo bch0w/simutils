@@ -20,7 +20,7 @@ echo "`date`"
 SGMAH=5000.
 SGMAV=1000.
 DIR_IN="OUTPUT_SUM"
-KERNEL="hess_kernel"
+KERNEL="hess_inv_kernel"
 
 echo "smoothing ${KERNEL} for w/ sigma_h=${SGMAH}, sigma_v=${SGMAV}"
 echo
