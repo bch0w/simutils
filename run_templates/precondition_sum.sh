@@ -7,7 +7,7 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 00:01:00
+#SBATCH --time 00:00:10
 
 currentdir=`pwd`
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`

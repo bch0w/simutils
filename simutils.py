@@ -265,7 +265,7 @@ def build_adjoint(event_id):
     """
     dir = dynamic_filenames(choice="adjoint")
     storage = os.path.join(dir["output_files"], "STORAGE", event_id)
-
+    import pdb;pdb.set_trace()
     # make sure cmtsolution file is correct, e.g. if another forward run was
     # made between the prerequisite forward for this adjoint...
     # not sure if this is necessary
@@ -414,6 +414,7 @@ def post_adjoint():
 
 def pre_precoondition_sum():
     """
+    working
     Summing kernels requires a few folders and symlinks to be set up beforehand
     TO DO
     kernels_list.txt is listed in constants_tomography.h, dynamically get?
@@ -425,27 +426,29 @@ def pre_precoondition_sum():
     kernels_list = os.path.join(dir["runfolder"], "kernels_list.txt")
     output_sum = os.path.join(dir["runfolder"], "OUTPUT_SUM")
 
-    import pdb;pdb.set_trace()
-
     # check-make directories
     if not os.path.exists(input_kernels):
         os.mkdir(input_kernels)
 
-    if not ospath.exists(output_sum):
+    if not os.path.exists(output_sum):
         os.mkdir(output_sum)
 
     # writing event numbers into kernels list while symlinking files to
     # INPUT_KERNELS/ directory
     with open(kernels_list, "r+") as f:
-        f.trunacte(0)
+        f.truncate(0)
         f.seek(0)
         for event in glob.glob(os.path.join(storage, "*")):
             event_id = os.path.basename(event)
             event_dir = os.path.join(input_kernels, event_id)
-            os.mkdir(event_dir)
-            os.symlink(event, event_dir)
+            if not os.path.exists(event_dir):
+                os.mkdir(event_dir)
             f.write("{}\n".format(event_id))
+            for fid in glob.glob(os.path.join(
+                                 storage, event_id, "*kernel.bin")):
+                dst = os.path.join(event_dir, os.path.basename(fid))
+                os.symlink(fid, dst)
 
 
 if __name__ == "__main__":
-    pre_precoondition_sum()
+    build_adjoint("2016p858260")
