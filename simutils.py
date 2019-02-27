@@ -250,7 +250,7 @@ def post_forward():
 
 def build_adjoint(event_id):
     """
-    UNTESTED
+    working
     Prepare the run folder for an adjoint simulation for a given event id
     TO DO
     SEM folder check?
@@ -387,25 +387,30 @@ def post_adjoint():
         sys.exit()
 
     # get event id from cmtsolution and set storage
-    cmtsolution = os.path.join(out, "CMTSOLUTION")
+    cmtsolution = os.path.join(output, "CMTSOLUTION")
     if not os.path.exists(cmtsolution):
         print("CMTSOLUTION doesn't exist in OUTPUT_FILES")
         sys.exit()
-    event_id = event_id_from_cat(cmtsolution)
+    event_id = event_id_from_cmt(cmtsolution)
     storage = os.path.join(output, "STORAGE", event_id)
 
     # start moving files from OUTPUT_FILES/ to STORAGE/${EVENT_ID}
     for fid in glob.glob(os.path.join(output, "timestamp*")):
-        shutil.move(fid, storage)
+        dst = os.path.join(storage, os.path.basename(fid))
+        shutil.move(fid, dst)
 
     # the random one-off output files. add an adjoint tag because naming
-    for quantity in ["starttimeloop.txt", "sr.vtk", "output_list_sources.txt",
-                     "output_list_stations.txt", "Par_file", "CMTSOLUTION",
-                     "STATIONS", "output_solver.txt"]:
-        quantity = quantity.split('.')[0] + "_adjoint" + quantity.split('.')[1]
-        shutil.move(os.path.join(output, quantity), storage)
+    # !!! THIS DOESN'T WORK, the split doesn't work on signle word and _ sep
+    # for quantity in ["starttimeloop.txt", "sr.vtk", "output_list_sources.txt",
+    #                  "output_list_stations.txt", "Par_file", "CMTSOLUTION",
+    #                  "STATIONS", "output_solver.txt"]:
+    #     quantity_new = quantity.split('.')[0] + "_adjoint" + quantity.split('.')[1]
+    #     shutil.move(os.path.join(output, quantity), 
+    #                 os.path.join(storage, quantity_new)
+    #                )
 
     # proc*_save_forward_arrays.bin and proc*_absorb_field.bin files
+    # TO DO: move kernels and remove symlinks to forward saves
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
         for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
             shutil.move(fid, storage)
@@ -448,7 +453,10 @@ def pre_precondition_sum():
             for fid in glob.glob(os.path.join(
                                  storage, event_id, "*kernel.bin")):
                 dst = os.path.join(event_dir, os.path.basename(fid))
-                os.symlink(fid, dst)
+                try:
+                    os.symlink(fid, dst)
+                except OSError as e:
+                    continue
 
 
 def pre_model_update():
