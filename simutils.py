@@ -451,6 +451,23 @@ def pre_precondition_sum():
                 os.symlink(fid, dst)
 
 
+def pre_model_update():
+    """
+    you know the drill
+    :return:
+    """
+    drc = directories()
+    model_update = os.path.join(
+        drc["runfolder"], "src", "tomography", "model_update.f90")
+    with open(model_update, "r") as f:
+        lines = f.readlines()
+    for line in lines:
+        if "INPUT_KERNELS_DIR_NAME" in line:
+
+        elif "LOCAL_PATH_NEW_NAME" in line:
+        elif "OUTPUT_STATISTICS_DIR_NAME" in line:
+
+
 if __name__ == "__main__":
     # simple argument distribution
     available_funcs = ["build_forward", "post_forward", "build_adjoint",
