@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-#SBATCH --job-name=?????
+#SBATCH --job-name=${EVENT_ID}
 #SBATCH --nodes=4
 #SBATCH --ntasks=144
 #SBATCH --cpus-per-task=1

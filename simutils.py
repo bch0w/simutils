@@ -36,7 +36,7 @@ def directories():
     return directories_dictionary
 
 
-def dynamic_filenames(choice):
+def dynamic_filenames():
     """
     Names of files and folders are set in the Par_file or in constats.h or in
     constants_tomography.h. Rather than hardcoding them in here, dynamically
@@ -44,25 +44,20 @@ def dynamic_filenames(choice):
     :param choice: str
     :return:
     """
-    dir = directories()
+    drc = directories()
 
     # grab information from the Par_file
-    if choice == "forward":
-        par_file = os.path.join(dir["data"], "Par_file")
-        with open(par_file) as f:
-            lines = f.readlines()
-        for line in lines:
-            if "TOMOGRAPHY_PATH" in line:  # e.g. DATA/tomo_files/
-                tomo_path = line.strip().split()[-1]
-                dir["tomo_path"] = tomo_path
-            elif "LOCAL_PATH" in line:  # e.g. OUTPUT_FILES/DATABASES_MPI/
-                local_path = line.strip().split()[-1]
-                dir["local_path"] = local_path
-        return dir
-
-    # grab information from
-    if choice == "adjoint":
-        return
+    par_file = os.path.join(drc["data"], "Par_file")
+    with open(par_file) as f:
+        lines = f.readlines()
+    for line in lines:
+        if "TOMOGRAPHY_PATH" in line:  # e.g. DATA/tomo_files/
+            tomo_path = line.strip().split()[-1]
+            drc["tomo_path"] = tomo_path
+        elif "LOCAL_PATH" in line:  # e.g. OUTPUT_FILES/DATABASES_MPI/
+            local_path = line.strip().split()[-1]
+            drc["local_path"] = local_path
+    return drc
 
 
 def edit_par_file(fid, choice):
@@ -118,17 +113,17 @@ def build_forward(event_id):
     :param event_id: str
     :return:
     """
-    dir = dynamic_filenames(choice="forward")
+    drc = dynamic_filenames()
 
     # check if all the prerequisite files are included
     cmtsolution = os.path.join(
-        dir["primer"], "cmtsolution_files", "{}CMTSOLUTION".format(event_id)
+        drc["primer"], "cmtsolution_files", "{}CMTSOLUTION".format(event_id)
     )
     cmtsolution_check = os.path.exists(cmtsolution)
-    tomofiles_check = os.path.exists(dir["tomo_path"])
-    databases_check = os.path.exists(dir["local_path"])
-    stations_check = os.path.exists(os.path.join(dir["data"], "STATIONS"))
-    mesh_check = os.path.exists(os.path.join(dir["runfolder"], "MESH"))
+    tomofiles_check = os.path.exists(drc["tomo_path"])
+    databases_check = os.path.exists(drc["local_path"])
+    stations_check = os.path.exists(os.path.join(drc["data"], "STATIONS"))
+    mesh_check = os.path.exists(os.path.join(drc["runfolder"], "MESH"))
 
     # Check-exits to make sure the run folder is set correctly
     if not databases_check:
@@ -139,7 +134,7 @@ def build_forward(event_id):
         sys.exit()
     if not tomofiles_check:
         print("{tomofiles} does not exist in {data}".format(
-            tomofiles=dir["tomo_path"], data=dir["data"])
+            tomofiles=drc["tomo_path"], data=drc["data"])
         )
         sys.exit()
     if not stations_check:
@@ -151,18 +146,18 @@ def build_forward(event_id):
 
     # set up the run folder
     print("symlinking CMTSOLUTION")
-    cmtsolution_destination = os.path.join(dir["data"], "CMTSOLUTION")
+    cmtsolution_destination = os.path.join(drc["data"], "CMTSOLUTION")
     if os.path.exists(cmtsolution_destination):
         os.remove(cmtsolution_destination)
     os.symlink(cmtsolution, cmtsolution_destination)
 
     print("editing Par_file")
-    edit_par_file(fid=os.path.join(dir["data"], "Par_file"), choice="forward")
+    edit_par_file(fid=os.path.join(drc["data"], "Par_file"), choice="forward")
 
     print("generating forwardrun file")
     fid_in = os.path.join(
-        dir["primer"], "simutils", "run_templates", "forward_simulation.sh")
-    fid_out = os.path.join(dir["runfolder"], "forwardrun.sh".format(event_id))
+        drc["primer"], "simutils", "run_templates", "forward_simulation.sh")
+    fid_out = os.path.join(drc["runfolder"], "forwardrun.sh".format(event_id))
     if os.path.exists(fid_out):
         os.remove(fid_out)
 
@@ -206,8 +201,8 @@ def post_forward():
     """
     import shutil
 
-    dir = dynamic_filenames(choice="forward")
-    output = dir["output_files"]
+    drc = dynamic_filenames()
+    output = drc["output_files"]
     output_solver = os.path.join(output, "output_solver.txt")
 
     # check the output_solver.txt file to make sure simulation has finished
@@ -247,7 +242,7 @@ def post_forward():
 
     # proc*_save_forward_arrays.bin files
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
-        for fid in glob.glob(os.path.join(dir["local_path"], quantity)):
+        for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
             shutil.move(fid, storage)
 
     print("post forward complete")
@@ -260,31 +255,33 @@ def build_adjoint(event_id):
     TO DO
     SEM folder check?
     adjoint choice for dynamic filenames?
+    symlinking save_forward_arrays was throwing errors randomly, maybe just move
+        the files rather than symlinking?
     :param event_id: str
     :return:
     """
-    dir = dynamic_filenames(choice="adjoint")
-    storage = os.path.join(dir["output_files"], "STORAGE", event_id)
-    import pdb;pdb.set_trace()
+    drc = dynamic_filenames()
+    storage = os.path.join(drc["output_files"], "STORAGE", event_id)
+    
     # make sure cmtsolution file is correct, e.g. if another forward run was
     # made between the prerequisite forward for this adjoint...
     # not sure if this is necessary
     print("symlinking CMTSOLUTION")
     cmtsolution = os.path.join(
-        dir["primer"], "cmtsolution_files", "{}CMTSOLUTION".format(event_id)
+        drc["primer"], "cmtsolution_files", "{}CMTSOLUTION".format(event_id)
     )
-    cmtsolution_destination = os.path.join(dir["data"], "CMTSOLUTION")
+    cmtsolution_destination = os.path.join(drc["data"], "CMTSOLUTION")
     if os.path.exists(cmtsolution_destination):
         os.remove(cmtsolution_destination)
     os.symlink(cmtsolution, cmtsolution_destination)
 
     print("editing Par_file")
-    edit_par_file(fid=os.path.join(dir["data"], "Par_file"), choice="adjoint")
+    edit_par_file(fid=os.path.join(drc["data"], "Par_file"), choice="adjoint")
 
     print("generating adjointrun file")
     fid_in = os.path.join(
-        dir["primer"], "simutils", "run_templates", "adjoint_simulation.sh")
-    fid_out = os.path.join(dir["runfolder"], "adjointrun.sh".format(event_id))
+        drc["primer"], "simutils", "run_templates", "adjoint_simulation.sh")
+    fid_out = os.path.join(drc["runfolder"], "adjointrun.sh".format(event_id))
     if os.path.exists(fid_out):
         os.remove(fid_out)
 
@@ -296,7 +293,7 @@ def build_adjoint(event_id):
             lines = f_in.readlines()
         for i, line in enumerate(lines):
             if "${EVENT_ID}" in line:
-                lines[i] = line.replace("${EVENT_ID}", event_id)
+                lines[i] = line.replace("${EVENT_ID}", event_id+"_adj")
         with open(fid_out, "w") as f_out:
             f_out.writelines(lines)
 
@@ -305,52 +302,56 @@ def build_adjoint(event_id):
     print("checking OUTPUT_FILES")
     # check if proc*_save_forward_arrays.bin files are symlinks/ can be removed
     save_forward_check = glob.glob(
-        os.path.join(dir["local_path"], "proc*_save_forward_arrays.bin")
+        os.path.join(drc["local_path"], "proc*_save_forward_arrays.bin")
     )
     if save_forward_check:
         if os.path.islink(save_forward_check[0]):
             print("removing symlink proc*_save_forward_arrays.bin")
             for fid in save_forward_check:
                 os.remove(fid)
-            print("symlinking proc**_save_forward_arrays.bin")
-            files = glob.glob(
-                os.path.join(storage, "proc*_save_forward_arrays.bin"))
-            for fid in files:
-                destination = os.path.join(dir["local_path"],
-                                           os.path.basename(fid))
-                os.symlink(fid, destination)
         else:
             print("proc**_save_forward_arrays.bin files are real, please move")
+            sys.exit()
+    
+    print("symlinking proc**_save_forward_arrays.bin")
+    files = glob.glob(
+        os.path.join(storage, "proc*_save_forward_arrays.bin"))
+    for fid in files:
+        destination = os.path.join(drc["local_path"],
+                                   os.path.basename(fid))
+        os.symlink(fid, destination)
 
     # check if proc*_absorb_field.bin files can be removed
     absorb_check = glob.glob(
-        os.path.join(dir["local_path"], "proc*_save_forward_arrays.bin")
+        os.path.join(drc["local_path"], "proc*_absorb_field.bin")
     )
     if absorb_check:
         if os.path.islink(absorb_check[0]):
             print("removing symlink proc*_absorb_field.bin")
             for fid in absorb_check:
                 os.remove(fid)
-            print("symlinking proc**_absorb_field.bin")
-            files = glob.glob(
-                os.path.join(storage, "proc*_absorb_field.bin"))
-            for fid in files:
-                destination = os.path.join(dir["local_path"],
-                                           os.path.basename(fid))
-                os.symlink(fid, destination)
         else:
             print("proc**_absorb_field.bin files are real, please move")
+            sys.exit()
 
+    print("symlinking proc**_absorb_field.bin")
+    files = glob.glob(
+        os.path.join(storage, "proc*_absorb_field.bin"))
+    for fid in files:
+        destination = os.path.join(drc["local_path"],
+                                   os.path.basename(fid))
+        os.symlink(fid, destination)
+    
     print("symlinking SEM/ files")
-    sem_folder = os.path.join(dir["runfolder"], "SEM")
+    sem_folder = os.path.join(drc["runfolder"], "SEM")
     if os.path.exists(sem_folder):
         os.remove(sem_folder)
 
-    input_sem = os.path.join(dir["runfolder"], "INPUT_SEM", event_id)
+    input_sem = os.path.join(drc["runfolder"], "INPUT_SEM", event_id)
     os.symlink(input_sem, sem_folder)
 
     print("symlinking STATIONS_ADJOINT")
-    stations_adjoint = os.path.join(dir["data"], "STATIONS_ADJOINT")
+    stations_adjoint = os.path.join(drc["data"], "STATIONS_ADJOINT")
     if stations_adjoint:
         os.remove(stations_adjoint)
     input_stations_adjoint = os.path.join(input_sem, "STATIONS_ADJOINT")
@@ -370,8 +371,8 @@ def post_adjoint():
     """
     import shutil
 
-    dir = dynamic_filenames(choice="forward")
-    output = dir["output_files"]
+    drc = dynamic_filenames()
+    output = drc["output_files"]
     output_solver = os.path.join(output, "output_solver.txt")
 
     # check the output_solver.txt file to make sure simulation has finished
@@ -406,7 +407,7 @@ def post_adjoint():
 
     # proc*_save_forward_arrays.bin and proc*_absorb_field.bin files
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
-        for fid in glob.glob(os.path.join(dir["local_path"], quantity)):
+        for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
             shutil.move(fid, storage)
 
     print("post adjoint complete")
@@ -420,11 +421,11 @@ def pre_precoondition_sum():
     kernels_list.txt is listed in constants_tomography.h, dynamically get?
     :return:
     """
-    dir = directories()
-    input_kernels = os.path.join(dir["runfolder"], "INPUT_KERNELS")
-    storage = os.path.join(dir["output_files"], "STORAGE")
-    kernels_list = os.path.join(dir["runfolder"], "kernels_list.txt")
-    output_sum = os.path.join(dir["runfolder"], "OUTPUT_SUM")
+    drc = directories()
+    input_kernels = os.path.join(drc["runfolder"], "INPUT_KERNELS")
+    storage = os.path.join(drc["output_files"], "STORAGE")
+    kernels_list = os.path.join(drc["runfolder"], "kernels_list.txt")
+    output_sum = os.path.join(drc["runfolder"], "OUTPUT_SUM")
 
     # check-make directories
     if not os.path.exists(input_kernels):
