@@ -7,7 +7,7 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 1:15:00
+#SBATCH --time 0:55:00
 
 # EXAMPLE CALL:
 # sbatch simutils/run_templates/smooth_kernel.sh 2018p130600 hess_kernel

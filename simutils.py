@@ -75,11 +75,18 @@ def edit_par_file(fid, choice):
             simulation_type = "1"
             save_forward = ".true."
             attenuation = ".true."
+            model = "default"
         elif choice == "adjoint":
             simulation_type = "3"
             save_forward = ".false."
             attenuation = ".false."
-
+            model = "default"
+        elif choice == "update":
+            simulation_type = "1"
+            save_forward = ".false."
+            attenuation = ".false."
+            model = "gll"
+  
         # Change parameters
         for i, line in enumerate(lines):
             if "SIMULATION_TYPE" in line:
@@ -89,6 +96,10 @@ def edit_par_file(fid, choice):
             elif "SAVE_FORWARD" in line:
                 old_value = line.strip().split()[-1]
                 lines[i] = line.replace(old_value, save_forward)
+                print("\t", lines[i].strip())
+            elif "MODEL " in line and not "_MODEL" in line:
+                old_value = line.strip().split()[-1]
+                lines[i] = line.replace(old_value, model)
                 print("\t", lines[i].strip())
             elif ("ATTENUATION " in line) and ("_ATTENUATION" not in line):
                 old_value = line.strip().split()[-1]
@@ -193,7 +204,7 @@ def event_id_from_cmt(fid):
 
 def post_forward():
     """
-    UNTESTED
+    working - may need more checks if already run
     After a forward simulation, files need to be moved around so that local path
     and output_files can be free for a new forward or adjoint simulation.
     Make sure
@@ -204,6 +215,7 @@ def post_forward():
     drc = dynamic_filenames()
     output = drc["output_files"]
     output_solver = os.path.join(output, "output_solver.txt")
+    input_sem = os.path.join(drc["runfolder"], "INPUT_SEM")
 
     # check the output_solver.txt file to make sure simulation has finished
     if os.path.exists(output_solver):
@@ -217,33 +229,47 @@ def post_forward():
         sys.exit()
 
     # get event id from cmtsolution
-    cmtsolution = os.path.join(out, "CMTSOLUTION")
+    cmtsolution = os.path.join(output, "CMTSOLUTION")
     if not os.path.exists(cmtsolution):
         print("CMTSOLUTION doesn't exist in OUTPUT_FILES")
         sys.exit()
-    event_id = event_id_from_cat(cmtsolution)
+    event_id = event_id_from_cmt(cmtsolution)
 
     # create storage folder for all the event specific outputs
-    storage = os.path.join(output, "STORAGE", event_id)
-    if not os.path.exists(storage):
-        os.mkdir(storage)
+    storage = os.path.join(output, "STORAGE")
+    event_storage = os.path.join(storage, event_id)
+    if not os.path.exists(event_storage):
+        if not os.path.exists(storage): 
+            os.mkdir(storage)
+        os.mkdir(event_storage)
 
     # start moving files from OUTPUT_FILES/ to STORAGE/${EVENT_ID}
     # .sem? and timestamp* files
     for quantity in ["*.sem?", "timestamp*"]:
         for fid in glob.glob(os.path.join(output, quantity)):
-            shutil.move(fid, storage)
+            shutil.move(fid, event_storage)
 
     # the random one-off output files
     for quantity in ["starttimeloop.txt", "sr.vtk", "output_list_sources.txt",
                      "output_list_stations.txt", "Par_file", "CMTSOLUTION",
-                     "STATIONS", "output_solver.txt"]:
-        shutil.move(os.path.join(output, quantity), storage)
-
+                     "output_solver.txt"]:
+        try:
+            shutil.move(os.path.join(output, quantity), event_storage)
+        except FileNotFoundError:
+            print("{} not found".format(quantity))
+            continue
+    
     # proc*_save_forward_arrays.bin files
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
         for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
-            shutil.move(fid, storage)
+            shutil.move(fid, event_storage)
+    
+    # create folder in INPUT_SEM/
+    event_sem = os.path.join(input_sem, event_id)
+    if not os.path.exists(event_sem):
+        if not os.path.exists(input_sem):
+            os.mkdir(input_sem)
+        os.mkdir(event_sem) 
 
     print("post forward complete")
 
@@ -352,7 +378,7 @@ def build_adjoint(event_id):
 
     print("symlinking STATIONS_ADJOINT")
     stations_adjoint = os.path.join(drc["data"], "STATIONS_ADJOINT")
-    if stations_adjoint:
+    if os.path.exists(stations_adjoint) or os.path.islink(stations_adjoint):
         os.remove(stations_adjoint)
     input_stations_adjoint = os.path.join(input_sem, "STATIONS_ADJOINT")
     os.symlink(input_stations_adjoint, stations_adjoint)
@@ -399,26 +425,31 @@ def post_adjoint():
         dst = os.path.join(storage, os.path.basename(fid))
         shutil.move(fid, dst)
 
-    # the random one-off output files. add an adjoint tag because naming
-    # !!! THIS DOESN'T WORK, the split doesn't work on signle word and _ sep
-    # for quantity in ["starttimeloop.txt", "sr.vtk", "output_list_sources.txt",
-    #                  "output_list_stations.txt", "Par_file", "CMTSOLUTION",
-    #                  "STATIONS", "output_solver.txt"]:
-    #     quantity_new = quantity.split('.')[0] + "_adjoint" + quantity.split('.')[1]
-    #     shutil.move(os.path.join(output, quantity), 
-    #                 os.path.join(storage, quantity_new)
-    #                )
+    print("moving output_solver.txt to storage")
+    quantity = "output_solver.txt"
+    quantity_new = quantity.split('.')[0] + "_adjoint" + quantity.split('.')[1]
+    if os.path.exists(quantity):
+        shutil.move(os.path.join(output, quantity), 
+                    os.path.join(storage, quantity_new)
+                   )
 
     # proc*_save_forward_arrays.bin and proc*_absorb_field.bin files
     # TO DO: move kernels and remove symlinks to forward saves
+    print("removing forward array symlinks")
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
         for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
-            shutil.move(fid, storage)
+            if os.path.islink(fid):
+                os.remove(fid)
+
+    print("moving kernels to storage")
+    for fid in glob.glob(os.path.join(drc["local_path"], "*kernel.bin")):
+        new_fid = os.path.join(storage, os.path.basename(fid))
+        shutil.move(fid, new_fid)
 
     print("post adjoint complete")
 
 
-def pre_precondition_sum():
+def precondition_sum():
     """
     working
     Summing kernels requires a few folders and symlinks to be set up beforehand
@@ -459,27 +490,193 @@ def pre_precondition_sum():
                     continue
 
 
-def pre_model_update():
+def model_update():
     """
-    you know the drill
+    Specfem's xmodel_update requires a few directories to be made in the 
+    OUTPUT_FILES/ directory, and to have summed and smoothed kernels located
+    in some input_kernels directory. Attenuation must also be turned off
+    in the par_file
+    TO DO
+    move mode_update pathnames into dynamic filenames and call from here and post
     :return:
     """
     drc = directories()
+    output_sum = os.path.join(drc["runfolder"], "OUTPUT_SUM")
     model_update = os.path.join(
         drc["runfolder"], "src", "tomography", "model_update.f90")
+    edit_par_file(fid=os.path.join(drc["data"], "Par_file"), choice="update")
+
+    def strip_markers(string):
+        """hacky way to remove the markers from 'text/' 
+        """
+        return string[1:-2]
+
+    # get model_update pathnames
     with open(model_update, "r") as f:
         lines = f.readlines()
     for line in lines:
-        if "INPUT_KERNELS_DIR_NAME" in line:
+        if ":: INPUT_KERNELS_DIR_NAME" in line:
+            drctry = strip_markers(line.strip().split()[-1])
+            input_kernels_dir = os.path.join(drc["output_files"], drctry)
+        elif ":: LOCAL_PATH_NEW_NAME" in line:
+            drctry = strip_markers(line.strip().split()[-1])
+            local_path_new = os.path.join(drc["output_files"], drctry)
+        elif ":: OUTPUT_STATISTICS_DIR_NAME" in line:
+            drctry = strip_markers(line.strip().split()[-1])
+            output_statistics_dir = os.path.join(drc["output_files"], drctry)
+    
+    # make directories if they don't exit
+    for drctry in [input_kernels_dir, local_path_new, output_statistics_dir]: 
+        if not os.path.exists(drctry):
+            os.mkdir(drctry)
+   
+    # flush symlinks in INPUT_KERNELS_DIR_NAME/
+    old_kerns = glob.glob(os.path.join(input_kernels_dir, "*kernel_smooth.bin"))
+    for ok in old_kerns:
+        if os.path.islink(ok):
+            os.remove(ok)   
+ 
+    # symlink kernels into input_kernels_dir
+    kernels = glob.glob(os.path.join(output_sum, "*kernel_smooth.bin"))
+    if not kernels:
+        sys.exit("Kernels must be smoothed before model update")
+    for kernel in kernels:
+        kernel_new = os.path.join(input_kernels_dir, os.path.basename(kernel))
+        os.symlink(kernel, kernel_new)
 
-        elif "LOCAL_PATH_NEW_NAME" in line:
-        elif "OUTPUT_STATISTICS_DIR_NAME" in line:
+    print("ready for model_update")
+   
 
+def post_model_update():
+    """
+    After a model update, we need to clean the run folder for the next forward
+    simulations, and make sure the old outputs aren't overwritten by the next
+    swath of simulations
+    TO DO:
+    check-stop if M00_OUTPUT_FILES exists, otherwise you start making edits to 
+    the new output_files directory
+    """ 
+    import shutil
+    drc = dynamic_filenames()
+    slurm = os.path.join(drc["output_files"], "SLURM")    
+    edit_par_file(fid=os.path.join(drc["data"], "Par_file"), choice="update")
+    
+    # move slurm files into a separate folder
+    print("moving slurm* files")
+    if not os.path.exists(slurm):
+        os.mkdir(slurm)
+    slurmfiles = glob.glob(os.path.join(drc["runfolder"], "slurm-*.out"))
+    for sfile in slurmfiles:
+        sfile_new = os.path.join(slurm, os.path.basename(sfile))
+        shutil.move(sfile, sfile_new)
+   
+    # change the name of OUTPUT_FILES/ if M00_OUTPUT_FILES doesn't exist
+    # if it exists, assume that this has already been run and continue
+    old_output_files = os.path.join(drc["runfolder"], "M00_OUTPUT_FILES")
+    if not os.path.exists(old_output_files):
+        print("moving OUTPUT_FILES/ to M00_OUTPUT_FILES/")
+        shutil.move(drc["output_files"], old_output_files)
+        
+        # set up new OUTPUT_FILES/
+        os.mkdir(drc["output_files"])
+        surface_h = os.path.join(old_output_files, "surface_from_mesher.h")
+        values_h = os.path.join(old_output_files, "values_from_mesher.h")
+        for fid in [surface_h, values_h]:    
+            shutil.copyfile(fid, os.path.join(
+                            drc["output_files"], os.path.basename(fid))
+                           )
+    else:
+        query = input("M00_OUTPUT_FILES exists, "
+                      "continue to populate new OUTPUT_FILES? [y/(n)]")
+        if query != "y":
+            sys.exit()
+    
+    # create new local path
+    print("creating new local_path")
+    old_local_path = os.path.join(old_output_files, 
+                                  os.path.basename(drc["local_path"])
+                                 )
+    local_path = drc["local_path"]
+    try:
+        os.mkdir(local_path)
+    except OSError:
+        pass
+    
+    # mv attenuation.bin, Database files
+    print("copying *attenuation and *Database files to new local_path")
+    for tag in ["*attenuation.bin", "*Database"]:
+        fids = glob.glob(os.path.join(old_local_path, tag))
+        for fid in fids:
+            new_fid = os.path.join(local_path, os.path.basename(fid))
+            shutil.copyfile(fid, new_fid)
+    
+    import pdb;pdb.set_trace()
+     
+    # mv and rename vp_new.bin, vs_new.bin and rho_new.bin files
+    # !!! TO DO remove the hardcoded mesh_files_m01 here
+    print("moving and renaming mesh files to new local_path")
+    mesh_files = os.path.join(old_output_files, "mesh_files_m01")
+    for tag in ["*vp_new.bin", "*vs_new.bin", "*rho_new.bin"]:
+        fids = glob.glob(os.path.join(mesh_files, tag))
+        for fid in fids:
+            # get rid of the _new tag when renaming
+            new_tag = os.path.basename(fid).split('_')
+            new_tag = "{}_{}.bin".format(new_tag[0], new_tag[1])
+            new_fid = os.path.join(local_path, new_tag)
+            shutil.copyfile(fid, new_fid)
+   
+    print("ready for xgenerate_databases") 
+      
+
+def check_status():
+    """
+    For all directories in the current path, check what stage of the run cycle
+    you're in by looking at the current state of outputs
+    """ 
+    def read_par_file(fid):
+        """similar to edit par_file except only read in the choices
+        """
+        with open(fid, "r") as f:
+            lines = f.readlines()
+      
+            # Change parameters
+            for i, line in enumerate(lines):
+                if "SIMULATION_TYPE" in line:
+                    simulation_type = line.strip().split()[-1]
+                elif "SAVE_FORWARD" in line:
+                    save_forward = line.strip().split()[-1]
+            if simulation_type == "1":
+                if save_forward == ".true.":
+                    status = "forward"
+                elif save_forward == ".false."
+                    status = "update"
+            elif simulation_type == "3":
+                status = "adjoint"
+ 
+        return status
+    
+  
+    folders = glob.glob("*")
+    # check statuses for each run folder in the parent directory
+    for folder in folders:
+        if os.path.isdir(folder):
+            os.chdir(folder)
+            drc = directories()
+            status = read_par_file(os.path.join(drc["data"], "Par_file")
+            if status == "forward":
+                output_solver = os.path.join(
+                                    drc["output_files"], "output_solver.txt") 
+                if os.path.exists(output_solver):
+                else:
+                    
+                
+                           
 
 if __name__ == "__main__":
     # simple argument distribution
     available_funcs = ["build_forward", "post_forward", "build_adjoint",
-                       "post_adjoint", "pre_precondition_sum"]
+                       "post_adjoint", "precondition_sum", "model_update",
+                       "post_model_update"]
     try:
         func = sys.argv[1]
     except IndexError:
@@ -502,6 +699,10 @@ if __name__ == "__main__":
         post_forward()
     elif func == "post_adjoint":
         post_adjoint()
-    elif func == "pre_precondition_sum":
+    elif func == "precondition_sum":
         pre_precondition_sum()
+    elif func == "model_update":
+        model_update()
+    elif func == "post_model_update":
+        post_model_update()
 

@@ -12,6 +12,8 @@
 echo "running kernel simulation: `date`"
 currentdir=`pwd`
 
+cp DATA/CMTSOLUTION OUTPUT_FILES/CMTSOLUTION
+
 # get the number of processors, ignoring comments in the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
 

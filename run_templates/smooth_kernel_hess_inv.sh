@@ -1,13 +1,13 @@
 #!/bin/bash -e
 
-#SBATCH --job-name=smooth_hess
+#SBATCH --job-name=smooth_hess_inv
 #SBATCH --nodes=4
 #SBATCH --ntasks=144
 #SBATCH --cpus-per-task=1
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 1:15:00
+#SBATCH --time 0:55:00
 
 # EXAMPLE CALL:
 # sbatch simutils/run_templates/smooth_kernel.sh 2018p130600 hess_kernel

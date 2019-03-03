@@ -21,7 +21,8 @@ fi
 
 echo "`date`"
 currentdir=`pwd`
-DIR_IN="./OUTPUT_SUM/"
+DIR_IN="./COMBINE_MODEL/"
+# DIR_IN="./OUTPUT_SUM/"
 DIR_OUT=${DIR_IN}
 
 #srun -n nproc ./bin/xcombine_vol_data_vtk proc_start proc_end kernel dir_in dir_out gpu_accel
