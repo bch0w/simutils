@@ -634,7 +634,8 @@ def check_status():
     you're in by looking at the current state of outputs
     """ 
     def read_par_file(fid):
-        """similar to edit par_file except only read in the choices
+        """similar to edit par_file except only read in the choices and return
+        a status pertaining to the par file
         """
         with open(fid, "r") as f:
             lines = f.readlines()
@@ -645,32 +646,54 @@ def check_status():
                     simulation_type = line.strip().split()[-1]
                 elif "SAVE_FORWARD" in line:
                     save_forward = line.strip().split()[-1]
+
             if simulation_type == "1":
                 if save_forward == ".true.":
                     status = "forward"
-                elif save_forward == ".false."
+                elif save_forward == ".false.":
                     status = "update"
             elif simulation_type == "3":
                 status = "adjoint"
+            else:
+                status = None
  
         return status
-    
-  
+
     folders = glob.glob("*")
     # check statuses for each run folder in the parent directory
     for folder in folders:
         if os.path.isdir(folder):
             os.chdir(folder)
+
+            # set up information to use for checks
             drc = directories()
-            status = read_par_file(os.path.join(drc["data"], "Par_file")
-            if status == "forward":
-                output_solver = os.path.join(
-                                    drc["output_files"], "output_solver.txt") 
-                if os.path.exists(output_solver):
+            event_id = event_id_from_cmt(
+                os.path.join(drc["data"], "CMTSOLUTION"))
+            gen_status = read_par_file(os.path.join(drc["data"], "Par_file"))
+
+            # check files to show where the status is
+            output_solver = os.path.join(
+                drc["output_files"], "output_solver.txt")
+            output_solver_bool = os.path.exists(output_solver)
+            timestamps = os.path.join(drc["output_files"], "timestamp*")
+            timestamp_bool = bool(len(glob.glob(timestamps)))
+
+            # check if we are in pre, running or post based on output_solver
+            # and the existence of timestamp files
+            if output_solver_bool and timestamp_bool:
+                with open(output_solver) as f:
+                    text = f.read()
+                # decide between running and finished
+                if "End of the simulation" in text:
+                    status == "Post {}".format(gen_status)
                 else:
-                    
-                
-                           
+                    status == "Running {}".format(gen_status)
+            else:
+                status = "Pre {}".format(gen_status)
+
+        print("{rf}: {id} - {sts}".format(rf=folder, id=event_id, sts=status))
+
+
 
 if __name__ == "__main__":
     # simple argument distribution
