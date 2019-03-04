@@ -259,17 +259,24 @@ def post_forward():
             print("{} not found".format(quantity))
             continue
     
-    # proc*_save_forward_arrays.bin files
+    # proc*_save_forward_arrays.bin and absorb_field files
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
         for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
-            shutil.move(fid, event_storage)
+            if os.path.exists(fid):
+                shutil.move(fid, event_storage)
     
     # create folder in INPUT_SEM/
     event_sem = os.path.join(input_sem, event_id)
     if not os.path.exists(event_sem):
         if not os.path.exists(input_sem):
             os.mkdir(input_sem)
-        os.mkdir(event_sem) 
+        os.mkdir(event_sem)
+
+    # remove forwardrun.sh script
+    forward_run = os.path.join(drc["runfolder"], "forwardrun.sh")
+    if os.path.exists(forward_run):
+        print("removing forward runscript")
+        os.remove(forward_run) 
 
     print("post forward complete")
 
@@ -307,7 +314,7 @@ def build_adjoint(event_id):
     print("generating adjointrun file")
     fid_in = os.path.join(
         drc["primer"], "simutils", "run_templates", "adjoint_simulation.sh")
-    fid_out = os.path.join(drc["runfolder"], "adjointrun.sh".format(event_id))
+    fid_out = os.path.join(drc["runfolder"], "adjointrun.sh")
     if os.path.exists(fid_out):
         os.remove(fid_out)
 
@@ -425,26 +432,32 @@ def post_adjoint():
         dst = os.path.join(storage, os.path.basename(fid))
         shutil.move(fid, dst)
 
-    print("moving output_solver.txt to storage")
     quantity = "output_solver.txt"
     quantity_new = quantity.split('.')[0] + "_adjoint" + quantity.split('.')[1]
-    if os.path.exists(quantity):
+    if os.path.exists(os.path.join(output, quantity)):
+        print("moving output_solver.txt to storage")
         shutil.move(os.path.join(output, quantity), 
                     os.path.join(storage, quantity_new)
                    )
 
     # proc*_save_forward_arrays.bin and proc*_absorb_field.bin files
     # TO DO: move kernels and remove symlinks to forward saves
-    print("removing forward array symlinks")
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
         for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
             if os.path.islink(fid):
+                print("removing {} array symlinks".format(quantity))
                 os.remove(fid)
 
     print("moving kernels to storage")
     for fid in glob.glob(os.path.join(drc["local_path"], "*kernel.bin")):
         new_fid = os.path.join(storage, os.path.basename(fid))
         shutil.move(fid, new_fid)
+
+    # remove adjointrun.sh script
+    adjoint_run = os.path.join(drc["runfolder"], "adjointrun.sh")
+    if os.path.exists(adjoint_run):
+        print("removing adjoint runscript")
+        os.remove(adjoint_run) 
 
     print("post adjoint complete")
 
@@ -628,10 +641,32 @@ def post_model_update():
     print("ready for xgenerate_databases") 
       
 
-def check_status():
+def status_check():
     """
     For all directories in the current path, check what stage of the run cycle
-    you're in by looking at the current state of outputs
+    you're in by looking at the current state of outputs.
+
+    The state machine is as follows:
+    1) pre forward: build_forward has been run and the runfolder is ready for a 
+                    a forward simulation
+    2) run forward: runfolder is in the middle of a forward run
+    3) finished forward: runfolder has finished the forward run but post_forward
+                         has not yet been run so outputs are still able to be
+                         overwritten by a new simulation
+    4) post forward: post_forward has been run and outputs are stored away in
+                     the storage folder. a corresponding adjoint run or a new
+                     forward run can be pursued
+    5) pre adjoint: build_adjoint has been run and the runfolder is ready for
+                    an adjoint simulation 
+    6) run adjoint: runfolder is in the middle of an adjoint run
+    7) finished adjoint: same as finished forward. need to run post_adjoint
+    8) post adjoint: post_adjoint has been run, runfolder is ready for new sims
+    
+    The state machine checks the following parameters:
+    1) Par_file: to see what "SIMULATION_TYPE" and "SAVE_FORWARD" vars are
+    2) timestamp*: to see if a simulation has been run but not a post script
+    3) output_solver.txt: to see if "End of the simulation" has been printed
+    4) forwardrun.sh/adjointrun.sh: to see if we are in pre or post simulation
     """ 
     def read_par_file(fid):
         """similar to edit par_file except only read in the choices and return
@@ -646,7 +681,7 @@ def check_status():
                     simulation_type = line.strip().split()[-1]
                 elif "SAVE_FORWARD" in line:
                     save_forward = line.strip().split()[-1]
-
+                    break
             if simulation_type == "1":
                 if save_forward == ".true.":
                     status = "forward"
@@ -656,13 +691,17 @@ def check_status():
                 status = "adjoint"
             else:
                 status = None
- 
         return status
-
+   
+    title= "{:>15} {:>15} {:>18} {:>18}".format(
+                                       "FOLDER", "EVENT ID", "STATUS", "QUEUE")
+    print("{}\n{}\n{}".format("="*len(title), title, "="*len(title)))
     folders = glob.glob("*")
+    folders.sort()
     # check statuses for each run folder in the parent directory
     for folder in folders:
-        if os.path.isdir(folder):
+        folder_check = os.path.exists(os.path.join(folder, "AUTHORS"))
+        if os.path.isdir(folder) and folder_check:
             os.chdir(folder)
 
             # set up information to use for checks
@@ -683,23 +722,44 @@ def check_status():
             if output_solver_bool and timestamp_bool:
                 with open(output_solver) as f:
                     text = f.read()
-                # decide between running and finished
+                # decide between running and finished by checking if sim ended
                 if "End of the simulation" in text:
-                    status == "Post {}".format(gen_status)
+                    status = "finished {}".format(gen_status)
+                    queue = "run post_{}".format(gen_status)
                 else:
-                    status == "Running {}".format(gen_status)
+                    status = "running {}".format(gen_status)
+                    # check percentage complete
+                    lines = text.split("\n")
+                    for line in reversed(lines):
+                        if "We have done" in line:
+                            percentage = line.split()[3]
+                            break
+                    queue = "{:.2f}%".format(float(percentage))
             else:
-                status = "Pre {}".format(gen_status)
-
-        print("{rf}: {id} - {sts}".format(rf=folder, id=event_id, sts=status))
-
+                # differentiate pre and post simulation by presence of runscript
+                if os.path.exists(os.path.join(
+                           drc["runfolder"], "{}run.sh".format(gen_status))):
+                    status = "pre {}".format(gen_status)
+                    queue = "run {}".format(gen_status)
+                else:
+                    # change the queue message depending on post fwd or adj
+                    if gen_status == "forward":
+                        queue = "build adjoint" 
+                    elif gen_status == "adjoint":
+                        queue = "open"
+                    status = "post {}".format(gen_status)
+                     
+            print("{rf:>15} {id:>15} {sts:>18} {qu:>18}".format(
+                                rf=folder, id=event_id, sts=status, qu=queue))
+            os.chdir("..")
+    print("="*len(title))
 
 
 if __name__ == "__main__":
     # simple argument distribution
     available_funcs = ["build_forward", "post_forward", "build_adjoint",
                        "post_adjoint", "precondition_sum", "model_update",
-                       "post_model_update"]
+                       "post_model_update", "status_check"]
     try:
         func = sys.argv[1]
     except IndexError:
@@ -728,4 +788,6 @@ if __name__ == "__main__":
         model_update()
     elif func == "post_model_update":
         post_model_update()
+    elif func == "status_check":
+        status_check()
 
