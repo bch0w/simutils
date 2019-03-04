@@ -48,8 +48,7 @@ def dynamic_filenames():
 
     # grab information from the Par_file
     par_file = os.path.join(drc["data"], "Par_file")
-    with open(par_file) as f:
-        lines = f.readlines()
+    lines = open(par_file, "r").readlines()
     for line in lines:
         if "TOMOGRAPHY_PATH" in line:  # e.g. DATA/tomo_files/
             tomo_path = line.strip().split()[-1]
@@ -167,8 +166,9 @@ def build_forward(event_id):
 
     print("generating forwardrun file")
     fid_in = os.path.join(
-        drc["primer"], "simutils", "run_templates", "forward_simulation.sh")
-    fid_out = os.path.join(drc["runfolder"], "forwardrun.sh".format(event_id))
+        drc["primer"], "simutils", "run_templates", "forward_simulation.sh"
+    )
+    fid_out = os.path.join(drc["runfolder"], "forwardrun.h".format(event_id))
     if os.path.exists(fid_out):
         os.remove(fid_out)
 
@@ -176,8 +176,7 @@ def build_forward(event_id):
         """
         generate a forward run script to be called by sbatch
         """
-        with open(fid_in, "r") as f_in:
-            lines = f_in.readlines()
+        lines = open(fid_in, "r").readlines()
         for i, line in enumerate(lines):
             if "${EVENT_ID}" in line:
                 lines[i] = line.replace("${EVENT_ID}", event_id)
@@ -195,8 +194,7 @@ def event_id_from_cmt(fid):
     :param fid:
     :return:
     """
-    with open(fid, "r") as f:
-        lines = f.readlines()
+    lines = open(fid, "r").readlines()
     for line in lines:
         if "event name" in line:
             return line.strip().split()[-1]
@@ -212,44 +210,44 @@ def post_forward():
     """
     import shutil
 
+    # set some recurring directory names
     drc = dynamic_filenames()
     output = drc["output_files"]
     output_solver = os.path.join(output, "output_solver.txt")
     input_sem = os.path.join(drc["runfolder"], "INPUT_SEM")
+    cmtsolution = os.path.join(output, "CMTSOLUTION")
+    storage = os.path.join(output, "STORAGE")
 
     # check the output_solver.txt file to make sure simulation has finished
     if os.path.exists(output_solver):
-        with open(output_solver) as f:
-            text = f.read()
+        text = open(output_solver).read()
         if "End of the simulation" not in text:
-            print("Simulation has not finished, disregarding")
-            sys.exit()
+            sys.exit("Simulation has not finished, disregarding")
     else:
-        print("No output_solver.txt file, disregarding")
-        sys.exit()
+        sys.exit("No output_solver.txt file, disregarding")
 
     # get event id from cmtsolution
-    cmtsolution = os.path.join(output, "CMTSOLUTION")
     if not os.path.exists(cmtsolution):
-        print("CMTSOLUTION doesn't exist in OUTPUT_FILES")
-        sys.exit()
+        sys.exit("CMTSOLUTION doesn't exist in OUTPUT_FILES")
     event_id = event_id_from_cmt(cmtsolution)
 
     # create storage folder for all the event specific outputs
-    storage = os.path.join(output, "STORAGE")
     event_storage = os.path.join(storage, event_id)
     if not os.path.exists(event_storage):
         if not os.path.exists(storage): 
             os.mkdir(storage)
+        print("creating storage directory")
         os.mkdir(event_storage)
 
-    # start moving files from OUTPUT_FILES/ to STORAGE/${EVENT_ID}
+    # move files from OUTPUT_FILES/ to STORAGE/${EVENT_ID}
     # .sem? and timestamp* files
     for quantity in ["*.sem?", "timestamp*"]:
+        print("moving {} files".format(quantity))
         for fid in glob.glob(os.path.join(output, quantity)):
             shutil.move(fid, event_storage)
 
     # the random one-off output files
+    print("moving misc. solver outputs")
     for quantity in ["starttimeloop.txt", "sr.vtk", "output_list_sources.txt",
                      "output_list_stations.txt", "Par_file", "CMTSOLUTION",
                      "output_solver.txt"]:
@@ -261,15 +259,20 @@ def post_forward():
     
     # proc*_save_forward_arrays.bin and absorb_field files
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
+        i = 0
+        print("moving {} files".format(quantity), end="...")
         for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
             if os.path.exists(fid):
                 shutil.move(fid, event_storage)
+                i += 1
+        print("{} files moved".format(i))
     
     # create folder in INPUT_SEM/
     event_sem = os.path.join(input_sem, event_id)
     if not os.path.exists(event_sem):
         if not os.path.exists(input_sem):
             os.mkdir(input_sem)
+        print("creating input_sem event directory")
         os.mkdir(event_sem)
 
     # remove forwardrun.sh script
@@ -293,9 +296,16 @@ def build_adjoint(event_id):
     :param event_id: str
     :return:
     """
+    # recurring pathnames
     drc = dynamic_filenames()
     storage = os.path.join(drc["output_files"], "STORAGE", event_id)
-    
+    adjrun_template = os.path.join(
+        drc["primer"], "simutils", "run_templates", "adjoint_simulation.sh")
+    adjrun = os.path.join(drc["runfolder"], "adjointrun.sh")
+    sem_folder = os.path.join(drc["runfolder"], "SEM")
+    input_stations_adjoint = os.path.join(input_sem, "STATIONS_ADJOINT")
+    stations_adjoint = os.path.join(drc["data"], "STATIONS_ADJOINT")
+
     # make sure cmtsolution file is correct, e.g. if another forward run was
     # made between the prerequisite forward for this adjoint...
     # not sure if this is necessary
@@ -312,82 +322,51 @@ def build_adjoint(event_id):
     edit_par_file(fid=os.path.join(drc["data"], "Par_file"), choice="adjoint")
 
     print("generating adjointrun file")
-    fid_in = os.path.join(
-        drc["primer"], "simutils", "run_templates", "adjoint_simulation.sh")
-    fid_out = os.path.join(drc["runfolder"], "adjointrun.sh")
-    if os.path.exists(fid_out):
-        os.remove(fid_out)
+    if os.path.exists(adjrun):
+        os.remove(adjrun)
 
     def generate_adjointrun(fid_in, fid_out, event_id):
         """
         generate a forward run script to be called by sbatch
         """
-        with open(fid_in, "r") as f_in:
-            lines = f_in.readlines()
+        lines = open(fid_in, "r").readlines()
         for i, line in enumerate(lines):
             if "${EVENT_ID}" in line:
                 lines[i] = line.replace("${EVENT_ID}", event_id+"_adj")
         with open(fid_out, "w") as f_out:
             f_out.writelines(lines)
 
-    generate_adjointrun(fid_in, fid_out, event_id)
+    generate_adjointrun(adjrun_template, adjrun, event_id)
 
     print("checking OUTPUT_FILES")
-    # check if proc*_save_forward_arrays.bin files are symlinks/ can be removed
-    save_forward_check = glob.glob(
-        os.path.join(drc["local_path"], "proc*_save_forward_arrays.bin")
-    )
-    if save_forward_check:
-        if os.path.islink(save_forward_check[0]):
-            print("removing symlink proc*_save_forward_arrays.bin")
-            for fid in save_forward_check:
-                os.remove(fid)
-        else:
-            print("proc**_save_forward_arrays.bin files are real, please move")
-            sys.exit()
-    
-    print("symlinking proc**_save_forward_arrays.bin")
-    files = glob.glob(
-        os.path.join(storage, "proc*_save_forward_arrays.bin"))
-    for fid in files:
-        destination = os.path.join(drc["local_path"],
-                                   os.path.basename(fid))
-        os.symlink(fid, destination)
+    # check if forward saved files are symlinks and can be removed
+    # if not, remove and symlink from storage for fresh files
+    for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
+        forward_check = glob.glob(os.path.join(drc["local_path"], quantity))
+        if forward_check:
+            if os.path.islink(forward_check[0]):
+                print("removing symlinks of {}".format(quantity))
+                for fid in forward_check:
+                    os.remove(fid)
+            else:
+                print("{} files are real, please move".format(quantity))
+                sys.exit()
 
-    # check if proc*_absorb_field.bin files can be removed
-    absorb_check = glob.glob(
-        os.path.join(drc["local_path"], "proc*_absorb_field.bin")
-    )
-    if absorb_check:
-        if os.path.islink(absorb_check[0]):
-            print("removing symlink proc*_absorb_field.bin")
-            for fid in absorb_check:
-                os.remove(fid)
-        else:
-            print("proc**_absorb_field.bin files are real, please move")
-            sys.exit()
-
-    print("symlinking proc**_absorb_field.bin")
-    files = glob.glob(
-        os.path.join(storage, "proc*_absorb_field.bin"))
-    for fid in files:
-        destination = os.path.join(drc["local_path"],
-                                   os.path.basename(fid))
-        os.symlink(fid, destination)
+        print("symlinking {} from storage to local path".format(quantity))
+        files = glob.glob(os.path.join(storage, quantity))
+        for fid in files:
+            destination = os.path.join(drc["local_path"],
+                                       os.path.basename(fid))
+            os.symlink(fid, destination)
     
-    print("symlinking SEM/ files")
-    sem_folder = os.path.join(drc["runfolder"], "SEM")
-    if os.path.exists(sem_folder):
+    print("symlinking INPUT_SEM/{} to SEM".format(event_id))
+    if os.path.exists(sem_folder) or os.path.islink(sem_folder):
         os.remove(sem_folder)
-
-    input_sem = os.path.join(drc["runfolder"], "INPUT_SEM", event_id)
-    os.symlink(input_sem, sem_folder)
+    os.symlink(event_sem, sem_folder)
 
     print("symlinking STATIONS_ADJOINT")
-    stations_adjoint = os.path.join(drc["data"], "STATIONS_ADJOINT")
     if os.path.exists(stations_adjoint) or os.path.islink(stations_adjoint):
         os.remove(stations_adjoint)
-    input_stations_adjoint = os.path.join(input_sem, "STATIONS_ADJOINT")
     os.symlink(input_stations_adjoint, stations_adjoint)
 
     print("adjoint build complete")
@@ -404,55 +383,56 @@ def post_adjoint():
     """
     import shutil
 
+    # recurring pathnames
     drc = dynamic_filenames()
     output = drc["output_files"]
     output_solver = os.path.join(output, "output_solver.txt")
 
     # check the output_solver.txt file to make sure simulation has finished
     if os.path.exists(output_solver):
-        with open(output_solver) as f:
-            text = f.read()
+        text = open(output_solver).read()
         if "End of the simulation" not in text:
-            print("Simulation has not finished, disregarding")
-            sys.exit()
+            sys.exit("Simulation has not finished, disregarding")
     else:
-        print("No output_solver.txt file, disregarding")
-        sys.exit()
+        sys.exit("No output_solver.txt file, disregarding")
 
     # get event id from cmtsolution and set storage
-    cmtsolution = os.path.join(output, "CMTSOLUTION")
     if not os.path.exists(cmtsolution):
-        print("CMTSOLUTION doesn't exist in OUTPUT_FILES")
-        sys.exit()
+        sys.exit("CMTSOLUTION doesn't exist in OUTPUT_FILES, need for event id")
+    cmtsolution = os.path.join(output, "CMTSOLUTION")
     event_id = event_id_from_cmt(cmtsolution)
-    storage = os.path.join(output, "STORAGE", event_id)
+    event_storage = os.path.join(output, "STORAGE", event_id)
 
-    # start moving files from OUTPUT_FILES/ to STORAGE/${EVENT_ID}
+    # start moving files from OUTPUT_FILES/ to event storage
     for fid in glob.glob(os.path.join(output, "timestamp*")):
-        dst = os.path.join(storage, os.path.basename(fid))
+        dst = os.path.join(event_storage, os.path.basename(fid)+"_adjoint")
         shutil.move(fid, dst)
 
-    quantity = "output_solver.txt"
-    quantity_new = quantity.split('.')[0] + "_adjoint" + quantity.split('.')[1]
-    if os.path.exists(os.path.join(output, quantity)):
+    # move output_solver to storage with new tag
+    output_solver_new = os.path.join(event_storage, "output_solver_adjoint.txt")
+    if os.path.exists(output_solver):
         print("moving output_solver.txt to storage")
-        shutil.move(os.path.join(output, quantity), 
-                    os.path.join(storage, quantity_new)
-                   )
+        shutil.move(output_solver, output_solver_new)
 
     # proc*_save_forward_arrays.bin and proc*_absorb_field.bin files
     # TO DO: move kernels and remove symlinks to forward saves
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
+        i = 0
+        print("removing {} symlinks".format(quantity), end=" ")
         for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
             if os.path.islink(fid):
-                print("removing {} array symlinks".format(quantity))
                 os.remove(fid)
+                i += 1
+        print("{} files symlinks removed".format(i))
 
-    print("moving kernels to storage")
+    print("moving kernels to storage", end=" ")
+    i = 0
     for fid in glob.glob(os.path.join(drc["local_path"], "*kernel.bin")):
-        new_fid = os.path.join(storage, os.path.basename(fid))
+        new_fid = os.path.join(event_storage, os.path.basename(fid))
         shutil.move(fid, new_fid)
-
+        i += 1
+    print("{} files moved".format(i))
+    
     # remove adjointrun.sh script
     adjoint_run = os.path.join(drc["runfolder"], "adjointrun.sh")
     if os.path.exists(adjoint_run):
@@ -525,8 +505,7 @@ def model_update():
         return string[1:-2]
 
     # get model_update pathnames
-    with open(model_update, "r") as f:
-        lines = f.readlines()
+    lines = open(model_update, "r").readlines()
     for line in lines:
         if ":: INPUT_KERNELS_DIR_NAME" in line:
             drctry = strip_markers(line.strip().split()[-1])
@@ -672,25 +651,25 @@ def status_check():
         """similar to edit par_file except only read in the choices and return
         a status pertaining to the par file
         """
-        with open(fid, "r") as f:
-            lines = f.readlines()
-      
-            # Change parameters
-            for i, line in enumerate(lines):
-                if "SIMULATION_TYPE" in line:
-                    simulation_type = line.strip().split()[-1]
-                elif "SAVE_FORWARD" in line:
-                    save_forward = line.strip().split()[-1]
-                    break
-            if simulation_type == "1":
-                if save_forward == ".true.":
-                    status = "forward"
-                elif save_forward == ".false.":
-                    status = "update"
-            elif simulation_type == "3":
-                status = "adjoint"
-            else:
-                status = None
+        lines = open(fid, "r").readlines()
+
+        # Change parameters
+        for i, line in enumerate(lines):
+            if "SIMULATION_TYPE" in line:
+                simulation_type = line.strip().split()[-1]
+            elif "SAVE_FORWARD" in line:
+                save_forward = line.strip().split()[-1]
+                break
+        if simulation_type == "1":
+            if save_forward == ".true.":
+                status = "forward"
+            elif save_forward == ".false.":
+                status = "update"
+        elif simulation_type == "3":
+            status = "adjoint"
+        else:
+            status = None
+
         return status
    
     title= "{:>15} {:>15} {:>18} {:>18}".format(
@@ -720,8 +699,7 @@ def status_check():
             # check if we are in pre, running or post based on output_solver
             # and the existence of timestamp files
             if output_solver_bool and timestamp_bool:
-                with open(output_solver) as f:
-                    text = f.read()
+                text = open(output_solver, "r").read()
                 # decide between running and finished by checking if sim ended
                 if "End of the simulation" in text:
                     status = "finished {}".format(gen_status)
