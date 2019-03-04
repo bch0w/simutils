@@ -303,8 +303,7 @@ def build_adjoint(event_id):
         drc["primer"], "simutils", "run_templates", "adjoint_simulation.sh")
     adjrun = os.path.join(drc["runfolder"], "adjointrun.sh")
     sem_folder = os.path.join(drc["runfolder"], "SEM")
-    input_stations_adjoint = os.path.join(input_sem, "STATIONS_ADJOINT")
-    stations_adjoint = os.path.join(drc["data"], "STATIONS_ADJOINT")
+    input_sem = os.path.join(drc["runfolder"], "INPUT_SEM")
 
     # make sure cmtsolution file is correct, e.g. if another forward run was
     # made between the prerequisite forward for this adjoint...
@@ -365,6 +364,9 @@ def build_adjoint(event_id):
     os.symlink(event_sem, sem_folder)
 
     print("symlinking STATIONS_ADJOINT")
+    stations_adjoint = os.path.join(drc["data"], "STATIONS_ADJOINT")
+    input_stations_adjoint = os.path.join(
+                                        input_sem, event_id,"STATIONS_ADJOINT")
     if os.path.exists(stations_adjoint) or os.path.islink(stations_adjoint):
         os.remove(stations_adjoint)
     os.symlink(input_stations_adjoint, stations_adjoint)
