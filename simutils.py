@@ -384,7 +384,8 @@ def post_adjoint():
     :return:
     """
     import shutil
-
+    
+    print("post adjoint")
     # recurring pathnames
     drc = dynamic_filenames()
     output = drc["output_files"]
@@ -399,9 +400,9 @@ def post_adjoint():
         sys.exit("No output_solver.txt file, disregarding")
 
     # get event id from cmtsolution and set storage
+    cmtsolution = os.path.join(output, "CMTSOLUTION")
     if not os.path.exists(cmtsolution):
         sys.exit("CMTSOLUTION doesn't exist in OUTPUT_FILES, need for event id")
-    cmtsolution = os.path.join(output, "CMTSOLUTION")
     event_id = event_id_from_cmt(cmtsolution)
     event_storage = os.path.join(output, "STORAGE", event_id)
 
@@ -420,14 +421,14 @@ def post_adjoint():
     # TO DO: move kernels and remove symlinks to forward saves
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
         i = 0
-        print("removing {} symlinks".format(quantity), end=" ")
+        print("removing {} symlinks".format(quantity), end="...")
         for fid in glob.glob(os.path.join(drc["local_path"], quantity)):
             if os.path.islink(fid):
                 os.remove(fid)
                 i += 1
-        print("{} files symlinks removed".format(i))
+        print("{} symlinks removed".format(i))
 
-    print("moving kernels to storage", end=" ")
+    print("moving kernels to storage", end="...")
     i = 0
     for fid in glob.glob(os.path.join(drc["local_path"], "*kernel.bin")):
         new_fid = os.path.join(event_storage, os.path.basename(fid))
@@ -446,43 +447,112 @@ def post_adjoint():
 
 def precondition_sum():
     """
-    working
+    Working
     Summing kernels requires a few folders and symlinks to be set up beforehand
+    To be run in the master folder 
     TO DO
     kernels_list.txt is listed in constants_tomography.h, dynamically get?
     :return:
     """
+    import shutil
+
+
+    def symlink_kernels_to_master():
+        """because the work is split onto different run folders, we need to 
+           collect the input kernels for summation afterwards. Assumes that 
+           slave folders are located one directory up from the master
+        """
+        # set the master paths
+        drc_master = directories()
+        input_kernels = os.path.join(drc_master["runfolder"], "INPUT_KERNELS")
+        kernels_list = os.path.join(drc_master["runfolder"], "kernels_list.txt")
+        
+        # move into each run folder
+        os.chdir("..")
+        folders = glob.glob("*")
+        folders.sort()
+        event_ids = []
+        for folder in folders:
+            folder_check = os.path.exists(os.path.join(folder, "AUTHORS"))
+            if os.path.isdir(folder) and folder_check:
+                os.chdir(folder)
+                # currently in a run folder
+                drc = directories()
+                storage = os.path.join(drc["output_files"], "STORAGE")
+                # assume that only events we want to use are stored in storage
+                # test cases and failed runs should be placed in cold storage
+                events = glob.glob(os.path.join(storage, "*"))
+                for event in events:
+                    event_id = os.path.basename(event)
+                    kernels = glob.glob(os.path.join(event, "*kernel.bin"))
+                    # make directory in the INPUT_KERNELS master IFF: there are                      # kernels in the storage directory, AND doesn't already
+                    # exist a folder in the INPUT_KERNELS directory
+                    if bool(len(kernels)):
+                        input_kernel_event = os.path.join(
+                                                        input_kernels, event_id)
+                        if not os.path.exists(input_kernel_event):
+                            print("symlinking kernels from {dir}/{id}".format(
+                                     dir=os.path.basename(folder), id=event_id), 
+                                     end="... ")
+                            os.mkdir(input_kernel_event)
+                            i = 0
+                            for kernel in kernels:
+                                kernel_sym = os.path.join(input_kernel_event, 
+                                                      os.path.basename(kernel))
+                                os.symlink(kernel, kernel_sym)
+                                i += 1
+                            print("{} kernels symlinked".format(i))
+                            event_ids.append(event_id)
+                        else:
+                            print("dir exists for {}, skipping...".format(
+                                                                      event_id))
+            
+                # return to run folder holding directory
+                os.chdir("..")
+        
+                    
+    # in the master directory, symlink from other run folder
     drc = directories()
     input_kernels = os.path.join(drc["runfolder"], "INPUT_KERNELS")
     storage = os.path.join(drc["output_files"], "STORAGE")
     kernels_list = os.path.join(drc["runfolder"], "kernels_list.txt")
     output_sum = os.path.join(drc["runfolder"], "OUTPUT_SUM")
 
-    # check-make directories
+    # check-make directories, or if directories exist, flush
+    # flush the files from the INPUT_KERNEL directory, or make new
     if not os.path.exists(input_kernels):
         os.mkdir(input_kernels)
-
+    else:
+        # flush the existing input kernels, ASSUMING THEY ARE FILLED WITH 
+        # SYMLINKS. DO NOT PUT REAL FILES IN THIS DIRECTORY
+        input_kernel_events = glob.glob(os.path.join(input_kernels, "*"))
+        for input_kernel_event in input_kernel_events:
+            print("removing {}".format(input_kernel_event))
+            shutil.rmtree(input_kernel_event)
+    # make a new OUTPUT_SUM/ directory, or flush the existing
     if not os.path.exists(output_sum):
         os.mkdir(output_sum)
+    else:
+        # flush the existing output_sum
+        output_sum_files = glob.glob(os.path.join(output_sum, "*kernel.bin"))
+        print("removing files in OUTPUT_SUM/")
+        for fid in output_sum_files:
+            os.remove(fid) 
+    
+    print("symlinking kernels from other run folders")
+    symlink_kernels_to_master() 
 
     # writing event numbers into kernels list while symlinking files to
     # INPUT_KERNELS/ directory
     with open(kernels_list, "r+") as f:
+        print("writing kernels_list.txt")
         f.truncate(0)
         f.seek(0)
-        for event in glob.glob(os.path.join(storage, "*")):
+        for event in glob.glob(os.path.join(input_kernels, "*")):
             event_id = os.path.basename(event)
-            event_dir = os.path.join(input_kernels, event_id)
-            if not os.path.exists(event_dir):
-                os.mkdir(event_dir)
             f.write("{}\n".format(event_id))
-            for fid in glob.glob(os.path.join(
-                                 storage, event_id, "*kernel.bin")):
-                dst = os.path.join(event_dir, os.path.basename(fid))
-                try:
-                    os.symlink(fid, dst)
-                except OSError as e:
-                    continue
+    
+    print("precondition sum complete")
 
 
 def model_update():
@@ -597,15 +667,13 @@ def post_model_update():
         pass
     
     # mv attenuation.bin, Database files
-    print("copying *attenuation and *Database files to new local_path")
-    for tag in ["*attenuation.bin", "*Database"]:
+    print("copying *attenuation, *Database, and q* files to new local_path")
+    for tag in ["*attenuation.bin", "*Database", "*qkappa.bin", "*qmu.bin"]:
         fids = glob.glob(os.path.join(old_local_path, tag))
         for fid in fids:
             new_fid = os.path.join(local_path, os.path.basename(fid))
             shutil.copyfile(fid, new_fid)
     
-    import pdb;pdb.set_trace()
-     
     # mv and rename vp_new.bin, vs_new.bin and rho_new.bin files
     # !!! TO DO remove the hardcoded mesh_files_m01 here
     print("moving and renaming mesh files to new local_path")
@@ -727,6 +795,8 @@ def status_check():
                         queue = "build adjoint" 
                     elif gen_status == "adjoint":
                         queue = "open"
+                    elif gen_status == "update":
+                        queue = "-"
                     status = "post {}".format(gen_status)
                      
             print("{rf:>15} {id:>15} {sts:>18} {qu:>18}".format(
@@ -763,7 +833,7 @@ if __name__ == "__main__":
     elif func == "post_adjoint":
         post_adjoint()
     elif func == "precondition_sum":
-        pre_precondition_sum()
+        precondition_sum()
     elif func == "model_update":
         model_update()
     elif func == "post_model_update":
