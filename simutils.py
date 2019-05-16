@@ -4,8 +4,47 @@ Simulation Utilities
 A collection of utilities for working with Specfem3D Cartesian on an HPC cluster
 These scripts and functions glue together the inputs and outputs of various
 Fortran codes executed by Specfem3D. Originally a set of bash scripts to move
-files around and create run-scripts, I thought it would be best to do everything
-in Python as Bash is finicky.
+files around and create run-scripts.
+
+Functions assume that Specfem run folders and files retain a specific format.
+We are using Specfem3D Cartesian pulled from github at commit:
+
+6895e2f7f7ad26cd91ff5cdb83bd340fbbe0a46f
+
+Which was committed June 18, 2018
+
+The workflow is as follows:
+build_forward > forward simulation > post forward >
+build_adjoint > adjoint simulation > post adjoint ...
+
+pre_condition_sum > model_update > post_update
+
+TO DO LIST:
+build_forward()
+    + add a check for proc**_Database files to see if mesher was run
+    + add a check for proc**_external_mesh.bin files to see if generate_db run
+    + tomo_files isn't really required past model update 1?
+post_forward()
+    + if this runs and fails halfway, running it a second time sometimes screws
+      things up, need some way to either undo the work or not run if it won't
+      complete the run, or dry run?
+build_adjoint()
+    + SEM folder check?
+    + adjoint choice for dynamic filenames?
+    + symlinking save_forward_arrays was throwing errors randomly, maybe just
+      move the files rather than symlinking?
+post_adjoint()
+    + should we delete the one off outputs? I think they're the same as forward
+pre_condition_sum()
+    + kernels_list.txt is listed in constants_tomography.h, dynamically get?
+model_update()
+    + move mode_update pathnames into dynamic filenames and call from here
+post_model_update()
+    + check-stop if M00_OUTPUT_FILES exists, otherwise you start making edits to
+      the new output_files directory
+    + remove the hardcoded mesh_files_m01 at the end of the function
+status_check()
+    + broken for model updates, kinda
 """
 from __future__ import print_function
 
@@ -41,8 +80,7 @@ def dynamic_filenames():
     Names of files and folders are set in the Par_file or in constats.h or in
     constants_tomography.h. Rather than hardcoding them in here, dynamically
     fetch them incase the user decides to change them
-    :param choice: str
-    :return:
+    :return: dictionary
     """
     drc = directories()
 
@@ -61,12 +99,14 @@ def dynamic_filenames():
 
 def edit_par_file(fid, choice):
     """
-    Edits the Par_file for forward or adjoint simulations
-    Encompasses the tasks of change_simulation_type.pl, with a few extras
+    Edits the Par_file in place for forward or adjoint simulations, or update.
+    Encompasses the tasks of change_simulation_type.pl, with a few extras.
     Assumes the Par_file will always be the same format (e.g. sim_type   = 1),
     but I don't think Specfem devels will change it during my PhD so okay.
-    :param fid: str
-    :param choice: str
+    :type fid: str
+    :param fid: path to Par_file
+    :type choice: str
+    :param choice: forward, adjoint or update
     """
     with open(fid, "r+") as f:
         lines = f.readlines()
@@ -86,7 +126,8 @@ def edit_par_file(fid, choice):
             attenuation = ".false."
             model = "gll"
   
-        # Change parameters
+        # Change parameters by replacing the old values
+        # assuming that the Par_file retains the same format
         for i, line in enumerate(lines):
             if "SIMULATION_TYPE" in line:
                 old_value = line.strip().split()[-1]
@@ -106,7 +147,7 @@ def edit_par_file(fid, choice):
                 print("\t", lines[i].strip())
                 break
 
-        # delete original file, set cursor to beginning
+        # delete original file, set cursor to beginning and write in new pars
         f.truncate(0)
         f.seek(0)
         f.writelines(lines)
@@ -116,12 +157,9 @@ def edit_par_file(fid, choice):
 def build_forward(event_id):
     """
     Prepare the run folder for a forward simulation for a given event id
-    TO DO:
-    + add a check for proc**_Database files to see if mesher was run
-    + add a check for proc**_external_mesh.bin files to see if generate_db run
-    + tomo_files isn't really required past model update 1?
-    :param event_id: str
-    :return:
+
+    :type: event_id: str
+    :param event_id: event id to grab the correct cmtsolution files etc
     """
     drc = dynamic_filenames()
 
@@ -164,7 +202,7 @@ def build_forward(event_id):
     print("editing Par_file")
     edit_par_file(fid=os.path.join(drc["data"], "Par_file"), choice="forward")
 
-    print("generating forwardrun file")
+    print("generating forwardrun.sh file")
     fid_in = os.path.join(
         drc["primer"], "simutils", "run_templates", "forward_simulation.sh"
     )
@@ -191,8 +229,10 @@ def build_forward(event_id):
 def event_id_from_cmt(fid):
     """
     occasionally need to get the event_id from the cmtsolution file
-    :param fid:
-    :return:
+    :type fid: str
+    :param fid: path location of the file id
+    :rtype: str
+    :return: event id from cmtsolution
     """
     lines = open(fid, "r").readlines()
     for line in lines:
@@ -202,11 +242,8 @@ def event_id_from_cmt(fid):
 
 def post_forward():
     """
-    working - may need more checks if already run
     After a forward simulation, files need to be moved around so that local path
     and output_files can be free for a new forward or adjoint simulation.
-    Make sure
-    :return:
     """
     import shutil
 
@@ -239,8 +276,7 @@ def post_forward():
         print("creating storage directory")
         os.mkdir(event_storage)
 
-    # move files from OUTPUT_FILES/ to STORAGE/${EVENT_ID}
-    # .sem? and timestamp* files
+    # move files from OUTPUT_FILES/ to STORAGE/event_id
     for quantity in ["*.sem?", "timestamp*"]:
         print("moving {} files".format(quantity))
         for fid in glob.glob(os.path.join(output, quantity)):
@@ -267,7 +303,7 @@ def post_forward():
                 i += 1
         print("{} files moved".format(i))
     
-    # create folder in INPUT_SEM/
+    # create event folder in INPUT_SEM/ to be populated by adjoint sources
     event_sem = os.path.join(input_sem, event_id)
     if not os.path.exists(event_sem):
         if not os.path.exists(input_sem):
@@ -275,10 +311,10 @@ def post_forward():
         print("creating input_sem event directory")
         os.mkdir(event_sem)
 
-    # remove forwardrun.sh script
+    # remove forwardrun.sh script to signal that we are in a post forward state
     forward_run = os.path.join(drc["runfolder"], "forwardrun.sh")
     if os.path.exists(forward_run):
-        print("removing forward runscript")
+        print("removing forwardrun.sh")
         os.remove(forward_run) 
 
     print("post forward complete")
@@ -286,15 +322,9 @@ def post_forward():
 
 def build_adjoint(event_id):
     """
-    working
     Prepare the run folder for an adjoint simulation for a given event id
-    TO DO
-    SEM folder check?
-    adjoint choice for dynamic filenames?
-    symlinking save_forward_arrays was throwing errors randomly, maybe just move
-        the files rather than symlinking?
-    :param event_id: str
-    :return:
+    :type event_id: str
+    :param event_id: event id for creating appropriate files and directories
     """
     # recurring pathnames
     drc = dynamic_filenames()
@@ -306,7 +336,6 @@ def build_adjoint(event_id):
 
     # make sure cmtsolution file is correct, e.g. if another forward run was
     # made between the prerequisite forward for this adjoint...
-    # not sure if this is necessary
     print("symlinking CMTSOLUTION")
     cmtsolution = os.path.join(
         drc["primer"], "cmtsolution_files", "{}CMTSOLUTION".format(event_id)
@@ -319,10 +348,6 @@ def build_adjoint(event_id):
     print("editing Par_file")
     edit_par_file(fid=os.path.join(drc["data"], "Par_file"), choice="adjoint")
 
-    print("generating adjointrun file")
-    if os.path.exists(adjrun):
-        os.remove(adjrun)
-
     def generate_adjointrun(fid_in, fid_out, event_id):
         """
         generate a forward run script to be called by sbatch
@@ -334,11 +359,14 @@ def build_adjoint(event_id):
         with open(fid_out, "w") as f_out:
             f_out.writelines(lines)
 
+    print("generating adjointrun file")
+    if os.path.exists(adjrun):
+        os.remove(adjrun)
     generate_adjointrun(adjrun_template, adjrun, event_id)
 
     print("checking OUTPUT_FILES")
     # check if forward saved files are symlinks and can be removed
-    # if not, remove and symlink from storage for fresh files
+    # if so, remove them and symlink from storage for fresh files
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
         forward_check = glob.glob(os.path.join(drc["local_path"], quantity))
         if forward_check:
@@ -347,16 +375,16 @@ def build_adjoint(event_id):
                 for fid in forward_check:
                     os.remove(fid)
             else:
-                print("{} files are real, please move".format(quantity))
-                sys.exit()
+                sys.exit("{} files are real, please move".format(quantity))
 
         print("symlinking {} from storage to local path".format(quantity))
         files = glob.glob(os.path.join(storage, quantity))
         for fid in files:
-            destination = os.path.join(drc["local_path"],
-                                       os.path.basename(fid))
+            destination = os.path.join(drc["local_path"], os.path.basename(fid))
             os.symlink(fid, destination)
-    
+
+    # make sure the adjoint source file SEM/ is linked to the correct event
+    # if one already exists, delete it as it should just be a symlink
     print("symlinking INPUT_SEM/{} to SEM".format(event_id))
     sem_folder = os.path.join(drc["runfolder"], "SEM")
     event_sem = os.path.join(input_sem, event_id)
@@ -364,6 +392,7 @@ def build_adjoint(event_id):
         os.remove(sem_folder)
     os.symlink(event_sem, sem_folder)
 
+    # symlink STATIONS_ADJOINT to the data file so Specfem knows where to look
     print("symlinking STATIONS_ADJOINT")
     stations_adjoint = os.path.join(drc["data"], "STATIONS_ADJOINT")
     input_stations_adjoint = os.path.join(event_sem, "STATIONS_ADJOINT")
@@ -376,12 +405,8 @@ def build_adjoint(event_id):
 
 def post_adjoint():
     """
-    UNTESTED
     After an adjoint simulation, files need to be moved around to get ready
     for more simulations, or for model update proceedings.
-    TO DO
-    should we delete the one off outputs? I think they're the same as forward
-    :return:
     """
     import shutil
     
@@ -389,7 +414,6 @@ def post_adjoint():
     # recurring pathnames
     drc = dynamic_filenames()
     output = drc["output_files"]
-    output_solver = os.path.join(output, "output_solver.txt")
 
     # check the output_solver.txt file to make sure simulation has finished
     if os.path.exists(output_solver):
@@ -412,13 +436,14 @@ def post_adjoint():
         shutil.move(fid, dst)
 
     # move output_solver to storage with new tag
+    output_solver = os.path.join(output, "output_solver.txt")
     output_solver_new = os.path.join(event_storage, "output_solver_adjoint.txt")
     if os.path.exists(output_solver):
         print("moving output_solver.txt to storage")
         shutil.move(output_solver, output_solver_new)
 
-    # proc*_save_forward_arrays.bin and proc*_absorb_field.bin files
-    # TO DO: move kernels and remove symlinks to forward saves
+    # remove sylinks to the proc*_save_forward_arrays.bin and
+    # proc*_absorb_field.bin files that were symlinked by build_adjoint()
     for quantity in ["proc*_save_forward_arrays.bin", "proc*_absorb_field.bin"]:
         i = 0
         print("removing {} symlinks".format(quantity), end="...")
@@ -428,6 +453,7 @@ def post_adjoint():
                 i += 1
         print("{} symlinks removed".format(i))
 
+    # move the output kernels of the adjoint simulation to storage
     print("moving kernels to storage", end="...")
     i = 0
     for fid in glob.glob(os.path.join(drc["local_path"], "*kernel.bin")):
@@ -436,7 +462,7 @@ def post_adjoint():
         i += 1
     print("{} files moved".format(i))
     
-    # remove adjointrun.sh script
+    # remove adjointrun.sh script to signal a post adjoint state
     adjoint_run = os.path.join(drc["runfolder"], "adjointrun.sh")
     if os.path.exists(adjoint_run):
         print("removing adjoint runscript")
@@ -447,88 +473,87 @@ def post_adjoint():
 
 def precondition_sum():
     """
-    Working
     Summing kernels requires a few folders and symlinks to be set up beforehand
-    To be run in the master folder 
-    TO DO
-    kernels_list.txt is listed in constants_tomography.h, dynamically get?
-    :return:
+    To be run in the master folder
     """
     import shutil
 
-
     def symlink_kernels_to_master():
-        """because the work is split onto different run folders, we need to 
-           collect the input kernels for summation afterwards. Assumes that 
-           slave folders are located one directory up from the master
+        """
+        Because the work is split onto different run folders, we need to
+        collect the input kernels for summation afterwards. Assumes that
+        slave folders are located one directory up from the master
         """
         # set the master paths
         drc_master = directories()
         input_kernels = os.path.join(drc_master["runfolder"], "INPUT_KERNELS")
-        kernels_list = os.path.join(drc_master["runfolder"], "kernels_list.txt")
-        
+
         # move into each run folder
         os.chdir("..")
         folders = glob.glob("*")
         folders.sort()
         event_ids = []
         for folder in folders:
+            # check to make sure that we are actually looking at a run folder
             folder_check = os.path.exists(os.path.join(folder, "AUTHORS"))
             if os.path.isdir(folder) and folder_check:
                 os.chdir(folder)
                 # currently in a run folder
                 drc = directories()
                 storage = os.path.join(drc["output_files"], "STORAGE")
+
                 # assume that only events we want to use are stored in storage
                 # test cases and failed runs should be placed in cold storage
                 events = glob.glob(os.path.join(storage, "*"))
                 for event in events:
                     event_id = os.path.basename(event)
                     kernels = glob.glob(os.path.join(event, "*kernel.bin"))
-                    # make directory in the INPUT_KERNELS master IFF: there are                      # kernels in the storage directory, AND doesn't already
+
+                    # make directory in the INPUT_KERNELS master IFF there are
+                    # kernels in the storage directory, AND doesn't already
                     # exist a folder in the INPUT_KERNELS directory
                     if bool(len(kernels)):
                         input_kernel_event = os.path.join(
                                                         input_kernels, event_id)
                         if not os.path.exists(input_kernel_event):
                             print("symlinking kernels from {dir}/{id}".format(
-                                     dir=os.path.basename(folder), id=event_id), 
-                                     end="... ")
+                                dir=os.path.basename(folder), id=event_id),
+                                end="... ")
                             os.mkdir(input_kernel_event)
                             i = 0
                             for kernel in kernels:
-                                kernel_sym = os.path.join(input_kernel_event, 
-                                                      os.path.basename(kernel))
+                                kernel_sym = os.path.join(
+                                    input_kernel_event, os.path.basename(kernel)
+                                )
                                 os.symlink(kernel, kernel_sym)
                                 i += 1
                             print("{} kernels symlinked".format(i))
                             event_ids.append(event_id)
                         else:
                             print("dir exists for {}, skipping...".format(
-                                                                      event_id))
-            
+                                event_id)
+                            )
                 # return to run folder holding directory
                 os.chdir("..")
-        
-                    
+
     # in the master directory, symlink from other run folder
     drc = directories()
     input_kernels = os.path.join(drc["runfolder"], "INPUT_KERNELS")
-    storage = os.path.join(drc["output_files"], "STORAGE")
     kernels_list = os.path.join(drc["runfolder"], "kernels_list.txt")
     output_sum = os.path.join(drc["runfolder"], "OUTPUT_SUM")
 
-    # check-make directories, or if directories exist, flush
     # flush the files from the INPUT_KERNEL directory, or make new
     if not os.path.exists(input_kernels):
         os.mkdir(input_kernels)
     else:
-        # flush the existing input kernels, ASSUMING THEY ARE FILLED WITH 
-        # SYMLINKS. DO NOT PUT REAL FILES IN THIS DIRECTORY
+        # flush the existing input kernels,
+        # ASSUMING THEY ARE FILLED WITH SYMLINKS.
+        # DO NOT PUT REAL FILES IN THIS DIRECTORY
         input_kernel_events = glob.glob(os.path.join(input_kernels, "*"))
         for input_kernel_event in input_kernel_events:
             print("removing {}".format(input_kernel_event))
             shutil.rmtree(input_kernel_event)
+
     # make a new OUTPUT_SUM/ directory, or flush the existing
     if not os.path.exists(output_sum):
         os.mkdir(output_sum)
@@ -560,10 +585,7 @@ def model_update():
     Specfem's xmodel_update requires a few directories to be made in the 
     OUTPUT_FILES/ directory, and to have summed and smoothed kernels located
     in some input_kernels directory. Attenuation must also be turned off
-    in the par_file
-    TO DO
-    move mode_update pathnames into dynamic filenames and call from here and post
-    :return:
+    in the Par_file
     """
     drc = directories()
     output_sum = os.path.join(drc["runfolder"], "OUTPUT_SUM")
@@ -589,7 +611,7 @@ def model_update():
             drctry = strip_markers(line.strip().split()[-1])
             output_statistics_dir = os.path.join(drc["output_files"], drctry)
     
-    # make directories if they don't exit
+    # make the above named directories if they don't exit
     for drctry in [input_kernels_dir, local_path_new, output_statistics_dir]: 
         if not os.path.exists(drctry):
             os.mkdir(drctry)
@@ -616,9 +638,6 @@ def post_model_update():
     After a model update, we need to clean the run folder for the next forward
     simulations, and make sure the old outputs aren't overwritten by the next
     swath of simulations
-    TO DO:
-    check-stop if M00_OUTPUT_FILES exists, otherwise you start making edits to 
-    the new output_files directory
     """ 
     import shutil
     drc = dynamic_filenames()
@@ -634,7 +653,7 @@ def post_model_update():
         sfile_new = os.path.join(slurm, os.path.basename(sfile))
         shutil.move(sfile, sfile_new)
    
-    # change the name of OUTPUT_FILES/ if M00_OUTPUT_FILES doesn't exist
+    # change the name of OUTPUT_FILES, if M00_OUTPUT_FILES doesn't exist
     # if it exists, assume that this has already been run and continue
     old_output_files = os.path.join(drc["runfolder"], "M00_OUTPUT_FILES")
     if not os.path.exists(old_output_files):
@@ -655,18 +674,18 @@ def post_model_update():
         if query != "y":
             sys.exit()
     
-    # create new local path
+    # create new local_path in output_files
     print("creating new local_path")
-    old_local_path = os.path.join(old_output_files, 
-                                  os.path.basename(drc["local_path"])
-                                 )
+    old_local_path = os.path.join(
+        old_output_files, os.path.basename(drc["local_path"])
+    )
     local_path = drc["local_path"]
     try:
         os.mkdir(local_path)
     except OSError:
         pass
     
-    # mv attenuation.bin, Database files
+    # mv relevant mesh files from old local_path to new local_path
     print("copying *attenuation, *Database, and q* files to new local_path")
     for tag in ["*attenuation.bin", "*Database", "*qkappa.bin", "*qmu.bin"]:
         fids = glob.glob(os.path.join(old_local_path, tag))
@@ -674,8 +693,7 @@ def post_model_update():
             new_fid = os.path.join(local_path, os.path.basename(fid))
             shutil.copyfile(fid, new_fid)
     
-    # mv and rename vp_new.bin, vs_new.bin and rho_new.bin files
-    # !!! TO DO remove the hardcoded mesh_files_m01 here
+    # mv vp_new.bin, vs_new.bin and rho_new.bin files to new local_path
     print("moving and renaming mesh files to new local_path")
     mesh_files = os.path.join(old_output_files, "mesh_files_m01")
     for tag in ["*vp_new.bin", "*vs_new.bin", "*rho_new.bin"]:
@@ -720,6 +738,10 @@ def status_check():
     def read_par_file(fid):
         """similar to edit par_file except only read in the choices and return
         a status pertaining to the par file
+        :type fid: str
+        :param fid: file id of Par_file
+        :rtype: str
+        :return: forward, adjoint or update
         """
         lines = open(fid, "r").readlines()
 
@@ -741,12 +763,14 @@ def status_check():
             status = None
 
         return status
-   
+
+    # pretty print some dividers and a title for status check
     title= "{:>15} {:>15} {:>18} {:>18}".format(
                                        "FOLDER", "EVENT ID", "STATUS", "QUEUE")
     print("{}\n{}\n{}".format("="*len(title), title, "="*len(title)))
     folders = glob.glob("*")
     folders.sort()
+
     # check statuses for each run folder in the parent directory
     for folder in folders:
         folder_check = os.path.exists(os.path.join(folder, "AUTHORS"))
@@ -756,7 +780,8 @@ def status_check():
             # set up information to use for checks
             drc = directories()
             event_id = event_id_from_cmt(
-                os.path.join(drc["data"], "CMTSOLUTION"))
+                os.path.join(drc["data"], "CMTSOLUTION")
+            )
             gen_status = read_par_file(os.path.join(drc["data"], "Par_file"))
 
             # check files to show where the status is
@@ -790,7 +815,7 @@ def status_check():
                     status = "pre {}".format(gen_status)
                     queue = "run {}".format(gen_status)
                 else:
-                    # change the queue message depending on post fwd or adj
+                    # change the queue message depending on post fwd, adj or upd
                     if gen_status == "forward":
                         queue = "build adjoint" 
                     elif gen_status == "adjoint":
@@ -798,7 +823,8 @@ def status_check():
                     elif gen_status == "update":
                         queue = "-"
                     status = "post {}".format(gen_status)
-                     
+
+            # print status per run folder
             print("{rf:>15} {id:>15} {sts:>18} {qu:>18}".format(
                                 rf=folder, id=event_id, sts=status, qu=queue))
             os.chdir("..")
