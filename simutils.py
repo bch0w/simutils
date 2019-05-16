@@ -168,7 +168,7 @@ def build_forward(event_id):
     fid_in = os.path.join(
         drc["primer"], "simutils", "run_templates", "forward_simulation.sh"
     )
-    fid_out = os.path.join(drc["runfolder"], "forwardrun.h".format(event_id))
+    fid_out = os.path.join(drc["runfolder"], "forwardrun.sh".format(event_id))
     if os.path.exists(fid_out):
         os.remove(fid_out)
 

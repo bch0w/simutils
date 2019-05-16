@@ -5,14 +5,15 @@
 #SBATCH --ntasks=144
 #SBATCH --cpus-per-task=1
 #SBATCH --account=nesi00263
+#SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 1:15:00
+#SBATCH --time 1:00:00
 
 # EXAMPLE CALL:
 # sbatch simutils/run_templates/smooth_kernel.sh 2018p130600 hess_kernel
 # default time was 55 minutes but this timed out for a few kernel smooths so
-# time was bumped up to 1:30
+# time was bumped up to 1:30 for 5000x1000 smoothing
 
 EVENT_ID=$1
 if [ -z "$1" ]
@@ -30,7 +31,7 @@ fi
 echo "`date`"
 
 
-SGMAH=5000.
+SGMAH=2500.
 SGMAV=1000.
 DIR_IN="INPUT_KERNELS/${EVENT_ID}"
 
