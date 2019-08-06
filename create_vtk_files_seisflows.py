@@ -63,7 +63,9 @@ if method == "build":
                 "#SBATCH --hint=nomultithread\n"
                 "#SBATCH --output=sum.log\n"
                 "#SBATCH --time=0:05:00\n")
-
+        
+        f.write('echo "starting at `date`"\n')
+        
         # Get the proc values, assuming its the same for model and kernels
         test_kernel = glob.glob(glob_kernels)[0]
         procs = glob.glob(os.path.join(test_kernel, "*vs_kernel.bin"))
@@ -119,5 +121,6 @@ if method == "build":
                 to_write = (f"srun -n 1 {combine_bin} {proc_a} {proc_z} " + 
                             f"{model_id} {sem_insum} {sem_outsum} 0\n")
                 f.write(to_write)
+        
 
-
+        f.write('echo "finished at `date`"\n')
