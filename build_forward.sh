@@ -16,7 +16,7 @@ RUNFOLDER=`pwd -P`
 TOMO=/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow
 PRIMER=${TOMO}/primer
 STORAGE=${RUNFOLDER}/OUTPUT_FILES/${EVENT_ID}
-CMTSOLUTION=${PRIMER}/cmtsolution_files/${EVENT_ID}CMTSOLUTION
+CMTSOLUTION=${PRIMER}/cmtsolution_files/CMTSOLUTION_${EVENT_ID}
 TEMPLATE=${PRIMER}/simutils/run_templates/forward_simulation.sh
 
 # ECHO CHECK

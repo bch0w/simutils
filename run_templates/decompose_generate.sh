@@ -4,11 +4,16 @@
 #SBATCH --nodes=4
 #SBATCH --ntasks=144
 #SBATCH --cpus-per-task=1
+#SBATCH --clusters=maui
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 00:08:00
+#SBATCH --time=00:15:00
+#SBATCH --output=decompose_generate.log
 
+
+# for nz_north tomo files, 8 minute gen db
+# for nz_x1200_y600, 12 minute gen db
 echo "decomposing mesh and generating databases: `date`"
 currentdir=`pwd`
 

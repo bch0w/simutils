@@ -8,34 +8,28 @@
 #SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time 1:00:00
+#SBATCH --time=0:55:00
+#SBATCH --output=smooth.log
 
 # EXAMPLE CALL:
 # sbatch simutils/run_templates/smooth_kernel.sh 2018p130600 hess_kernel
 # default time was 55 minutes but this timed out for a few kernel smooths so
 # time was bumped up to 1:30 for 5000x1000 smoothing
 
-EVENT_ID=$1
+KERNEL=$1
 if [ -z "$1" ]
 then
-	echo "EVENT ID REQUIRED"
-	exit
-fi
-KERNEL=$2
-if [ -z "$2" ]
-then
-	echo "KERNEL NEEDS TO BE alpha_kernel, beta_kernel, rho_kernel or hess_kernel"
+	echo "KERNEL NEEDS TO BE *_kernel"
 	exit
 fi
 
 echo "`date`"
 
+SGMAH=40000.
+SGMAV=8000.
+DIR_IN="INPUT_SMOOTH/"
 
-SGMAH=2500.
-SGMAV=1000.
-DIR_IN="INPUT_KERNELS/${EVENT_ID}"
-
-echo "smoothing ${KERNEL} for ${EVENT_ID} w/ sigma_h=${SGMAH}, sigma_v=${SGMAV}"
+echo "smoothing ${KERNEL} w/ sigma_h=${SGMAH}, sigma_v=${SGMAV}"
 echo
 currentdir=`pwd`
 
