@@ -15,14 +15,16 @@ except IndexError:
     method = None
 
 # Set user parameters
-sf_dir = "eightevent_87a78d"
+sf_dir = "twoevent_6895e2f7"
 kernels = ["vs_kernel"]
 models = ["vs"]
 
 # Can set these paths if they change
 basepath = "/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/tomo/"
 seisflows = os.path.join(basepath, "seisflows", "checkerboard", sf_dir)
-specfem = os.path.join(basepath, "specfem_87a78d_CrayCCE-19.04")
+# specfem = os.path.join(basepath, "specfem_87a78d_CrayCCE-19.04")
+specfem = os.path.join(basepath, "specfem_6895e2f7_GNU-7.1.0")
+
 
 output_script = os.path.join(specfem, 'run_temp_xcombine_vol_data_vtk.sh')
 
@@ -42,6 +44,7 @@ combine_bin = "./bin/xcombine_vol_data_vtk"
 # Set paths to kernels and models
 glob_kernels = os.path.join(seisflows, "output", "kernels_????")
 glob_models = os.path.join(seisflows, "output", "model_????")
+pyatoa_vtk_dir = os.path.join(seisflows, "pyatoa.io", "figures", "vtks")
 
 # Remove any old symlinks left in the INPUT_SUM folder
 for fid in glob.glob(os.path.join(input_sum, '*.bin')):
@@ -123,6 +126,8 @@ if method == "build":
                 to_write = (f"srun -n 1 {combine_bin} {proc_a} {proc_z} " + 
                             f"{model_id} {sem_insum} {sem_outsum} 0\n")
                 f.write(to_write)
-        
+
+        # Bash command to move the written files to pyatoa.io
+        f.write(f"mv {output_sum}/* {pyatoa_vtk_dir}/\n")
 
         f.write('echo "finished at `date`"\n')
