@@ -9,8 +9,7 @@
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
 #SBATCH --time=00:02:00
-#SBATCH --output=decompose_mesh.log
-
+#SBATCH --output=decompose_mesh_%j.out
 
 # for nz_north tomo files, 8 minute gen db
 # for nz_x1200_y600, 12 minute gen db

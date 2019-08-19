@@ -9,7 +9,7 @@
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
 #SBATCH --time=01:30:00
-#SBATCH --output=smooth.log
+#SBATCH --output=smooth_sem_%j.out
 
 KERNEL="vs"
 

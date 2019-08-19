@@ -8,7 +8,7 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --time=00:15:00
-#SBATCH --output=generate_databases.log
+#SBATCH --output=generate_databases_%j.out
 
 
 # for nz_north tomo files, 8 minute gen db
@@ -26,7 +26,7 @@ mkdir -p $BASEMPIDIR
 echo
 echo "  running database generation on $NPROC processors..."
 echo
-srun -n $NPROC ./bin/xgenerate_databases_bryant
+time srun -n $NPROC ./bin/xgenerate_databases_bryant
 
 # checks exit code
 if [[ $? -ne 0 ]]; then exit 1; fi

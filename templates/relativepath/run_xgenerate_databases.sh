@@ -9,7 +9,7 @@
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
 #SBATCH --time=00:15:00
-#SBATCH --output=generate_databases.log
+#SBATCH --output=generate_databases_%j.out
 
 
 # for nz_north tomo files, 8 minute gen db

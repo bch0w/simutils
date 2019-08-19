@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-#SBATCH --job-name=xspecfem3d
+#SBATCH --job-name=xspecfem3D
 #SBATCH --nodes=4
 #SBATCH --ntasks=144
 #SBATCH --cpus-per-task=1
@@ -8,7 +8,7 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --time 00:10:00
-#SBATCH --output=simulation.log
+#SBATCH --output=specfem3D_%j.out
 
 echo "running simulation: `date`"
 currentdir=`pwd`

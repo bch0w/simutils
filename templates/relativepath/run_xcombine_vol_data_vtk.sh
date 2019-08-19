@@ -9,7 +9,7 @@
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
 #SBATCH --time=0:00:30
-#SBATCH --output=sum.log
+#SBATCH --output=xcombine_vol_data_vtk_%j.out
 
 # EXAMPLE CALL sbatch combine_vol_data_vtk 2018p130600 beta_kernel_smooth
 # TO DO add NPROC figure outer here

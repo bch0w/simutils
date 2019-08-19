@@ -1,0 +1,41 @@
+# SEISFLOWS
+#export PATH=$PATH:/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/tests/seisflows_test/seisflows/scripts
+#export PYTHONPATH=/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/tests/seisflows_test/seisflows
+
+# TERMINAL UPDATES
+export CLICOLOR=1
+export LSCOLORS=CxFxBxDxExegedabagacad
+
+alias ls='ls --color -F'
+alias ll='ls -FGAhplt'
+alias lk='ls -FGAhp'
+alias lr='ls -lrt'
+cd() { builtin cd "$@"; lk; }
+alias c='clear'
+alias hg='history | grep'
+alias mkdir='mkdir -p'
+alias rmdir='rmdir -p'
+alias ..='cd ../'                               # Move up 1 dir.
+alias ...='cd ../../'                           # Move up 2 dir.
+alias .3='cd ../../../'                         # Move up 3 dir.
+alias .4='cd ../../../../'                      # Move up 4 dir.
+
+# CONVENIENCE FUNCTIONS
+alias CONFIGURE='./configure FC=ftn CC=cc CXX=CC MPIFC=ftn MPICC=cc MPICXX=CC --with-mpi'
+alias cdpya='cd /nesi/project/nesi00263/PyPackages/pyatoa'
+
+# SLURM FUNCTION
+export SACCT_FORMAT="JobID,JobName,Elapsed,AveCPU,MinCPU,TotalCPU,Alloc%2,NTask%2,MaxRSS,State"
+alias sq='squeue --account=gns02750,nesi00263 --clusters=maui,maui_ancil'
+alias core_usage='nn_corehour_usage -f nesi00263'
+alias scancel='scancel --cluster=maui,maui_ancil'
+alias sacct='sacct --clusters=maui,maui_ancil'
+
+# SSH ALIAS (config doesn't work)
+alias ancil='ssh w-mauivlab01.maui.nesi.org.nz'
+alias ssh_chinook='ssh ykaneko1_ua@chinook00.alaska.edu'
+alias sftp_chinook='sftp ykaneko1_ua@chinook00.alaska.edu'
+
+# CONDA ENVIRONMENTS (for maui_ancil only)
+alias tomo='source activate tomo'
+alias seisflows='source activate seisflows'

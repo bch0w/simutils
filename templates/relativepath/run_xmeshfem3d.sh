@@ -8,7 +8,7 @@
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
 #SBATCH --time=00:05:00
-#SBATCH --output=meshfem3D.log
+#SBATCH --output=meshfem3D_%j.out
 
 
 BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
