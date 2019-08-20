@@ -8,26 +8,31 @@
 #SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time=01:30:00
+#SBATCH --time=00:30:00
 #SBATCH --output=smooth_sem_%j.out
 
+# Kernel to smooth and smoothing parameters must be specified by user
 KERNEL="vs"
-
-NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
-
-echo "`date`"
-
 SGMAH=40000.
 SGMAV=1000.
 DIR_IN="SMOOTH/"
+DIR_OUT=${DIR_IN}
+USE_GPU=".false"
 
-echo "smoothing ${KERNEL} w/ sigma_h=${SGMAH}, sigma_v=${SGMAV}"
+# Get the number of processors from Par_file, ignore comments
+NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
+
+echo "xsmooth_sem ${KERNEL} w/ sigma_h=${SGMAH}, sigma_v=${SGMAV}"
+echo "${NPROC} processors, GPU option: ${USE_GPU}"
 echo
-currentdir=`pwd`
-
+echo "`date`"
 # EXAMPLE CALL:
-# srun -n NPROC ./bin/xmooth_sem SIGMA_H SIGMA_V KERNEL_NAME INPUT_DIR OUTPUT_DIR USE_GPU
-srun -n $NPROC ./bin/xsmooth_sem ${SGMAH} ${SGMAV} ${KERNEL} ${DIR_IN} ${DIR_IN} .false
+# srun -n NPROC xmooth_sem SIGMA_H SIGMA_V KERNEL_NAME INPUT_DIR OUTPUT_DIR USE_GPU
+time srun -n ${NPROC} ./bin/xsmooth_sem ${SGMAH} ${SGMAV} ${KERNEL} ${DIR_IN} ${DIR_OUT} ${USE_GPU}
+
+# checks exit code
+if [[ $? -ne 0 ]]; then exit 1; fi
 
 echo
-echo "done `date`"
+echo "finished at: `date`"
+

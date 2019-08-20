@@ -27,6 +27,7 @@ fi
 
 # Dynamically get the number of processors from the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
+NPROC_START=0
 NPROC_END=`expr $NPROC - 1`
 
 # Set the paths for Specfem to search
@@ -38,10 +39,10 @@ DIR_OUT=${DIR_IN}
 
 # Run the Exectuable
 echo ${COMPILER}
-echo "xcombine_vol_data_vtk"
+echo "xcombine_vol_data_vtk ${NPROC_START} ${NPROC_END} for ${QUANTITY}"
 echo
 echo "`date`"
-srun -n 1 xcombine_vol_data_vtk 0 ${NPROC_END} ${QUANTITY} ${DIR_IN}/ ${DIR_OUT}/ 0
+srun -n 1 xcombine_vol_data_vtk ${NPROC_START} ${NPROC_END} ${QUANTITY} ${DIR_IN}/ ${DIR_OUT}/ 0
 echo
 echo "finished at: `date`"
 

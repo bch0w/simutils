@@ -8,3 +8,4 @@ module switch gcc/8.3.0 gcc/7.1.0 # gcc 7.1.0 required for skylake
 module load craype-x86-skylake # skylake processor
 module list
 echo modules loaded GNU, gcc-7.1.0, craype-x86-skylake
+export PS1="[maui_GNU-7.1.0] \u@\h [\W] $ "
