@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xdecompose_mesh
-#SBATCH --nodes=4
-#SBATCH --ntasks=144
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
 #SBATCH --account=nesi00263

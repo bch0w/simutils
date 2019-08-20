@@ -12,8 +12,10 @@
 
 # Set the compiler option
 COMPILER=SPECFEM3D/20190730-CrayCCE-19.04
-# COMPILER=SPECFEM3D/20190730-CrayGNU-19.04
-# COMPILER=SPECFEM3D/20190730-CrayIntel-19.04
+COMPILER=SPECFEM3D/20190730-CrayGNU-19.04
+COMPILER=SPECFEM3D/20190730-CrayIntel-19.04
+
+module load ${COMPILER}
 
 # get the number of processors, ignoring comments in the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
