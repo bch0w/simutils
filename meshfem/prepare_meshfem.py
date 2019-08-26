@@ -293,7 +293,7 @@ def write_interfaces(template, layers, interfaces, lat_min, lon_min, fids=[]):
         # Skip top interface (topography)
         print(f"\twriting {fid}")
         with open(os.path.join(base, fid), "w") as f:
-            for i in range(5):
+            for i in range(4):
                 f.write("-{}\n".format(abs(int(interface * 1E3))))
 
 

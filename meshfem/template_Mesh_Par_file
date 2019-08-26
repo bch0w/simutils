@@ -9,7 +9,7 @@ LATITUDE_MIN                    = {lat_min:.1f}d0
 LATITUDE_MAX                    = {lat_max:.1f}d0
 LONGITUDE_MIN                   = {lon_min:.1f}d0
 LONGITUDE_MAX                   = {lon_max:.1f}d0
-DEPTH_BLOCK_KM                  = {depth:.1f}.d0
+DEPTH_BLOCK_KM                  = {depth:.1f}d0
 UTM_PROJECTION_ZONE             = {utm_projection}
 SUPPRESS_UTM_PROJECTION         = .false.
 
