@@ -1,19 +1,24 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xsmooth_sem
-#SBATCH --nodes=2
-#SBATCH --ntasks=40
-#SBATCH --cpus-per-task=2
+#SBATCH --nodes=4
+#SBATCH --ntasks=144
+#SBATCH --cpus-per-task=1
 #SBATCH --account=nesi00263
 #SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time=01:30:00
+#SBATCH --time=00:30:00
 #SBATCH --output=smooth_sem_%j.out
+
+# Set options to enable OpenMP/MPI Hybryd
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export OMP_PROC_BIND=true
+export OMP_PLACES=cores
 
 # Kernel to smooth and smoothing parameters must be specified by user
 KERNEL="vs"
-SGMAH=20000.
+SGMAH=40000.
 SGMAV=1000.
 DIR_IN="SMOOTH/"
 DIR_OUT=${DIR_IN}

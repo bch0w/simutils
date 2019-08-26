@@ -1,15 +1,13 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xsmooth_sem
-#SBATCH --nodes=2
-#SBATCH --ntasks=40
-#SBATCH --cpus-per-task=2
 #SBATCH --account=nesi00263
-#SBATCH --clusters=maui
-#SBATCH --partition=nesi_research
+#SBATCH --cluster=mahuika
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
 #SBATCH --hint=nomultithread
 #SBATCH --time=01:30:00
-#SBATCH --output=smooth_sem_%j.out
+#SBATCH --output=smooth_sem_gpu_%j.out
 
 # Kernel to smooth and smoothing parameters must be specified by user
 KERNEL="vs"
@@ -17,7 +15,7 @@ SGMAH=20000.
 SGMAV=1000.
 DIR_IN="SMOOTH/"
 DIR_OUT=${DIR_IN}
-USE_GPU=".false"
+USE_GPU=".true"
 
 # Get the number of processors from Par_file, ignore comments
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`

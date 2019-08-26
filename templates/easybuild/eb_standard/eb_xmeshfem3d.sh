@@ -28,6 +28,6 @@ echo ${COMPILER}
 echo "xmeshfem3D on ${NPROC} processors"
 echo
 echo "`date`"
-srun -n ${NPROC} xmeshfem3D
+time srun -n ${NPROC} xmeshfem3D
 echo
 echo "finished at: `date`"
