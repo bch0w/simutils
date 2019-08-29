@@ -1,13 +1,13 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xgenerate_databases
-#SBATCH --nodes=2
-#SBATCH --ntasks=88
+#SBATCH --nodes=4
+#SBATCH --ntasks=160
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
-#SBATCH --time=00:10:00
+#SBATCH --time=00:20:00
 #SBATCH --output=generate_databases_%j.out
 
 # get the number of processors, ignoring comments in the Par_file

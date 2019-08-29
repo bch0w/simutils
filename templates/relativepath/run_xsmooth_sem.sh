@@ -1,9 +1,9 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xsmooth_sem
-#SBATCH --nodes=2
-#SBATCH --ntasks=40
-#SBATCH --cpus-per-task=2
+#SBATCH --nodes=4
+#SBATCH --ntasks=160
+#SBATCH --cpus-per-task=1
 #SBATCH --account=nesi00263
 #SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
