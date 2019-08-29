@@ -24,16 +24,23 @@ def set_parameters():
                   "lon_max": 179.,
                   "utm_projection": -60,
                   "mesh_depth_km": 400.,
-                  "ndoublings": 2,
-                  "interfaces": [8, 36],
+                  "interfaces": [8, 36, 100, 200],
                   "interface_fids": ["interface_crustshallow.dat",
-                                     "interface_moho.dat"],
+                                     "interface_moho.dat",
+                                     "interface_100km.dat",
+                                     "interface_200km.dat"],
+                  "mantle_from_interface_idx": 2,
                   "nproc": 1,
                   "shortest_period_s": 10,
                   "vs_min_km_per_s": 1.,
                   }
 
-    assert(parameters["ndoublings"] == len(parameters["interfaces"]))
+    parameters["ndoublings"] = len(parameters["interfaces"])
+
+    # Make sure there are enough fids for each interface, or that none specified
+    assert((len(parameters["interface_fids"]) == 0) or
+           (len(parameters["interfaces"]) == len(parameters["interface_fids"]))
+           )
 
     # Convert latlon to UTM
     x_min, y_min = lonlat_utm(parameters["lon_min"], parameters["lat_min"],
@@ -149,8 +156,8 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
     # Minimum element number set by Eq. 3.1 in Specfem manual
     assert(nex_x >= 2 * 288 / shortest_period_s)
 
-    dx =  x_length / nex_x
-    dy =  y_length / nex_y
+    dx = x_length / nex_x
+    dy = y_length / nex_y
 
     print(f"\tNEX_X = {nex_x}\n\tNEX_Y = {nex_y}\n"
           f"\tdx = {dx:.2f}km\n\tdy = {dy:.2f}km"
@@ -188,15 +195,19 @@ def vertical_doubling_proportions(depth, ndoublings, interfaces, grid_space):
 
     print("\t{nlay} sections; bottom to top {layers} elements per layer".format(
         nlay=len(layers), layers=layers))
+    print("\t{} total layers".format(sum(layers)))
 
     return layers
 
 
 def write_mesh_par_file(template, lat_min, lat_max, lon_min, lon_max,
-                       depth, utm_projection, nex_x, nex_y, nproc_x, nproc_y,
-                       ndoublings, layers):
+                        depth, utm_projection, nex_x, nex_y, nproc_x, nproc_y,
+                        ndoublings, layers, mantle_from=None):
     """
     Write the Mesh_Par_file with the given values and a template script
+
+    TO DO:
+        add the capability to dynamically set the number of doubling layers
 
     :type template: str
     :param template: fid of the Mesh_Par_file template, preformatted
@@ -213,9 +224,23 @@ def write_mesh_par_file(template, lat_min, lat_max, lon_min, lon_max,
     :param ndoublings: number of doubling layers
     :type layers: list
     :param layers: number of elements in each layer
+    :type mantle_from: int
+    :param mantle_from: if given, sets the index of the mantle layer, allowing
+        for internal interfaces/doubling layers within the mantle, but not
+        changing the number of regions or materials
     """
     with open(template, "r") as f:
         lines = f.read()
+
+    # Allows the mantle to contain interfaces/doubling layers, but still retain
+    # the same region/material id within. The nz_3b is a hack to pick the right
+    # end layer, but this is hardcoded to only have 3 layers, should be changed
+    if mantle_from:
+        nmaterials = nregions = mantle_from + 1
+        nz_3b = sum(layers)
+    else:
+        nmaterials = nregions = ndoublings + 1
+        nz_3b = sum(layers[:3])
 
     lines = lines.format(lat_min=lat_min, lat_max=lat_max, lon_min=lon_min,
                          lon_max=lon_max, depth=depth,
@@ -224,14 +249,21 @@ def write_mesh_par_file(template, lat_min, lat_max, lon_min, lon_max,
                          nproc_eta=nproc_y, ndoublings=ndoublings,
                          nz_doubling_1=sum(layers[:1]),
                          nz_doubling_2=sum(layers[:2]),
-                         nmaterials=ndoublings+1, nregions=ndoublings+1,
+                         nmaterials=nmaterials, nregions=nregions,
                          nz_1a=1,
                          nz_1b=sum(layers[:1]),
                          nz_2a=sum(layers[:1]) + 1,
                          nz_2b=sum(layers[:2]),
                          nz_3a=sum(layers[:2]) + 1,
-                         nz_3b=sum(layers[:3]),
+                         nz_3b=nz_3b,
                          )
+
+    # Hacky way to incorporate different doubling layers
+    print("\n!!! You must add the following to the Mesh_Par_file !!!")
+    for i, layer in enumerate(layers[:-1]):
+        j = i + 1
+        print('NZ_DOUBLING_{}\t\t\t\t\t= {}'.format(j, sum(layers[:j])))
+    print("!!! You must add the following to the Mesh_Par_file !!!\n")
 
     # Put the outputs into a directory for easy transfer
     base = './meshfem3D_files'
@@ -261,33 +293,38 @@ def write_interfaces(template, layers, interfaces, lat_min, lon_min, fids=[]):
         excluding topography and the bottom of the mesh. If left blank, defaults
         to 1, 2 ... until the number of layers
     """
-    # Set the names of the interface files
-    if not fids:
-        fids = []
-        for i in range(1, len(layers)):
-            fids.append("interface_{}.dat".format(i))
-
-    with open(template, "r") as f:
-        lines = f.read()
-
-    # Format the file, interface numbering starts from the bottom, i.e.
-    # interface1 is the first from the bottom
-    lines = lines.format(number_interfaces=len(layers), lat_min=lat_min,
-                         lon_min=lon_min, interface1_fid=fids[-1],
-                         interface2_fid=fids[-2], nz_1=layers[0],
-                         nz_2=layers[1], nz_3=layers[2]
-                         )
-
-
     # Put the outputs into a directory for easy transfer
     base = './meshfem3D_files'
     if not os.path.exists(base):
         os.makedirs(base)
 
+    # Template for setting a flat layer
+    flat_layer = f" .false. 2 2 {lon_min:.1f} {lat_min:.1f} 180.d0 180.d0\n"
+    topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0\n"
+
+    # Write interfaces from bottom to top
+    interfaces_reverse = interfaces.copy()
+    interfaces_reverse.sort(reverse=True)
+
     # Write to a new file
     print("\twriting interfaces.dat")
     with open(os.path.join(base, "interfaces.dat"), "w") as f:
-        f.write(lines)
+        f.write("# number of interfaces\n")
+        f.write(" {ndoublings}\n".format(ndoublings=len(interfaces)))
+
+        # Write flat layers up to topo
+        for i, interface in enumerate(interfaces[:-1]):
+            f.write("# interface number {}\n".format(i+1))
+            f.write(flat_layer)
+
+        # Write topo interface
+        f.write("# interface number {} (topo)\n".format(i+2))
+        f.write(topo)
+
+        # Write number of elements in each layer
+        f.write("# number of spectral elements per layer\n")
+        for j, layer in enumerate(layers):
+            f.write(f" {layer}\n")
 
     # Write the individual interface files
     for fid, interface in zip(fids, interfaces):
@@ -332,7 +369,8 @@ def prepare_meshfem():
                         utm_projection=pars["utm_projection"],
                         nex_x=nex_x, nex_y=nex_y, nproc_x=nproc_x,
                         nproc_y=nproc_y, ndoublings=pars["ndoublings"],
-                        layers=layers
+                        layers=layers,
+                        mantle_from=pars["mantle_from_interface_idx"]
                         )
     write_interfaces(template=interfaces_template, layers=layers,
                      interfaces=pars["interfaces"], lat_min=pars["lat_min"],
