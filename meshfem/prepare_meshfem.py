@@ -162,6 +162,7 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
 def vertical_doubling_proportions(depth, ndoublings, interfaces, grid_space):
     """
     Set the number of vertical doubling layers
+
     :param depth:
     :param ndoublings:
     :param interfaces:
