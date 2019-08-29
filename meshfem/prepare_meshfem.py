@@ -262,7 +262,10 @@ def write_mesh_par_file(template, lat_min, lat_max, lon_min, lon_max,
     print("\n!!! You must add the following to the Mesh_Par_file !!!")
     for i, layer in enumerate(layers[:-1]):
         j = i + 1
-        print('NZ_DOUBLING_{}\t\t\t\t\t= {}'.format(j, sum(layers[:j])))
+        print('NZ_DOUBLING_{j}{space}= {layer}'.format(j=j,
+                                                       space=' '*19,
+                                                       layer=sum(layers[:j]))
+              )
     print("!!! You must add the following to the Mesh_Par_file !!!\n")
 
     # Put the outputs into a directory for easy transfer
