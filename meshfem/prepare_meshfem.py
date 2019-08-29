@@ -28,7 +28,7 @@ def set_parameters():
                   "interfaces": [8, 36],
                   "interface_fids": ["interface_crustshallow.dat",
                                      "interface_moho.dat"],
-                  "nproc": 160,
+                  "nproc": 1,
                   "shortest_period_s": 10,
                   "vs_min_km_per_s": 1.,
                   }

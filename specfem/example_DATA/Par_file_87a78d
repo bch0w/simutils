@@ -23,7 +23,7 @@ UTM_PROJECTION_ZONE             = -60
 SUPPRESS_UTM_PROJECTION         = .false.
 
 # number of MPI processors
-NPROC                           = 144
+NPROC                           = 80
 
 # time step parameters
 NSTEP                           = 3500

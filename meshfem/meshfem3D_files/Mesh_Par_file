@@ -5,11 +5,11 @@
 #-----------------------------------------------------------
 
 # coordinates of mesh block in latitude/longitude and depth in km
-LATITUDE_MIN                    = -43.d0
-LATITUDE_MAX                    = -37.d0
-LONGITUDE_MIN                   = 173.d0
-LONGITUDE_MAX                   = 179.d0
-DEPTH_BLOCK_KM                  = 250.d0
+LATITUDE_MIN                    = -43.0d0
+LATITUDE_MAX                    = -37.0d0
+LONGITUDE_MIN                   = 173.0d0
+LONGITUDE_MAX                   = 179.0d0
+DEPTH_BLOCK_KM                  = 400.0d0
 UTM_PROJECTION_ZONE             = -60
 SUPPRESS_UTM_PROJECTION         = .false.
 
@@ -22,12 +22,12 @@ CAVITY_FILE                     = no_cavity.dat
 # number of elements at the surface along edges of the mesh at the surface
 # (must be 8 * multiple of NPROC below if mesh is not regular and contains mesh doublings)
 # (must be multiple of NPROC below if mesh is regular)
-NEX_XI                          = 64
-NEX_ETA                         = 88
+NEX_XI                          = 128
+NEX_ETA                         = 168
 
 # number of MPI processors along xi and eta (can be different)
-NPROC_XI                        = 8
-NPROC_ETA                       = 11
+NPROC_XI                        = 1
+NPROC_ETA                       = 1
 
 #-----------------------------------------------------------
 #
@@ -41,8 +41,8 @@ USE_REGULAR_MESH                = .false.
 NDOUBLINGS                      = 2
 # NZ_DOUBLING_1 is the parameter to set up if there is only one doubling layer
 # (more doubling entries can be added if needed to match NDOUBLINGS value)
-NZ_DOUBLING_1                   = 6
-NZ_DOUBLING_2                   = 10
+NZ_DOUBLING_1                   = 23
+NZ_DOUBLING_2                   = 27
 
 #-----------------------------------------------------------
 #
@@ -86,6 +86,14 @@ NMATERIALS                      = 3
 2  2800  6700  3870 500.0  0  2
 3  2670  6300  3640 300.0  0  2
 
+# For Specfem3D versions after January 2018, the input format of materials was
+# changed to separate Q into Q_kappa and Q_mu, so a new value has to be added
+# Comment the above lines, and uncomment these lines, if xmeshfem3D complains
+# #material_id  #rho  #vp  #vs  #Q_kappa #Q_mu  #anisotropy_flag #domain_id
+# 1  3000  7800  4500 9999. 1000.0  0  2
+# 2  2800  6700  3870 9999. 500.0  0  2
+# 3  2670  6300  3640 9999. 300.0  0  2
+
 #-----------------------------------------------------------
 #
 # Domain regions
@@ -96,7 +104,7 @@ NMATERIALS                      = 3
 NREGIONS                        = 3
 # define the different regions of the model as :
 #NEX_XI_BEGIN  #NEX_XI_END  #NEX_ETA_BEGIN  #NEX_ETA_END  #NZ_BEGIN #NZ_END  #material_id
-1              64            1               88             1          6      1
-1              64            1               88             7          10      2
-1              64            1               88             11         14     3
+1              128      1              168     1   23   1
+1              128      1              168     24   27   2
+1              128      1              168     28   30   3
 
