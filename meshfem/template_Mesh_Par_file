@@ -82,17 +82,17 @@ NMATERIALS                      = {nmaterials}
 #     Q                : quality factor
 #     anisotropy_flag  : 0=no anisotropy/ 1,2,.. check with implementation in aniso_model.f90
 #     domain_id        : 1=acoustic / 2=elastic
-1  3000  7800  4500 1000.0  0  2
-2  2800  6700  3870 500.0  0  2
-3  2670  6300  3640 300.0  0  2
+# 1  3000  7800  4500 1000.0  0  2
+# 2  2800  6700  3870 500.0  0  2
+# 3  2670  6300  3640 300.0  0  2
 
 # For Specfem3D versions after January 2018, the input format of materials was
 # changed to separate Q into Q_kappa and Q_mu, so a new value has to be added
 # Comment the above lines, and uncomment these lines, if xmeshfem3D complains
 # #material_id  #rho  #vp  #vs  #Q_kappa #Q_mu  #anisotropy_flag #domain_id
-# 1  3000  7800  4500 9999. 1000.0  0  2
-# 2  2800  6700  3870 9999. 500.0  0  2
-# 3  2670  6300  3640 9999. 300.0  0  2
+1  3000  7800  4500 9999. 1000.0  0  2
+2  2800  6700  3870 9999. 500.0  0  2
+3  2670  6300  3640 9999. 300.0  0  2
 
 #-----------------------------------------------------------
 #

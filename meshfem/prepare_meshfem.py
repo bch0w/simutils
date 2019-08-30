@@ -24,13 +24,12 @@ def set_parameters():
                   "lon_max": 179.,
                   "utm_projection": -60,
                   "mesh_depth_km": 400.,
-                  "interfaces": [8, 36, 100, 200],
+                  "interfaces": [8, 36, 200],
                   "interface_fids": ["interface_crustshallow.dat",
                                      "interface_moho.dat",
-                                     "interface_100km.dat",
                                      "interface_200km.dat"],
                   "mantle_from_interface_idx": 2,
-                  "nproc": 1,
+                  "nproc": 160,
                   "shortest_period_s": 10,
                   "vs_min_km_per_s": 1.,
                   }
@@ -302,30 +301,30 @@ def write_interfaces(template, layers, interfaces, lat_min, lon_min, fids=[]):
         os.makedirs(base)
 
     # Template for setting a flat layer
-    flat_layer = f" .false. 2 2 {lon_min:.1f} {lat_min:.1f} 180.d0 180.d0\n"
-    topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0\n"
-
-    # Write interfaces from bottom to top
-    interfaces_reverse = interfaces.copy()
-    interfaces_reverse.sort(reverse=True)
+    flat_layer = f".false. 2 2 {lon_min:.1f}d0 {lat_min:.1f}d0 180.d0 180.d0"
+    # Hardcoded topo layer, CHANGE THIS
+    topo_fid = "interface_topo.dat"
+    topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0"
 
     # Write to a new file
     print("\twriting interfaces.dat")
     with open(os.path.join(base, "interfaces.dat"), "w") as f:
         f.write("# number of interfaces\n")
-        f.write(" {ndoublings}\n".format(ndoublings=len(interfaces)))
+        f.write(" {ninterfaces}\n".format(ninterfaces=len(interfaces) + 1))
 
         # Write flat layers up to topo
-        for i, interface in enumerate(interfaces[:-1]):
+        for i, (interface, fid)  in enumerate(zip(interfaces, reversed(fids))):
             f.write("# interface number {}\n".format(i+1))
-            f.write(flat_layer)
+            f.write(f" {flat_layer}\n")
+            f.write(f" {fid}\n")
 
         # Write topo interface
         f.write("# interface number {} (topo)\n".format(i+2))
-        f.write(topo)
+        f.write(f" {topo}\n")
+        f.write(f" {topo_fid}\n")
 
         # Write number of elements in each layer
-        f.write("# number of spectral elements per layer\n")
+        f.write("# number of spectral elements per layer (from bottom)\n")
         for j, layer in enumerate(layers):
             f.write(f" {layer}\n")
 
