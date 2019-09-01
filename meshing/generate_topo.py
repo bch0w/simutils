@@ -159,7 +159,7 @@ def create_topo_nz_north_utm():
     x_max = 725E3
     y_min = 5150E3
     y_max = 5950E3
-    moho = -33E3
+    moho = -100E3
     spacing_m = 4E3
     utm_projection=-60
 

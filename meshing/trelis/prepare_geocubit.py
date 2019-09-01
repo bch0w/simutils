@@ -22,17 +22,19 @@ def set_parameters():
                   "y_or_lat_max": 5950E3,
                   "utm_projection": -60,
                   "mesh_depth_km": 400.,
-                  "ntriplings": 2,
-                  "interfaces": [8, 33],
+                  "interfaces": [8, 33, 100],
                   "nproc": 40,
                   "shortest_period_s": 10,
                   "vs_min_km_per_s": 1.,
                   "working_dir": "./working_dir",
                   "output_dir": "./output_dir",
-                  "topo_fid": "./topo_utm60_x600_y800_1km.xyz",
-                  "moho_fid": "./moho33_utm60_x600_y800_1km.xyz"
+                  "topo_fid": "./topo_utm60_x600_y800_4km.xyz",
+                  "moho_fid": "./moho33_utm60_x600_y800_4km.xyz"
                   }
-
+    
+    # Set ntriplings
+    parameters["ntriplings"] = len(parameters["interfaces"])
+        
     # Convert latlon to UTM
     if parameters["x_or_lon_min"] < 1E3:
         x_min, y_min = lonlat_utm(parameters["lon_min"], parameters["lat_min"],
