@@ -1,8 +1,15 @@
 """
 A "simple" script to run Geocubit, replaces a bash script that kept breaking
 cause Bash is just a fuckin rock sometimes when I really need a ballpeen hammer.
+
+This can be rewritten to call geocubitlib internally, but that would require
+installing the geocubit package, so for now we call the main geocubit script,
+GEOCUBIT.py from the package directory via subprocess.
 """
 import os
+import sys
+import glob
+import shutil
 import numpy as np
 import subprocess
 
@@ -10,7 +17,7 @@ import subprocess
 myenv = os.environ.copy()
 mypath = myenv["PATH"]
 
-# Set export paths here
+# Set export paths here, no checking so make sure these are correct
 myenv["TRELISHOME"] = "/opt/Trelis-16.1"
 myenv["CUBITLIB"] = "/opt/Trelis-16.1/bin:opt/Trelis-16.1/structure"
 myenv["CUBITDIR"] = "/opt/Trelis-16.1"
@@ -25,17 +32,29 @@ myenv["PYTHONPATH"] = ("/home/bchow/.conda/envs/mesher/bin/python:"
                        )
 
 # Set meshing parameters here
-fid = "test_nz_north_68_3triples"
+fid = "nz_north_68_3triples"
 base = f"/seis/prj/fwi/bchow/tomo/meshing/trelis/new_zealand/{fid}"
 config = f"{base}/{fid}.cfg"
 python2 = "/home/bchow/.conda/envs/mesher/bin/python"
 geocubit = "/seis/prj/fwi/bchow/packages/GEOCUBIT/GEOCUBIT.py"
 
+# Check that all these paths actually exist
+for check_par in [base, config, python2, geocubit]:
+    if not os.path.exists(check_par):
+        sys.exit(f"{check_par}\ndoes not exist")
+
 # Turn on or off the various parts of the meshing process
+run_mesh = False
+run_merge = False
+run_export = False
+make_new_materials_file = False
+clean_dir = False
+
 run_mesh = True
 run_merge = True
 run_export = True
 make_new_materials_file = True
+# clean_dir = True
 
 # Starting workflow here. Get some prerequisite info from the config file
 print(f"{fid}")
@@ -58,6 +77,7 @@ print(f"xi={nproc_xi}, eta={nproc_eta}, nproc={nproc}")
 
 # Set some necessary directory paths
 output_dir = os.path.join(base, output_dir)
+working_dir = os.path.join(base, working_dir)
 export_dir = os.path.join(base, "export_mesh_specfem3d")
 if not os.path.exists(export_dir):
     os.makedirs(export_dir)
@@ -65,12 +85,13 @@ if not os.path.exists(export_dir):
 # Run the mesher based on the number of processors given
 if run_mesh:
     print("running geocubit to mesh")
+    os.chdir(base)
     try:
         # Run these in parallel, redirect stdout to dev null to avoid output
         child_processes = []
         for i in range(nproc):
             if i in [0, nproc-1]:
-                print("submitted meshing process {i}/{nproc}".format(i, nproc-1)
+                print("submitted proc {}/{}".format(i, nproc-1))
 
             mesh = [python2, geocubit, "--build_volume", "--mesh",
                     "--cfg=" + config, "--id_proc=" + f"{i}"]
@@ -93,11 +114,15 @@ if run_mesh:
 if run_merge:
     print("running geocubit to merge")
     os.chdir(output_dir)
+    merge_log = os.path.join(working_dir, "merge.log")
     merge = [python2, geocubit, "--collect", "--merge",
              "--meshfiles=mesh_vol_*.e", "--cpux=" + f"{nproc_xi}",
              "--cpuy=" + f"{nproc_eta}"]
     try:
-        merge_out = subprocess.check_call(merge, env=myenv)
+        merge_out = subprocess.check_call(merge, env=myenv, 
+                                          stdout=open(merge_log, 'w'),
+                                          stderr=open(os.devnull, 'w')
+                                          )
     except CalledProcessError:
         print(merge_out)
         sys.exit("error running merge")
@@ -107,11 +132,15 @@ if run_export:
     print("running geocubit to export")
     os.chdir(output_dir)
     if os.path.exists(os.path.join(output_dir, "TOTALMESH_MERGED.e")):
+        export_log = os.path.join(working_dir, "export.log")
         export = [python2, geocubit, "--export2SPECFEM3D",
                   "--meshfiles=TOTALMESH_MERGED.e"
                   ]
         try:
-            export_out = subprocess.check_call(export, env=myenv)
+            export_out = subprocess.check_call(export, env=myenv, 
+                                               stdout=open(export_log, 'w'),
+                                               stderr=open(os.devnull, 'w')
+                                               )
         except CalledProcessError:
             print(export_out)
             sys.exit("error running export")
@@ -126,7 +155,8 @@ if run_export:
                        "absorbing_surface_file_ymin",
                        "absorbing_surface_file_xmax",
                        "absorbing_surface_file_ymax",
-                       "nummaterial_velocity_file"]:
+                       "nummaterial_velocity_file",
+                       "TOTALMESH_MERGED.e"]:
         src = os.path.join(output_dir, export_qty)
         if os.path.exists(src):
             dst = os.path.join(export_dir, export_qty)
@@ -195,6 +225,16 @@ if make_new_materials_file:
     print("making new materials file")
     make_new_materials_file(export_dir)
 
+if clean_dir:
+    check_user = input(f"Cleaning {base}, are you sure? (y/[n])")
+    if check_user == "y":
+        print(f"cleaning {base}")
+        for tag in ["jou", "log"]:
+            for fid in glob.glob(os.path.join(base, f"*.{tag}")):
+                os.remove(fid)
+        for deldir in [output_dir, working_dir]:
+            if os.path.exists(deldir):
+                shutil.rmtree(deldir)
 
 
 
