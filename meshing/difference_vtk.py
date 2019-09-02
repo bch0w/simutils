@@ -105,7 +105,6 @@ def difference_vtk(model_a, model_b, path="./", reverse=1, write=None):
                     f.write("{:13.5f}    \n".format(float(diff)))
                 else:
                     f.write("{:13.10f}    \n".format(float(diff)))
-            print("\n")
 
     return differences
 
@@ -113,11 +112,12 @@ def difference_vtk(model_a, model_b, path="./", reverse=1, write=None):
 if __name__ == "__main__":
     # Either set the names of the vtk files manually
     base = './'
-    model_a = "vs_model_init.vtk"
-    model_b = "vs_model_0001.vtk"
+    model_a = "model_a"
+    model_b = "model_b"
     
     # Or have them be automatically picked if in a folder of only two vtk files
     dynamic_pick = glob.glob(os.path.join(base, '*.vtk'))
+    dynamic_pick.sort()
     if not os.path.exists(model_a) and (len(dynamic_pick) == 2):
         model_a = os.path.basename(dynamic_pick[0])
         model_b = os.path.basename(dynamic_pick[1])

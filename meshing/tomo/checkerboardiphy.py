@@ -222,7 +222,7 @@ def write_xyz(header, data, fid_out):
             )
 
 
-def call_checkerboardiphy(fid_template, spacing):
+def call_checkerboardiphy(fid_template, spacing, perturbation_list):
     """
     Call script for the checkerboard function
     :return:
@@ -231,7 +231,7 @@ def call_checkerboardiphy(fid_template, spacing):
     chosen_signal = signal.hanning
 
     # Create checkers with varying levels of perturbation
-    for perturbation in [0.1]:#[0, 0.02, 0.05, 0.1]:
+    for perturbation in perturbation_list:
         print(f"perturbation = {perturbation}")
         for section in ["shallow", "crust", "mantle"]:
             print(f"section = {section}")
@@ -268,7 +268,8 @@ def call_checkerboardiphy(fid_template, spacing):
 if __name__ == "__main__":
     call_checkerboardiphy(
             fid_template = "nz_north_eberhart2015_{}.xyz",
-            spacing = 80000.
+            spacing = 80000.,
+            perturbation_list = [0.2]
             )
 
 
