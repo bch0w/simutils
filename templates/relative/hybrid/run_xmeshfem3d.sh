@@ -4,6 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=10
 #SBATCH --cpus-per-task=4
+#SBATCH --hint=nomultithread
 #SBATCH --clusters=maui
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
