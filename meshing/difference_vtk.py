@@ -55,7 +55,7 @@ def read_file(pathname):
     return lines, header_dict
 
 
-def difference_vtk(model_a, model_b, path="./", reverse=1, write=None):
+def difference_vtk(model_a_fid, model_b_fid, reverse=1, write=None):
     """
     read each model and scan line by line, difference all necessary values
 
@@ -74,8 +74,8 @@ def difference_vtk(model_a, model_b, path="./", reverse=1, write=None):
     :return differences: list of the differences in values between a and b
     """
     # read files
-    model_a, header_dict_a = read_file(os.path.join(path, model_a))
-    model_b, header_dict_b = read_file(os.path.join(path, model_b))
+    model_a, header_dict_a = read_file(model_a_fid)
+    model_b, header_dict_b = read_file(model_b_fid)
 
     # check that the files have the same characteristics before parsing
     for key in header_dict_a.keys():
@@ -91,12 +91,12 @@ def difference_vtk(model_a, model_b, path="./", reverse=1, write=None):
         try:
             difference = reverse * (float(a.strip()) - float(b.strip()))
             differences.append(difference)
-        except ValueError:
+        except (ValueError):
             print("value error")
 
     # Write out the differences to a new file
     if write:
-        with open(os.path.join(path, write), "w") as f:
+        with open(write, "w") as f:
             f.writelines(model_a[:header_dict_a["data_line"]])
             for diff in differences:
                 if diff == 0:
@@ -105,31 +105,100 @@ def difference_vtk(model_a, model_b, path="./", reverse=1, write=None):
                     f.write("{:13.5f}    \n".format(float(diff)))
                 else:
                     f.write("{:13.10f}    \n".format(float(diff)))
+            # Paraview will sometimes get stuck in a loop if there is no newline
+            # at the end of the file
+            f.write("\n")
 
     return differences
 
 
+def dynamic_file_pick(basepath, method="all"):
+    """
+    Dynamically pick the VTK files to difference
+    """
+    dynamic_pick = glob.glob(os.path.join(basepath, '*model*.vtk'))
+    dynamic_pick.sort()
+
+    # If the folder only contains two files
+    if len(dynamic_pick) == 2:
+        # If "model_init" make it first, if "model_true", make it last
+        for i, pick in enumerate(dynamic_pick):
+            if "model_init" in pick:
+                model_a = pick
+                model_b = dynamic_pick[1-i]
+            elif "model_true":
+                model_b = pick
+                model_a = dynamic_pick[1-i]
+            else:
+                model_a = dynamic_pick[0]
+                model_b = dynamic_pick[1]
+
+        # Specfiy the output modle name based on the input model names
+        fid_out = "diff_{}_and_{}.vtk".format(
+                                    os.path.basename(model_a).split(".")[0],
+                                    os.path.basename(model_b).split(".")[0]
+                                          )
+        fid_out = os.path.join(basepath, fid_out)
+
+        return [model_a], [model_b], [fid_out]
+    # If the folder contains multiple .vtk files
+    else:
+        # List out all the picks for the user
+        for i, pick in enumerate(dynamic_pick):
+            print(f"{i}: {pick}")
+        
+        # Select one model and difference all other models from it
+        if method == "select_one":
+            select = input("Select index to difference from: ")
+            select = dynamic_pick[int(select)]
+            model_a = [select] * (len(dynamic_pick) - 1)
+            model_b, fid_out = [], []
+            for pick in dynamic_pick:
+                if pick == select:
+                    continue
+                else:
+                    model_b.append(pick)
+                    fid_out.append(os.path.join(
+                        basepath, "diff_{}_and_{}.vtk".format(
+                                        os.path.basename(select).split(".")[0],
+                                        os.path.basename(pick).split(".")[0])
+                                                    ))
+            return model_a, model_b, fid_out
+        # Select both models to difference
+        elif method == "select":
+            model_a = input("Select model_a index: ")
+            model_a = dynamic_pick[int(model_a)] 
+
+            model_b = input("Select model_b index: ")
+            model_b = dynamic_pick[int(model_b)]
+
+            fid_out = "diff_{}_and_{}.vtk".format(
+                                    os.path.basename(model_a).split(".")[0],
+                                    os.path.basename(model_b).split(".")[0]
+                                                  )
+            fid_out = os.path.join(basepath, fidout)
+
+            return [model_a], [model_b], [fid_out]
+        # Difference all models from one another
+        elif method == "all":
+            raise NotImplementedError
+            
+
 if __name__ == "__main__":
-    # Either set the names of the vtk files manually
-    base = './'
+    basepath = './'
     model_a = "model_a"
     model_b = "model_b"
-    
-    # Or have them be automatically picked if in a folder of only two vtk files
-    dynamic_pick = glob.glob(os.path.join(base, '*.vtk'))
-    dynamic_pick.sort()
-    if not os.path.exists(model_a) and (len(dynamic_pick) == 2):
-        model_a = os.path.basename(dynamic_pick[0])
-        model_b = os.path.basename(dynamic_pick[1])
+    dynamic_method = "select_one"
 
-    # Specfiy the output modle name based on the input model names
-    model_out = "{}_diff_{}_{}.vtk".format(model_a.split("_")[0],
-                                           model_a.split("_")[2].split(".")[0],
-                                           model_b.split("_")[2].split(".")[0]
-                                           )
-
-    differences = difference_vtk(model_a, model_b, base, write=model_out)
-
-
+    # If the choice of models doesn't exist, pick based on the files available
+    if not os.path.exists(os.path.join(basepath, model_a)):
+        model_a, model_b, fid_out = dynamic_file_pick(basepath, dynamic_method)
+    else:
+        model_a = [model_a]
+        model_b = [model_b]
+    # Difference Vtk files
+    for a, b, f in zip(model_a, model_b, fid_out):
+        print(f)
+        differences = difference_vtk(a, b, reverse=1, write=f)
 
 
