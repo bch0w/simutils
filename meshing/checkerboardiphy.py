@@ -68,7 +68,7 @@ def xyz_reader(xyz_fid, save=True):
 
 
 def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
-                     plot_fid=None):
+                     no_incompletes=True, plot_fid=None):
     """
     Read in the data from an XYZ tomography file and create a checkerboard
     overlay which has +/- {perturbation} checkers overlain on the tomography
@@ -83,6 +83,8 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
     :param perturbation: perturbation to give to checkers
     :type taper_signal: scipy.signal.function
     :param taper_signal: scipy signal to taper checkers by
+    :type no_incompletes: bool  
+    :param no_incompletes: if True, only create a checker if it doesnt cut off
     :type plot_fid: bool
     :param plot_fid: plot the overlay for confirmation
     :return:
@@ -100,6 +102,10 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
         y = 1
         print("x_left: {}/{}".format(x_left, header["end_x"]))
         x_right = x_left + spacing_m
+        
+        # Do not create incomplete checkers
+        if no_incompletes and (x_right > header["end_x"]):
+            continue
 
         # Create the tapered checker for a given checker defined by bounds
         x_checker = np.arange(x_left, x_right, header["spacing_x"])
@@ -109,6 +115,10 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
         for y_bot in np.arange(header["orig_y"], header["end_y"], spacing_m):
             print("\ty_bot: {}/{}".format(y_bot, header["end_y"]))
             y_top = y_bot + spacing_m
+
+            # Do not create incomplete checkers
+            if no_incompletes and (y_top > header["end_y"]):
+                continue
 
             # Create the tapered checker for the given checker defined by bounds
             y_checker = np.arange(y_bot, y_top, header["spacing_y"])
@@ -154,16 +164,19 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
         plt.title("{f}\n +/- {p}, {t} taper, {s}m spacing".format(
             f=xyz_fid, p=perturbation, t=taper_signal.__name__, s=spacing_m)
         )
-        # plot coastline
-        coastline = np.load("./nz_resf_coast_mod_utm60H_xyz.npy")
-        coastline = coastline[
-                np.where((coastline[:, 0] > header["orig_x"]) &
-                         (coastline[:, 0] < header["end_x"]) & 
-                         (coastline[:, 1] > header["orig_y"]) &
-                         (coastline[:, 1] < header["end_y"])
-                         )[0]]
-        plt.scatter(coastline[:, 0], coastline[:, 1], c='k', marker='.')
-        plt.show()
+
+        # plot coastline if possible
+        coastline_fid = "./nz_resf_coast_mod_utm60H_xyz.npy"
+        if os.path.exists(coastline_fid):
+            coastline = np.load()
+            coastline = coastline[
+                    np.where((coastline[:, 0] > header["orig_x"]) &
+                             (coastline[:, 0] < header["end_x"]) & 
+                             (coastline[:, 1] > header["orig_y"]) &
+                             (coastline[:, 1] < header["end_y"])
+                             )[0]]
+            plt.scatter(coastline[:, 0], coastline[:, 1], c='k', marker='.')
+        
         plt.savefig("{}.png".format(plot_fid))
 
     return checker_overlay, data_out
@@ -228,7 +241,7 @@ def call_checkerboardiphy(fid_template, spacing, perturbation_list):
     :return:
     """
     path = "./"
-    chosen_signal = signal.hanning
+    chosen_signal = signal.hann
 
     # Create checkers with varying levels of perturbation
     for perturbation in perturbation_list:
@@ -253,7 +266,7 @@ def call_checkerboardiphy(fid_template, spacing, perturbation_list):
             overlay, checkerboard_data = checkerboardiphy(
                 xyz_fid=os.path.join(path, fid), spacing_m=spacing,
                 perturbation=perturbation, taper_signal=chosen_signal, 
-                plot_fid=None
+                plot_fid=fid_out
             )
             checkerboard_header = parse_data_to_header(checkerboard_data)
 

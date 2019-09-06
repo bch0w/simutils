@@ -112,11 +112,11 @@ def difference_vtk(model_a_fid, model_b_fid, reverse=1, write=None):
     return differences
 
 
-def dynamic_file_pick(basepath, method="all"):
+def dynamic_file_pick(basepath, method="all", globchoice="*"):
     """
     Dynamically pick the VTK files to difference
     """
-    dynamic_pick = glob.glob(os.path.join(basepath, '*model*.vtk'))
+    dynamic_pick = glob.glob(os.path.join(basepath, f'{globchoice}.vtk'))
     dynamic_pick.sort()
 
     # If the folder only contains two files
@@ -182,6 +182,7 @@ def dynamic_file_pick(basepath, method="all"):
         # Difference all models from one another
         elif method == "all":
             raise NotImplementedError
+        import ipdb;ipdb.set_trace()
             
 
 if __name__ == "__main__":
@@ -189,10 +190,13 @@ if __name__ == "__main__":
     model_a = "model_a"
     model_b = "model_b"
     dynamic_method = "select_one"
+    globchoice = "*kernel*"
 
     # If the choice of models doesn't exist, pick based on the files available
     if not os.path.exists(os.path.join(basepath, model_a)):
-        model_a, model_b, fid_out = dynamic_file_pick(basepath, dynamic_method)
+        model_a, model_b, fid_out = dynamic_file_pick(basepath, dynamic_method,
+                                                      globchoice
+                                                      )
     else:
         model_a = [model_a]
         model_b = [model_b]
