@@ -190,7 +190,7 @@ if __name__ == "__main__":
     model_a = "model_a"
     model_b = "model_b"
     dynamic_method = "select_one"
-    globchoice = "*kernel*"
+    globchoice = "*"
 
     # If the choice of models doesn't exist, pick based on the files available
     if not os.path.exists(os.path.join(basepath, model_a)):
