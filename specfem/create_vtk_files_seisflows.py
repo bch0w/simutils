@@ -17,21 +17,17 @@ except IndexError:
     method = None
 
 # Set user parameters
-sf_dir = "24event_1603deb"
 kernels = ["vs_kernel"]
 models = ["vs"]
-kernel_choice = "sum*"  #  default = "*" 
+kernel_choice = "*"  #  default = "*" 
 
-
-# Can set these paths if they change
-basepath = "/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/tomo/"
-seisflows = os.path.join(basepath, "seisflows", "checkerboard", sf_dir)
-# specfem = os.path.join(basepath, "specfem_87a78d_CrayCCE-19.04")
-specfem = os.path.join(basepath, "seisflows", "specfem3d_1603deb")
-
-output_script = os.path.join(specfem, 'run_temp_xcombine_vol_data_vtk.sh')
+# Set paths here
+seisflows = "/path/to/seisflows"
+specfem = "/path/to/specfem"
 
 # Auto finish pathing
+output_script = os.path.join(specfem, 'run_temp_xcombine_vol_data_vtk.sh')
+sf_dir = os.path.basename(seisflows)
 input_sum_dir = "SUM"
 output_sum_dir = f"SUM/{sf_dir}"
 input_sum = os.path.join(specfem, input_sum_dir)
