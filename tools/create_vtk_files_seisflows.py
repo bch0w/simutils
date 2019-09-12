@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 """
 This is a finalization script to run a few processes after an inversion is done
+It takes the kernels that are saved into the 'output' directory of Seisflows,
+and symlinks/renames them into a directory in the Specfem3D run folder.
+It then produces the appropriate SBATCH script to run which will generate 
+combined VTK files for each of the kernels/models, and after creating them, will
+place them into the pyatoa.io VTK directory for easy access
 """
 import os
 import sys
