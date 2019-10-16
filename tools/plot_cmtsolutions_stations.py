@@ -11,19 +11,18 @@ from pyatoa.utils.operations.calculations import myround
 from pyatoa.utils.operations.source_receiver import lonlat_utm
 
 mpl.rcParams['lines.markersize'] = 5
-fontsize=8.5
+mpl.rcParams['xtick.labelsize'] = 'x-small'
+mpl.rcParams['ytick.labelsize'] = 'x-small'
 
-specfem_data = '/home/chowbr/tomo/seisflows/checkerboard/eightevent_1603deb/scratch/solver/2012p783751/DATA'
-# specfem_data = '/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/tomo/seisflows/specfem3d_1603deb/DATA_seisflows'
-coastline_npy = '/scale_wlg_persistent/filesets/home/chowbr/primer/auxiliary/coastline/nz_resf_coast_mod_utm60H_xyz.npy'
+fontsize = 8.5
 
 specfem_data = "./"
-coastline_npy = "/Users/chowbr/Documents/subduction/data/mapping/coastline/nz_resf_coast_mod_utm60H_xyz.npy"
+coastline_npy = "/scale_wlg_persistent/filesets/home/chowbr/primer/auxiliary/coastline/nz_resf_coast_mod_utm60H_xyz.npy"
 
-plot_cmtsolutions = False
-plot_stations = True
+plot_cmtsolutions = True
+plot_stations = False
 
-f, ax = plt.subplots(1, dpi=100)
+f, ax = plt.subplots(1, dpi=200)
 
 # Set the corners of the map
 lat_min = -43
