@@ -53,6 +53,7 @@ def monitor(wait_time_s=60, cluster_names="maui,maui_ancil"):
         still_jobs = False
         for ckey in clusters.keys():
             if 'jobids' in clusters[ckey].keys():
+                still_jobs = True
                 # if job number stays the same, don't print
                 try:
                     if clusters[ckey]['jobids'] == old_clusters[ckey]['jobids']:
@@ -67,8 +68,6 @@ def monitor(wait_time_s=60, cluster_names="maui,maui_ancil"):
                                        ) 
                       )
 
-                # continue looping
-                still_jobs = True
         
         # check to see if loop should be run again
         if still_jobs:
@@ -119,10 +118,9 @@ def monitor_master_job(jobids, mail=True):
     :type mail: bool
     :param mail: mail if job stops running
     """
+    jobids = jobids.split(',')
     while True:
         # make sure jobids is a list object
-        jobids = jobids.split(',')
-        
         for jobid in jobids:
             check_command = f'sacct -nL -o jobname,state -j {jobid}'
             output = subprocess.run(check_command.split(), capture_output=True, 
@@ -132,6 +130,7 @@ def monitor_master_job(jobids, mail=True):
             # so I named my master jobs with '_master' for easy id
             lines = output.stdout.split()
             for i, line in enumerate(lines):
+                # !!!  this needs to be changed, cannot fit _master into jobname
                 if "_master" in line:  
                     jobname = line
                     jobstatus = lines[i+1]
@@ -152,8 +151,8 @@ def monitor_master_job(jobids, mail=True):
 
 if __name__ == "__main__":
     try:
-        jobid = sys.argv[1]
-        monitor_master_job(jobid)
+        jobids = sys.argv[1]
+        monitor_master_job(jobids)
     except IndexError:
         job_type = input("[l]ive monitoring or [a]fk?: ")
         if job_type == "l":

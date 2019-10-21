@@ -27,7 +27,7 @@ mkdir -p ${BASEMPIDIR}
 echo "xgenerate_databases ${NPROC} processors"
 echo
 echo "`date`"
-time srun -n ${NPROC} ./bin/xgenerate_databases_meshfem
+time srun -n ${NPROC} ./bin/xgenerate_databases
 
 # checks exit code
 if [[ $? -ne 0 ]]; then exit 1; fi
