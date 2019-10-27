@@ -24,11 +24,10 @@ except IndexError:
 # Set user parameters
 kernels = ["vs_kernel"]
 models = ["vs"]
-kernel_choice = "*"  #  default = "*" 
 
 # Set paths here
-seisflows = "/path/to/seisflows"
-specfem = "/path/to/specfem"
+seisflows = "/path/to/seisflows/"
+specfem = os.getcwd()
 
 # Auto finish pathing
 output_script = os.path.join(specfem, 'run_temp_xcombine_vol_data_vtk.sh')
@@ -46,7 +45,7 @@ sem_outsum = f"./{output_sum_dir}/"
 combine_bin = "./bin/xcombine_vol_data_vtk"
 
 # Set paths to kernels and models
-glob_kernels = os.path.join(seisflows, "output", "kernels_????")
+glob_gradients = os.path.join(seisflows, "output", "gradient_????")
 glob_models = os.path.join(seisflows, "output", "model_????")
 pyatoa_vtk_dir = os.path.join(seisflows, "pyatoa.io", "figures", "vtks")
 
@@ -73,7 +72,7 @@ if method == "build":
         
         f.write('echo "starting at `date`"\n')
         
-        # Get the proc values, assuming its the same for model and kernels
+        # Get the proc values, assuming its the same for model and gradients
         test_model = glob.glob(glob_models)[0]
         procs = glob.glob(os.path.join(test_model, "*vs.bin"))
         procs.sort()
@@ -81,38 +80,36 @@ if method == "build":
         proc_z = int(os.path.basename(procs[-1]).split('_')[0].split('proc')[1])
          
         
-        # Loop through all the available kernels, created by Specfem
-        for kernel_model in glob.glob(glob_kernels):
-            model_fid = os.path.basename(kernel_model)
-            for kernel_dir in glob.glob(os.path.join(kernel_model, 
-                                                     kernel_choice)):
-                # Get the name of the kernel
-                kernel_fid = os.path.basename(kernel_dir)
-                print(f"kernel {model_fid} {kernel_fid}")
+        # Loop through all the available gradients, created by Specfem
+        print("GRADIENTS")
+        for gradient_dir in glob.glob(glob_gradients):
+            gradient_fid = os.path.basename(gradient_dir)
+            print(f"\t {gradient_fid}")
 
-                # Loop through each of the kernels requested
-                for kernel in kernels:
-                    # Loop through each of the proc files
-                    for src in glob.glob(
-                            os.path.join(kernel_dir, f'proc*_{kernel}*')):
-                        # Set the symlink target to contain the event id 
-                        proc_name = os.path.basename(src).split('.')[0]
-                        dst_fid = f"{proc_name}_{model_fid}_{kernel_fid}.bin"
-                        
-                        dst = os.path.join(input_sum, dst_fid)
-                        os.symlink(src, dst)
+            # Loop through each of the kernels requested
+            for kernel in kernels:
+                # Loop through each of the proc files
+                for src in glob.glob(
+                        os.path.join(gradient_dir, f'proc*_{kernel}*')):
+                    # Set the symlink target to contain the event id 
+                    proc_name = os.path.basename(src).split('.')[0]
+                    dst_fid = f"{proc_name}_{gradient_fid}.bin"
+                    
+                    dst = os.path.join(input_sum, dst_fid)
+                    os.symlink(src, dst)
 
-                    # Write the srun call
-                    kernel_id = f"{kernel}_{model_fid}_{kernel_fid}"
-                    to_write = (f"srun -n 1 {combine_bin} {proc_a} {proc_z} " + 
-                                f"{kernel_id} {sem_insum} {sem_outsum} 0\n")
-                    f.write(to_write)
+                # Write the srun call
+                kernel_id = f"{kernel}_{gradient_fid}"
+                to_write = (f"srun -n 1 {combine_bin} {proc_a} {proc_z} " + 
+                            f"{kernel_id} {sem_insum} {sem_outsum} 0\n")
+                f.write(to_write)
 
         # Loop through all the available models
+        print("MODELS") 
         for model_dir in glob.glob(glob_models):
             # Get the name of the model
             model_fid = os.path.basename(model_dir)
-            print(f"model {model_fid}")
+            print(f"\t {model_fid}")
 
             # Loop through each of the models requested
             for model in models:
@@ -134,5 +131,5 @@ if method == "build":
 
         # Bash command to move the written files to pyatoa.io
         f.write(f"mv {output_sum}/* {pyatoa_vtk_dir}/\n")
-        f.write(f"echo MOVED ALL .vtk FILES TO {pyatoa_vtk_dir}")
+        f.write(f"echo MOVED ALL .vtk FILES TO {pyatoa_vtk_dir}\n")
         f.write('echo "finished at `date`"\n')
