@@ -21,18 +21,21 @@ def set_parameters():
     :rtype: dict
     :return: dictionary of parameters
     """
-    parameters = {"lat_min": -43.,
+    parameters = {"lat_min": -42.5,
                   "lat_max": -37.,
                   "lon_min": 173.,
-                  "lon_max": 179.,
+                  "lon_max": 178.5,
                   "utm_projection": -60,
                   "mesh_depth_km": 400.,
-                  "interfaces": [8, 80],
+                  "interfaces": [8, 30, 50, 100, 200],
                   "interface_fids": ["interface_shallow.dat",
-                                     "interface_deep.dat"],
+                                     "interface_crust.dat",
+                                     "interface_deep1.dat",
+                                     "interface_deep2.dat",
+                                     "interface_deep3.dat"],
                   "mantle_from_interface_idx": None,
-                  "nproc": 80,
-                  "shortest_period_s": 10,
+                  "nproc": 160,
+                  "shortest_period_s": 6.,
                   "vs_min_km_per_s": 1.,
                   }
 
@@ -74,9 +77,9 @@ def minimum_grid_spacing(slowest_wavespeed, shortest_period):
     # Value of 2 comes from two points per wavelength
     min_grid_space = (shortest_period * slowest_wavespeed) / 2
     print(f"\tminimum grid spacing calculated as {min_grid_space}")
-    grid_space = myround(min_grid_space, 2, 'down')
+    grid_space = myround(min_grid_space, 2, 'down') or min_grid_space
     print(f"\t\trounded down to {grid_space}")
-
+        
     return grid_space
 
 
@@ -166,6 +169,33 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
 
     return int(nex_x), int(nex_y)
 
+
+def calculate_nelements(nex_x, nex_y, layers):
+    """
+    Calculates the total number of elements in the mesh, taking doubling layers
+    into consideration
+    
+    :type nex_x: int
+    :param nex_x: number of elements in the x direction at the surface
+    :type nex_y: int
+    :param nex_y: number of elements in the y direction at the surface
+    :type layers: list of int
+    :param layers: the number of elements in each doubling layer
+    :rtype int:
+    :return: the total number of elements in the mesh
+    """
+    nelements = 0
+    layers_from_top = layers[::-1]
+    for i, nz in enumerate(layers_from_top):
+        j = i + 1 
+        nelements += (nex_x * nex_y) / (2 * j) * nz
+
+    nelements = int(nelements)
+
+    print(f"NUMBER_OF_ELEMENTS = {nelements}")
+    
+    return nelements
+         
 
 def vertical_doubling_proportions(depth, ndoublings, interfaces, grid_space):
     """
@@ -380,6 +410,8 @@ def prepare_meshfem():
                      interfaces=pars["interfaces"], lat_min=pars["lat_min"],
                      lon_min=pars["lon_min"], fids=pars["interface_fids"]
                      )
+    
+    calculate_nelements(nex_x, nex_y, layers)
 
 
 if __name__ == "__main__":
