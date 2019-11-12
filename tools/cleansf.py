@@ -1,7 +1,7 @@
 """
 Only partially clean the Seisflows run folder, that is delete most of the 
 unnecessary files that will not need to be used in the future, but retain
-those files that may be useful for future work
+those files that may be useful for future work, or to restart a run if necessary
 
 TO DO:
 -get file paths from paths.py file?
