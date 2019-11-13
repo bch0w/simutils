@@ -111,7 +111,7 @@ def transfer(transfer_from, transfer_to, slim=True):
         # cross-device linking 
         dst = os.path.join(f_dst_dir, f_rel_base)
         print(f"{src} -> {dst}\n") 
-        shutil.move(src, dst)
+        shutil.copy(src, dst)
 
 
 if __name__ == "__main__":
