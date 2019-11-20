@@ -191,8 +191,8 @@ def dynamic_file_pick(basepath, method="all", globchoice="*"):
 
 if __name__ == "__main__":
     basepath = './'
-    model_a = "model_a"
-    model_b = "model_b"
+    model_a = "vs_30event_obs_minit.vtk"
+    model_b = "vs_30event_obs_m05.vtk"
     dynamic_method = "select_one"
     globchoice = "*"
 
@@ -202,6 +202,10 @@ if __name__ == "__main__":
                                                       globchoice
                                                       )
     else:
+        fid_out = ["diff_{}_and_{}.vtk".format(
+                                os.path.basename(model_a).split(".")[0],
+                                os.path.basename(model_b).split(".")[0]
+                                              )]
         model_a = [model_a]
         model_b = [model_b]
     # Difference Vtk files

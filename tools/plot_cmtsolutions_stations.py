@@ -20,7 +20,7 @@ specfem_data = "./"
 coastline_npy = "/scale_wlg_persistent/filesets/home/chowbr/primer/auxiliary/coastline/nz_resf_coast_mod_utm60H_xyz.npy"
 
 plot_cmtsolutions = True
-plot_stations = False
+plot_stations = True
 
 f, ax = plt.subplots(1, dpi=200)
 
