@@ -131,7 +131,7 @@ def monitor_master_job(jobids, mail=True):
             lines = output.stdout.split()
             for i, line in enumerate(lines):
                 # !!!  this needs to be changed, cannot fit _master into jobname
-                if "_master" in line:  
+                if ("M_" in line) or ("mast" in line):  
                     jobname = line
                     jobstatus = lines[i+1]
                     break
