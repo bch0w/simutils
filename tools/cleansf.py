@@ -100,8 +100,8 @@ if __name__ == "__main__":
         print("DRYRUN")
     
     # USER PARAMETERS
-    clean_pyatoa = True
-    clean_slurm = True   
+    clean_pyatoa = False
+    clean_slurm = False   
  
     clean_solver(dryrun)
     clean_main(pyatoa=clean_pyatoa, slurm=clean_slurm, dryrun=dryrun)

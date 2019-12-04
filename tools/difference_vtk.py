@@ -187,8 +187,9 @@ def dynamic_file_pick(basepath, method="all", globchoice="*"):
 
 if __name__ == "__main__":
     basepath = './'
-    model_a = "vs_30event_obs_minit.vtk"
-    model_b = "vs_30event_obs_m05.vtk"
+    base = 'vs_eberhart'
+    model_a = f"{base}15.vtk"
+    model_b = f"{base}19.vtk"
     dynamic_method = "select_one"
     globchoice = "*"
 
