@@ -10,6 +10,7 @@ import numpy as np
 
 import sys
 sys.path.append('..')
+sys.stdout = open('meshing.out', 'w')
 from mesh_utils import myround, lonlat_utm
 
 def set_parameters():
@@ -27,15 +28,12 @@ def set_parameters():
                   "lon_max": 178.5,
                   "utm_projection": -60,
                   "mesh_depth_km": 400.,
-                  "interfaces": [8, 30, 50, 100, 200],
+                  "interfaces": [8, 30],
                   "interface_fids": ["interface_shallow.dat",
-                                     "interface_crust.dat",
-                                     "interface_deep1.dat",
-                                     "interface_deep2.dat",
-                                     "interface_deep3.dat"],
+                                     "interface_deep.dat",],
                   "mantle_from_interface_idx": None,
                   "nproc": 160,
-                  "shortest_period_s": 6.,
+                  "shortest_period_s": 4.,
                   "vs_min_km_per_s": 1.,
                   }
 

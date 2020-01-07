@@ -14,7 +14,7 @@ mpl.rcParams['lines.markersize'] = 5
 mpl.rcParams['xtick.labelsize'] = 'x-small'
 mpl.rcParams['ytick.labelsize'] = 'x-small'
 
-fontsize = 8.5
+fontsize = 7.5
 
 specfem_data = "./"
 coastline_npy = "/scale_wlg_persistent/filesets/home/chowbr/primer/auxiliary/coastline/nz_resf_coast_mod_utm60H_xyz.npy"
@@ -43,7 +43,7 @@ ax.set_xticks(major_xticks)
 ax.set_xticks(minor_xticks, minor=True)
 ax.set_yticks(major_yticks)
 ax.set_yticks(minor_yticks, minor=True)
-ax.grid(which='both')
+# ax.grid(which='both')
 
 # Set plot boundaries
 plt.xlim([x_min, x_max])
@@ -52,6 +52,7 @@ plt.ylim([y_min, y_max])
 # Gather all the CMTSOLUTIONS
 if plot_cmtsolutions:
     cmtsolutions = glob.glob(os.path.join(specfem_data, 'CMTSOLUTION_*'))
+    cmtsolutions.sort()
     for i, cmtsolution_fid in enumerate(cmtsolutions):
         cmtsolution = np.genfromtxt(cmtsolution_fid, dtype='str', skip_header=1, 
                                     delimiter=':')
@@ -59,17 +60,26 @@ if plot_cmtsolutions:
         event_lat = float(cmtsolution[3][1].strip())
         event_lon = float(cmtsolution[4][1].strip())
 
+        # get magnitude from moment tensor
+        moment = 0
+        for m in range(6, 12):
+            moment += float(cmtsolution[m][1].strip()) ** 2
+        moment = 1/np.sqrt(2) * np.sqrt(moment) 
+        event_mw = 2/3 * np.log10(abs(moment)) - 10.7
+
         # convert to UTM -60
         x, y = lonlat_utm(event_lon, event_lat, -60)
 
         # Plot as a circle, annotate name
-        plt.scatter(x, y, c='None', marker='o', edgecolor='k')
-        anno_x = 0.8 * (x_max - x_min) + x_min
-        anno_y = np.linspace(y_min, 0.5 * (y_max -y_min) + y_min, 
+        plt.scatter(x, y, c='teal', marker='o', edgecolor='k')
+        anno_x = 0.75 * (x_max - x_min) + x_min
+        anno_y = np.linspace(y_min, 0.6 * (y_max -y_min) + y_min, 
                                                           len(cmtsolutions) + 1)
-        plt.annotate(xy=(x,y), s=i, fontsize=10)
+        anno_y = anno_y[::-1]
+        plt.annotate(xy=(x,y), s=i, fontsize=10, color="teal")
         plt.annotate(xy=(x,y), xytext=(anno_x, anno_y[i]),  
-                     s=f"{i}: {event_id}", fontsize=fontsize)
+                     s=f"{i}: M{event_mw:.1f}; {event_id}", fontsize=fontsize, 
+                     color="teal")
 
     
 if plot_stations:
@@ -78,15 +88,15 @@ if plot_stations:
     stations = np.genfromtxt(station_file, dtype='str')
 
     for i, station in enumerate(stations):
-        station_ids = ".".join([str(i),station[1], station[0]])
+        station_ids = ".".join([station[1], station[0]])
         
         # convert to UTM -60
         station_lat = float(station[2])
         station_lon = float(station[3])
         x, y = lonlat_utm(station_lon, station_lat, -60)
         
-        plt.scatter(x, y, c='None', marker='v', edgecolor='k')
-        plt.annotate(xy=(x,y), s=station_ids, fontsize=fontsize)
+        plt.scatter(x, y, c='coral', marker='v', edgecolor='k')
+        plt.annotate(xy=(x,y), s=station_ids, fontsize=fontsize, color="coral")
 
 # Plot any auxiliary data
 if coastline_npy:
