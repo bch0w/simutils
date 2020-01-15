@@ -1,6 +1,8 @@
 # Download a large file from google drive based on the file id
 
-FID="188VDHS1VdMUYzJkzITZ80hZFGpL90lAe"
+# FID="188VDHS1VdMUYzJkzITZ80hZFGpL90lAe"  # Carl 1
+# FID="1dBMWhK9njipZvhegtdeYvNLHIND9zjEF"
+FID="1qLuxyyNaZoD1hLeZrYpykAFlgfsDuY4"
 FIDOUT="nz_north_2019.tar"
 
 curl -L -c cookies.txt 'https://docs.google.com/uc?export=download&id='$FID \

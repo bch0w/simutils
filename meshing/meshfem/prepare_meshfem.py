@@ -37,6 +37,13 @@ def set_parameters():
                   "vs_min_km_per_s": 1.,
                   }
 
+    # Print the parameters so the User knows what they've chosen
+    print("="*79)
+    print("PARAMETER SET:")
+    for key, item in parameters.items():
+        print(f"{key}: {item}")
+    print("="*79 + "\n")
+
     parameters["ndoublings"] = len(parameters["interfaces"])
 
     # Make sure there are enough fids for each interface, or that none specified
@@ -375,8 +382,9 @@ def prepare_meshfem():
     mesh_par_file_template = "./template_Mesh_Par_file"
     interfaces_template = "./template_interfaces.dat"
 
-    print("Preparing Meshfem3D files")
     pars = set_parameters()
+
+    print("Preparing Meshfem3D files")
     grid_space = minimum_grid_spacing(slowest_wavespeed=pars["vs_min_km_per_s"],
                                       shortest_period=pars["shortest_period_s"]
                                       )

@@ -54,7 +54,9 @@ def clean_solver(dryrun=False):
     for i, event in enumerate(event_ids):
         print(f"scratch/solver/{os.path.basename(event)}")
         print("\tremoving...", end=" ")
-        for del_path in [os.path.join(event, 'traces'), 
+        for del_path in [os.path.join(event, 'bin'),
+                         os.path.join(event, 'DATA', 'tomo_files'),
+                         os.path.join(event, 'traces'), 
                          os.path.join(event, 'SEM'),
                          os.path.join(event, 'OUTPUT_FILES', 'timestamp*'),]:
             delete_(del_path, dryrun)
