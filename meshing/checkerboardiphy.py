@@ -67,8 +67,8 @@ def xyz_reader(xyz_fid, save=True):
     return header, data
 
 
-def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
-                     no_incompletes=True, plot_fid=None):
+def checkerboardiphy(xyz_fid, spacing_m, checker_z=None, perturbation=0.02, 
+                     taper_signal=None, no_incompletes=True, plot_fid=None):
     """
     Read in the data from an XYZ tomography file and create a checkerboard
     overlay which has +/- {perturbation} checkers overlain on the tomography
@@ -79,6 +79,9 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
     :param xyz_fid: path to file to read
     :type spacing_m: float
     :param spacing_m: spacing in meters
+    :type checker_z: dict of floats
+    :param checker_z: {"origin": starting depth for depth checkering in meters,
+                       "spacing": spacing in meters of depth checkers}
     :type perturbation: float
     :param perturbation: perturbation to give to checkers
     :type taper_signal: scipy.signal.function
@@ -100,7 +103,7 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
     # Loop through the x-axis, setting left and right boundaries
     for x_left in np.arange(header["orig_x"], header["end_x"], spacing_m):
         y = 1
-        print("x_left: {}/{}".format(x_left, header["end_x"]))
+        print(f"x_left: {x_left:.3E}/{header['end_x']:.3E}\t{x:+d}")
         x_right = x_left + spacing_m
         
         # Do not create incomplete checkers
@@ -113,7 +116,7 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
 
         # Loop through the y-axis, setting lower and upper boundaries
         for y_bot in np.arange(header["orig_y"], header["end_y"], spacing_m):
-            print("\ty_bot: {}/{}".format(y_bot, header["end_y"]))
+            print(f"\ty_bot: {y_bot:.3E}/{header['end_y']:.3E}\t{y:+d}")
             y_top = y_bot + spacing_m
 
             # Do not create incomplete checkers
@@ -147,6 +150,36 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
         # Flip the sign of the x-axis checker
         x *= -1
 
+    # Checker in the vertical direction.
+    # We pre-set the depth checkers based on "origin" and "spacing" to avoid any
+    # conflicts with overlapping tomography files. Anything above "origin" will
+    # be positive checker, this should be okay if topography << spacing
+    if checker_z:
+        print("\nDepth Layers")
+        z = 1
+        for z_top in np.arange(checker_z["origin"], header["orig_z"], 
+                               -1 * checker_z["spacing"]):
+            z_bottom = z_top - checker_z["spacing"]
+            # Case for values above the origin, include w/ first checker
+            if header["end_z"] > checker_z["origin"] and \
+                                        z_top == checker_z["origin"]:
+                z_top = header["end_z"]
+            print(f"\t{z_top:.3E} to {z_bottom:.3E}\t{z:+d}")
+            checker_indices = np.where(
+                (data[:, 2] <= z_top) & (data[:, 2] > z_bottom))[0]
+            # Only need an operation to flip signs
+            if z == -1:
+                checker_overlay[checker_indices] *= z
+            z *= -1
+        # Case for values below the bottom, fill in the rest same as above
+        if z_bottom > header["orig_z"]:
+            z *= -1
+            checker_indices = np.where(
+                (data[:, 2] <= z_bottom) & (data[:, 2] > header["orig_z"]))
+            print(f"z_top: {z_bottom:.3E} to {header['orig_z']:.3E}\t{z:+d}")
+            if z == -1:
+                checker_overlay[checker_indices] *= z
+
     # Apply the checker overlay, only to Vp and Vs values, not to rho or Q
     data_out = np.copy(data)
     checker_overlay *= perturbation
@@ -155,29 +188,51 @@ def checkerboardiphy(xyz_fid, spacing_m, perturbation=0.02, taper_signal=None,
 
     # Generate a quick plot to show a representation of the checkerboard
     if plot_fid is not None:
+        # Top down view only plots if surface is included
         z_ind = np.where(data[:, 2] > 0)[0]
-        plt.scatter(x=data[z_ind, 0], y=data[z_ind, 1],
-                    c=checker_overlay[z_ind]
-                    )
-        plt.xlabel("UTM-60 EASTING (m)")
-        plt.ylabel("UTM-60 NORTHING (m)")
-        plt.title("{f}\n +/- {p}, {t} taper, {s}m spacing".format(
-            f=xyz_fid, p=perturbation, t=taper_signal.__name__, s=spacing_m)
-        )
+        if z_ind.any():
+            plt.scatter(x=data[z_ind, 0], y=data[z_ind, 1],
+                        c=checker_overlay[z_ind]
+                        )
+            plt.xlabel("UTM-60 EASTING (m)")
+            plt.ylabel("UTM-60 NORTHING (m)")
+            plt.title("{f}\n +/- {p}, {t} taper, {s}m spacing".format(
+                f=xyz_fid, p=perturbation, t=taper_signal.__name__, s=spacing_m)
+            )
 
-        # plot coastline if possible
-        coastline_fid = "./nz_resf_coast_mod_utm60H_xyz.npy"
-        if os.path.exists(coastline_fid):
-            coastline = np.load()
-            coastline = coastline[
-                    np.where((coastline[:, 0] > header["orig_x"]) &
-                             (coastline[:, 0] < header["end_x"]) & 
-                             (coastline[:, 1] > header["orig_y"]) &
-                             (coastline[:, 1] < header["end_y"])
-                             )[0]]
-            plt.scatter(coastline[:, 0], coastline[:, 1], c='k', marker='.')
+            # plot coastline if possible
+            coastline_fid = "./nz_resf_coast_mod_utm60H_xyz.npy"
+            if os.path.exists(coastline_fid):
+                coastline = np.load()
+                coastline = coastline[
+                        np.where((coastline[:, 0] > header["orig_x"]) &
+                                 (coastline[:, 0] < header["end_x"]) & 
+                                 (coastline[:, 1] > header["orig_y"]) &
+                                 (coastline[:, 1] < header["end_y"])
+                                 )[0]]
+                plt.scatter(coastline[:, 0], coastline[:, 1], c='k', marker='.')
+            
+            plt.savefig("{}.png".format(plot_fid))
+            plt.close()
         
-        plt.savefig("{}.png".format(plot_fid))
+        # Side on view for checkers with depth
+        if checker_z:
+            # Determine where the maximum of the first set of checkers occurs
+            checker_max = np.where(checker_overlay == checker_overlay.max())[0]
+            y_checker_max = data[checker_max, 1].min()
+            y_ind = np.where(data[:, 1] == y_checker_max)[0]
+            
+            # Plot the side view of a cut where the first maximum row occurs
+            plt.scatter(x=data[y_ind, 0], y= data[y_ind, 2],
+                        c=checker_overlay[y_ind])
+            plt.xlabel("UTM-60 EASTING(m)")
+            plt.ylabel("DEPTH (m)")
+            plt.title("{f}\n +/- {p}, {t} taper, {s}m spacing".format(
+                f=xyz_fid, p=perturbation, t=taper_signal.__name__, s=spacing_m)
+            )
+            plt.savefig("{}_depth.png".format(plot_fid))
+            plt.close()
+            sys.exit()
 
     return checker_overlay, data_out
 
@@ -235,7 +290,7 @@ def write_xyz(header, data, fid_out):
             )
 
 
-def call_checkerboardiphy(fid_template, spacing, perturbation_list):
+def call_checkerboardiphy(fid_template, spacing, checker_z, perturbation_list):
     """
     Call script for the checkerboard function
     :return:
@@ -246,7 +301,7 @@ def call_checkerboardiphy(fid_template, spacing, perturbation_list):
     # Create checkers with varying levels of perturbation
     for perturbation in perturbation_list:
         print(f"perturbation = {perturbation}")
-        for section in ["shallow", "crust", "mantle"]:
+        for section in ["mantle", "crust", "shallow"]:
             print(f"section = {section}")
             fid = fid_template.format(section)
 
@@ -265,8 +320,8 @@ def call_checkerboardiphy(fid_template, spacing, perturbation_list):
             # Create the checkerboard data
             overlay, checkerboard_data = checkerboardiphy(
                 xyz_fid=os.path.join(path, fid), spacing_m=spacing,
-                perturbation=perturbation, taper_signal=chosen_signal, 
-                plot_fid=fid_out
+                checker_z=checker_z, perturbation=perturbation, 
+                taper_signal=chosen_signal, plot_fid=fid_out
             )
             checkerboard_header = parse_data_to_header(checkerboard_data)
 
@@ -280,8 +335,10 @@ def call_checkerboardiphy(fid_template, spacing, perturbation_list):
 
 if __name__ == "__main__":
     call_checkerboardiphy(
-            fid_template = "nz_north_eberhart2015_{}.xyz",
+            fid_template = "nz_north_eberhart2019_{}.xyz",
             spacing = 80000.,
+            checker_z = {"spacing": 20000.,
+                         "origin": 0.},
             perturbation_list = [0.2]
             )
 
