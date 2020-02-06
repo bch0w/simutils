@@ -164,21 +164,35 @@ def checkerboardiphy(xyz_fid, spacing_m, checker_z=None, perturbation=0.02,
             if header["end_z"] > checker_z["origin"] and \
                                         z_top == checker_z["origin"]:
                 z_top = header["end_z"]
+
+            # Create the tapered checker for the vertical direction,
+            # sample it fine so that we naturally interpolate to deal with the 
+            # fact that we have chosen an arbitrary origin and so the sampling
+            # points may not line up between our model and our checkers
+            z_checker = np.arange(z_top, z_bottom, 
+                                  max(-1000, -1 * header["spacing_z"])
+                                  )
+            z_window = taper_signal(len(z_checker))
+
             print(f"\t{z_top:.3E} to {z_bottom:.3E}\t{z:+d}")
+            
+            # Determine where to apply the checker based on depth values
             checker_indices = np.where(
-                (data[:, 2] <= z_top) & (data[:, 2] > z_bottom))[0]
-            # Only need an operation to flip signs
-            if z == -1:
-                checker_overlay[checker_indices] *= z
+                (data[:, 2] <= z_top) & (data[:, 2] > z_bottom))
+            for ind in checker_indices[0]:
+                checker_overlay[ind] *= (z * z_window[np.where(
+                                                z_checker == data[ind, 2])[0]])
             z *= -1
+
         # Case for values below the bottom, fill in the rest same as above
         if z_bottom > header["orig_z"]:
             z *= -1
             checker_indices = np.where(
                 (data[:, 2] <= z_bottom) & (data[:, 2] > header["orig_z"]))
             print(f"z_top: {z_bottom:.3E} to {header['orig_z']:.3E}\t{z:+d}")
-            if z == -1:
-                checker_overlay[checker_indices] *= z
+            for ind in checker_indices[0]:
+                checker_overlay[ind] *= (z * z_window[np.where(
+                                                z_checker == data[ind, 2])[0]])
 
     # Apply the checker overlay, only to Vp and Vs values, not to rho or Q
     data_out = np.copy(data)
@@ -188,12 +202,12 @@ def checkerboardiphy(xyz_fid, spacing_m, checker_z=None, perturbation=0.02,
 
     # Generate a quick plot to show a representation of the checkerboard
     if plot_fid is not None:
+        print("Plot top down view")
         # Top down view only plots if surface is included
-        z_ind = np.where(data[:, 2] > 0)[0]
+        z_ind = np.where(data[:, 2] ==  data[:, 2].max())[0]
         if z_ind.any():
             plt.scatter(x=data[z_ind, 0], y=data[z_ind, 1],
-                        c=checker_overlay[z_ind]
-                        )
+                        c=checker_overlay[z_ind])
             plt.xlabel("UTM-60 EASTING (m)")
             plt.ylabel("UTM-60 NORTHING (m)")
             plt.title("{f}\n +/- {p}, {t} taper, {s}m spacing".format(
@@ -203,7 +217,7 @@ def checkerboardiphy(xyz_fid, spacing_m, checker_z=None, perturbation=0.02,
             # plot coastline if possible
             coastline_fid = "./nz_resf_coast_mod_utm60H_xyz.npy"
             if os.path.exists(coastline_fid):
-                coastline = np.load()
+                coastline = np.load(coastline_fid)
                 coastline = coastline[
                         np.where((coastline[:, 0] > header["orig_x"]) &
                                  (coastline[:, 0] < header["end_x"]) & 
@@ -211,12 +225,13 @@ def checkerboardiphy(xyz_fid, spacing_m, checker_z=None, perturbation=0.02,
                                  (coastline[:, 1] < header["end_y"])
                                  )[0]]
                 plt.scatter(coastline[:, 0], coastline[:, 1], c='k', marker='.')
-            
+            plt.gca().ticklabel_format(style='sci', axis='both')
             plt.savefig("{}.png".format(plot_fid))
             plt.close()
         
         # Side on view for checkers with depth
         if checker_z:
+            print("Plot side-on view")
             # Determine where the maximum of the first set of checkers occurs
             checker_max = np.where(checker_overlay == checker_overlay.max())[0]
             y_checker_max = data[checker_max, 1].min()
@@ -224,15 +239,15 @@ def checkerboardiphy(xyz_fid, spacing_m, checker_z=None, perturbation=0.02,
             
             # Plot the side view of a cut where the first maximum row occurs
             plt.scatter(x=data[y_ind, 0], y= data[y_ind, 2],
-                        c=checker_overlay[y_ind])
+                        c=checker_overlay[y_ind], s=2)
             plt.xlabel("UTM-60 EASTING(m)")
             plt.ylabel("DEPTH (m)")
             plt.title("{f}\n +/- {p}, {t} taper, {s}m spacing".format(
                 f=xyz_fid, p=perturbation, t=taper_signal.__name__, s=spacing_m)
             )
-            plt.savefig("{}_depth.png".format(plot_fid))
+            plt.gca().ticklabel_format(style='sci', axis='both')
+            plt.savefig("{}_depth.png".format(plot_fid), dpi=100)
             plt.close()
-            sys.exit()
 
     return checker_overlay, data_out
 
@@ -316,6 +331,11 @@ def call_checkerboardiphy(fid_template, spacing, checker_z, perturbation_list):
                 plot_fid = fid_out
             else:
                 plot_fid = None
+            
+            # Determine if placing checkers at depth
+            if checker_z:
+                print(f"Checker Z from {checker_z['origin']} at "
+                      f"spacing {checker_z['spacing']} m")
 
             # Create the checkerboard data
             overlay, checkerboard_data = checkerboardiphy(
@@ -332,13 +352,18 @@ def call_checkerboardiphy(fid_template, spacing, checker_z, perturbation_list):
             write_xyz(header=checkerboard_header, data=checkerboard_data,
                       fid_out=fid_out)
 
+            # Sylink the new data for use in Specfem3D
+            os.symlink(src=fid_out, dst=f"tomography_model_{section}.xyz")
+
+
 
 if __name__ == "__main__":
     call_checkerboardiphy(
-            fid_template = "nz_north_eberhart2019_{}.xyz",
+            fid_template = "nz_tall_north_ebht19nz_{}.xyz",
             spacing = 80000.,
-            checker_z = {"spacing": 20000.,
-                         "origin": 0.},
+            checker_z = None,
+            # checker_z = {"spacing": 20000.,
+            #              "origin": 0.},
             perturbation_list = [0.2]
             )
 

@@ -52,7 +52,8 @@ def qps2qkm(qp_or_qk, qs_or_qm, vp, vs, method):
     f = 4/3 * (vs/vp) ** 2
     
     if method == "qps2qkm":
-        qk = (1 - f) / (1 / qp_or_qk - f / qs_or_qm)
+        # qk = (1 - f) / (1 / qp_or_qk - f / qs_or_qm)
+        qk = (qp_or_qk * qs_or_qm * (1 - f)) / (qs_or_qm - f * qp_or_qk)
         return qk, qs_or_qm
     elif method == "qkm2qps":
         qp = 1 / ((1 - f) / qp_or_qk + f / qs_or_qm)

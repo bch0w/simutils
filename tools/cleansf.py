@@ -44,32 +44,25 @@ def clean_solver(dryrun=False):
     :param dryrun: if True, no deletions will occur, only print statements
     """
     cwd = os.getcwd()
-    if not os.path.exists(os.path.join(cwd, "parameters.py")):
-        return
+    if not os.path.exists(os.path.join(cwd, "parameters.yaml")):
+        raise Exception("No file parameters.yaml, not in a run folder")            
 
     solver = os.path.join(cwd, 'scratch' ,'solver')
     event_ids = glob.glob(os.path.join(solver, '*'))
     event_ids.sort()
 
     for i, event in enumerate(event_ids):
+        if os.path.islink(event):
+            continue
         print(f"scratch/solver/{os.path.basename(event)}")
         print("\tremoving...", end=" ")
         for del_path in [os.path.join(event, 'bin'),
                          os.path.join(event, 'DATA', 'tomo_files'),
                          os.path.join(event, 'traces'), 
                          os.path.join(event, 'SEM'),
-                         os.path.join(event, 'OUTPUT_FILES', 'timestamp*'),]:
+                         os.path.join(event, 'OUTPUT_FILES', 'timestamp*'),
+                         os.path.join(event, 'OUTPUT_FILES', 'DATABASES_MPI')]:
             delete_(del_path, dryrun)
-        
-        # address DATABASES_MPI directory
-        db_mpi = os.path.join(event, 'OUTPUT_FILES', 'DATABASES_MPI')
-        
-        # if main solver, don't delete .bin files
-        if i == 0:
-            delete_(os.path.join(db_mpi, '*vt?'), dryrun)
-        else:
-            delete_(db_mpi, dryrun)
-
         print("")
 
                 
@@ -95,11 +88,17 @@ def clean_main(pyatoa, slurm, dryrun=False):
         print("")
 
 if __name__ == "__main__":
+    # Dry run so you don't delete things without checking
     try:
         dryrun = not bool(sys.argv[1])
     except IndexError:
         dryrun = True
         print("DRYRUN")
+    
+    try:
+        delete_main = bool(sys.argv[2])
+    except IndexError:
+        delete_main = False
     
     # USER PARAMETERS
     clean_pyatoa = False
