@@ -55,7 +55,8 @@ def read_file(pathname):
     return lines, header_dict
 
 
-def difference_vtk(model_a_fid, model_b_fid, reverse=1, write=None):
+def difference_vtk(model_a_fid, model_b_fid, reverse=1, method="subtract", 
+                   write=None):
     """
     read each model and scan line by line, difference all necessary values
 
@@ -90,6 +91,9 @@ def difference_vtk(model_a_fid, model_b_fid, reverse=1, write=None):
     for a, b in zip(model_a[start:-1], model_b[start:-1]):
         try:
             difference = reverse * (float(a.strip()) - float(b.strip()))
+            # this will give a percent difference rather than absolute diff
+            if method == "divide":
+                difference /= float(a.strip())
             differences.append(difference)
         except (ValueError):
             print("value error")
