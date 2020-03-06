@@ -22,19 +22,18 @@ def set_parameters():
     :rtype: dict
     :return: dictionary of parameters
     """
-    parameters = {"lat_min": -42.5,
-                  "lat_max": -37.,
-                  "lon_min": 173.,
-                  "lon_max": 178.5,
-                  "utm_projection": -60,
-                  "mesh_depth_km": 400.,
-                  "interfaces": [8, 30],
-                  "interface_fids": ["interface_shallow.dat",
-                                     "interface_deep.dat",],
+    parameters = {"lat_min": -42.7,
+                  "lat_max": -41.7,
+                  "lon_min": 173.1,
+                  "lon_max": 174.1,
+                  "utm_projection": -59,
+                  "mesh_depth_km": 30.,
+                  "interfaces": [30],
+                  "interface_fids": ["bottom"],
                   "mantle_from_interface_idx": None,
-                  "nproc": 160,
-                  "shortest_period_s": 4.,
-                  "vs_min_km_per_s": 1.,
+                  "nproc": 80,
+                  "shortest_period_s": 2.,
+                  "vs_min_km_per_s": 3.,
                   }
 
     # Print the parameters so the User knows what they've chosen
@@ -155,16 +154,23 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
     """
     # meshfem requires the number of grid points be an integer multiple of 8
     # times the number of processors in a given direction
-    nex_x = myround(x_length / grid_space, nproc_x * 8, "near")
-    nex_y = myround(y_length / grid_space, nproc_y * 8, "near")
+    c = 1
+    nex_x = 0
+    while nex_x < 2 * 288 / shortest_period_s:
+        nex_x = myround(x_length / grid_space, c * nproc_x * 8, "up")
+        nex_y = myround(y_length / grid_space, c * nproc_y * 8, "up")
+        c += 1
+        if c >= 50:
+            raise OverflowError("nex_x seems too large for given nproc_x")
 
     # ensure that the short direction is maintained
     while (nproc_x < nproc_y) and (nex_x > nex_y):
         nex_y += nproc_y * 8
 
-    # Minimum element number set by Eq. 3.1 in Specfem manual
     assert(nex_x >= 2 * 288 / shortest_period_s)
+    assert(nex_y >= 2 * 288 / shortest_period_s)
 
+    # Minimum element number set by Eq. 3.1 in Specfem manual
     dx = x_length / nex_x
     dy = y_length / nex_y
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Simple script to difference VTK files for the same model.
 There is no real checking so user needs to be sure that the grid data is same
@@ -180,7 +181,7 @@ def dynamic_file_pick(basepath, method="all", globchoice="*"):
                                     os.path.basename(model_a).split(".")[0],
                                     os.path.basename(model_b).split(".")[0]
                                                   )
-            fid_out = os.path.join(basepath, fidout)
+            fid_out = os.path.join(basepath, fid_out)
 
             return [model_a], [model_b], [fid_out]
         # Difference all models from one another
@@ -191,10 +192,9 @@ def dynamic_file_pick(basepath, method="all", globchoice="*"):
 
 if __name__ == "__main__":
     basepath = './'
-    base = 'vs_eberhart'
-    model_a = f"{base}15.vtk"
-    model_b = f"{base}19.vtk"
-    dynamic_method = "select_one"
+    model_a = "model_a"
+    model_b = "model_b"
+    dynamic_method = "select"
     globchoice = "*"
 
     # If the choice of models doesn't exist, pick based on the files available
