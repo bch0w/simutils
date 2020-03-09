@@ -4,16 +4,74 @@ mesher, Meshfem3D. So far hardcoded for two doubling layers, both in the
 templates and in the functions below. If more or less layers are required,
 one would need to edit the templates to add more layers and interfaces, and then
 change the string formatting in the write functions below
+
+NOTE:
+1) Doubling layers control the horizontal doubling of element area
+2) Interfaces control vertical doubling of element length
+
+Parameters must be set in the meshpar.json file (or user defined file)
+The JSON parameter file can contain the following parameters
+
+:type tag: str
+:param tag: tag to save outputs to
+:type lat_min: float
+:param lat_min: minimum latitude in degrees
+:type lat_max: float
+:param lat_max: maximum latitude in degrees
+:type lon_min: float
+:param lon_min: minimum longitude in degrees
+:type lon_max: float
+:param lon_max: maximum longitude in degrees
+:type utm_projection: int
+:param utm_prjection: UTM projection to convert lat/lon with
+:type mesh_depth_km: float
+:param mesh_depth_km: mesh depth in units of kilometers
+:type interfaces: list of float
+:param interfaces: the depth locations of interfaces where doubling occurs
+  in units of kilometers
+:type interface_fids: list of str
+:param interface_fids: name of the output interface files corresponding to
+  the list of interfaces
+:type mantle_from_interface_idx: int
+:param mantle_from_interface_idx: allows the mantle to have doubling layers
+  while retaining all the other properties.
+:type nproc: int
+:param nproc: number of processors to split up the mesh into
+:type shortest_period_s: float
+:param shortest_period_s: the shortest period that the mesh is expected to
+  resolve. Not a strict requirement, but gives an idea of the necessary
+  element sizes required to resolve given features. A minimum
+  resolvable period test must be done to get the actual resolution of the mesh
+:type vs_min_km_per_s: float
+:param vs_min_km_per_s: smallest expected wavespeed in the model, in km/s
+  as with `shortest_period_s`, gives an idea of the necessary element sizes
+  but is not a hard requirement. An MRP test will need to be performed
 """
 import os
+import json
+import logging
+import traceback
 import numpy as np
 
+# Import from the utilities above
 import sys
-sys.path.append('..')
-sys.stdout = open('meshing.out', 'w')
+sys.path.append("..")
 from mesh_utils import myround, lonlat_utm
 
-def set_parameters():
+
+logging.basicConfig(level=logging.DEBUG,
+                    format="%(message)s",
+                    filename=f"log_mesh_temp.out",
+                    filemode="w")
+
+# Write logging to console
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+logging.getLogger('').addHandler(console)
+logger = logging.getLogger("mesher")
+
+
+def set_parameters(fid="./parmesh.json"):
     """
     Define the necessary parameters here, these will be accessed by the
     constraint fuctions throughout the script. Defaults for a New Zealand North
@@ -22,27 +80,15 @@ def set_parameters():
     :rtype: dict
     :return: dictionary of parameters
     """
-    parameters = {"lat_min": -42.5,
-                  "lat_max": -37.,
-                  "lon_min": 173.,
-                  "lon_max": 178.5,
-                  "utm_projection": -60,
-                  "mesh_depth_km": 400.,
-                  "interfaces": [8, 30],
-                  "interface_fids": ["interface_shallow.dat",
-                                     "interface_deep.dat",],
-                  "mantle_from_interface_idx": None,
-                  "nproc": 160,
-                  "shortest_period_s": 4.,
-                  "vs_min_km_per_s": 1.,
-                  }
+    with open(fid, "r") as f:
+        parameters = json.load(f)
 
     # Print the parameters so the User knows what they've chosen
-    print("="*79)
-    print("PARAMETER SET:")
+    logger.info(f"PREPARING MESH FOR MESHFEM3D")
+    logger.info(f"\n{parameters}\n")
+    logger.info(f"PARAMETERS FOR: {parameters['tag']}")
     for key, item in parameters.items():
-        print(f"{key}: {item}")
-    print("="*79 + "\n")
+        logger.info(f"\t{key}: {item}")
 
     parameters["ndoublings"] = len(parameters["interfaces"])
 
@@ -79,11 +125,13 @@ def minimum_grid_spacing(slowest_wavespeed, shortest_period):
     :rtype: float
     :return: minimum element spacing of the mesh
     """
+    logger.info("CALCULATING MINIMUM GRID SPACE")
     # Value of 2 comes from two points per wavelength
     min_grid_space = (shortest_period * slowest_wavespeed) / 2
-    print(f"\tminimum grid spacing calculated as {min_grid_space}")
+    logger.info(f"\tT_min/V_min = {min_grid_space}")
     grid_space = myround(min_grid_space, 2, 'down') or min_grid_space
-    print(f"\t\trounded down to {grid_space}")
+    logger.info(f"\trounded to nearest factor of 2: {grid_space}")
+    logger.info(f"\tMIN GRID SPACE = {grid_space} km")
         
     return grid_space
 
@@ -103,6 +151,7 @@ def number_of_processors(nproc, x_length, y_length):
     :rtype nproc_y: int
     :return nproc_y: number of the processors in the y-direction
     """
+    logger.info("CALCULATING NUMBER OF PROCESSORS")
     # Determine the ratio
     ratio = min(x_length, y_length) / max(x_length, y_length)
 
@@ -111,6 +160,8 @@ def number_of_processors(nproc, x_length, y_length):
         short_direction = "x"
     else:
         short_direction = "y"
+
+    logger.info(f"\tshort direction is {short_direction}")
 
     # Start guessing processor ratios at the square root, until 2 integers found
     guess_a = round(np.sqrt(ratio * nproc))
@@ -124,7 +175,9 @@ def number_of_processors(nproc, x_length, y_length):
             else:
                 nproc_x = max(guess_a, guess_b)
                 nproc_y = min(guess_a, guess_b)
-            print(f"\tNPROC_X = {nproc_x}\n\tNPROC_Y = {nproc_y}")
+            logger.info(f"\tNPROC_X = {int(nproc_x)}\n"
+                        f"\tNPROC_Y = {int(nproc_y)}"
+                        )
             return int(nproc_x), int(nproc_y)
         else:
             guess_a += 1
@@ -153,24 +206,35 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
     :rtype nex_y: number of elements in the y-direction
     :return nex_y: int
     """
+    logger.info("CALCULATING NUMBER OF ELEMENTS")
     # meshfem requires the number of grid points be an integer multiple of 8
     # times the number of processors in a given direction
-    nex_x = myround(x_length / grid_space, nproc_x * 8, "near")
-    nex_y = myround(y_length / grid_space, nproc_y * 8, "near")
+    c = 1
+    nex_x = 0
+    while nex_x < 2 * 288 / shortest_period_s:
+        nex_x = myround(x_length / grid_space, c * nproc_x * 8, "up")
+        nex_y = myround(y_length / grid_space, c * nproc_y * 8, "up")
+        c += 1
+        if c >= 50:
+            raise OverflowError("nex_x seems too large for given nproc_x")
 
     # ensure that the short direction is maintained
     while (nproc_x < nproc_y) and (nex_x > nex_y):
         nex_y += nproc_y * 8
 
-    # Minimum element number set by Eq. 3.1 in Specfem manual
-    assert(nex_x >= 2 * 288 / shortest_period_s)
+    logger.info(f"\tinteger multiple found as c={c}")
+    logger.info(f"\tNEX_X = {nex_x}\n"
+                f"\tNEX_Y = {nex_y}")
 
+    assert(nex_x >= 2 * 288 / shortest_period_s)
+    assert(nex_y >= 2 * 288 / shortest_period_s)
+
+    # Minimum element number set by Eq. 3.1 in Specfem manual
     dx = x_length / nex_x
     dy = y_length / nex_y
 
-    print(f"\tNEX_X = {nex_x}\n\tNEX_Y = {nex_y}\n"
-          f"\tdx = {dx:.2f}km\n\tdy = {dy:.2f}km"
-          )
+    logger.info(f"\tDX = {dx:.4f}km\n"
+                f"\tDY = {dy:.4f}km")
 
     return int(nex_x), int(nex_y)
 
@@ -189,6 +253,7 @@ def calculate_nelements(nex_x, nex_y, layers):
     :rtype int:
     :return: the total number of elements in the mesh
     """
+    logger.info("CALCULATING NUMBER OF ELEMENTS")
     nelements = 0
     layers_from_top = layers[::-1]
     for i, nz in enumerate(layers_from_top):
@@ -197,7 +262,7 @@ def calculate_nelements(nex_x, nex_y, layers):
 
     nelements = int(nelements)
 
-    print(f"NUMBER_OF_ELEMENTS = {nelements}")
+    logger.info(f"\tNUM_ELEM = {nelements}")
     
     return nelements
          
@@ -211,6 +276,7 @@ def vertical_doubling_proportions(depth, ndoublings, interfaces, grid_space):
     :param interfaces:
     :return:
     """
+    logger.info("CALCULATING NUMBER OF VERTICAL DOUBLING LAYERS")
     # Start interfaces from the top, include the bottom interface of depth
     all_interfaces = [0] + interfaces + [depth]
     all_interfaces.sort()
@@ -229,14 +295,14 @@ def vertical_doubling_proportions(depth, ndoublings, interfaces, grid_space):
     # Start counting layers from bottom
     layers.sort(reverse=True)
 
-    print("\t{nlay} sections; bottom to top {layers} elements per layer".format(
-        nlay=len(layers), layers=layers))
-    print("\t{} total layers".format(sum(layers)))
+    logger.info(f"\tNLAYERS = {len(layers)}")
+    logger.info(f"\tNELEMENTS_Z = {sum(layers)}")
+    logger.info(f"\tLAYER SIZE FROM BOTTOM = {layers}")
 
     return layers
 
 
-def write_mesh_par_file(template, lat_min, lat_max, lon_min, lon_max,
+def write_mesh_par_file(template, dir_name, lat_min, lat_max, lon_min, lon_max,
                         depth, utm_projection, nex_x, nex_y, nproc_x, nproc_y,
                         ndoublings, layers, mantle_from=None):
     """
@@ -247,6 +313,8 @@ def write_mesh_par_file(template, lat_min, lat_max, lon_min, lon_max,
 
     :type template: str
     :param template: fid of the Mesh_Par_file template, preformatted
+    :type dir_name: str
+    :param dir_name: directory to store output files
     :param lat_min: minimum latitude of the mesh
     :param lat_max: maximum latitude of the mesh
     :param lon_min: maximum longitude of the mesh
@@ -265,6 +333,8 @@ def write_mesh_par_file(template, lat_min, lat_max, lon_min, lon_max,
         for internal interfaces/doubling layers within the mantle, but not
         changing the number of regions or materials
     """
+    logger.info("WRITING Mesh_Par_file")
+
     with open(template, "r") as f:
         lines = f.read()
 
@@ -295,32 +365,30 @@ def write_mesh_par_file(template, lat_min, lat_max, lon_min, lon_max,
                          )
 
     # Hacky way to incorporate different doubling layers
-    print("\n!!! You must add the following to the Mesh_Par_file !!!")
-    for i, layer in enumerate(layers[:-1]):
-        j = i + 1
-        print('NZ_DOUBLING_{j}{space}= {layer}'.format(j=j,
-                                                       space=' '*19,
-                                                       layer=sum(layers[:j]))
-              )
-    print("!!! You must add the following to the Mesh_Par_file !!!\n")
+    if mantle_from:
+        logger.info("\n!!! You must add the following to the Mesh_Par_file !!!")
+        for i, layer in enumerate(layers[:-1]):
+            j = i + 1
+            logger.info('NZ_DOUBLING_{j}{space}= {layer}'.format(
+                j=j, space=' '*19, layer=sum(layers[:j]))
+            )
+            logger.info(
+                "!!! You must add the following to the Mesh_Par_file !!!\n")
 
-    # Put the outputs into a directory for easy transfer
-    base = './meshfem3D_files'
-    if not os.path.exists(base):
-        os.makedirs(base)
-
-    print("\twriting Mesh_Par_file")
-    with open(os.path.join(base, "Mesh_Par_file"), "w") as f:
+    with open(os.path.join(dir_name, "Mesh_Par_file"), "w") as f:
         f.write(lines)
 
 
-def write_interfaces(template, layers, interfaces, lat_min, lon_min, fids=[]):
+def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
+                     fids=[]):
     """
     Write the interfaces.dat file as well as the corresponding flat interface
     layers. Topo will need to be written manually
 
     :type template: str
     :param template: fid of the interfaces.dat template, preformatted
+    :type dir_name: str
+    :param dir_name: directory to store output files
     :type layers: list
     :param layers: number of elements in each layer
     :type interfaces: list
@@ -332,25 +400,21 @@ def write_interfaces(template, layers, interfaces, lat_min, lon_min, fids=[]):
         excluding topography and the bottom of the mesh. If left blank, defaults
         to 1, 2 ... until the number of layers
     """
-    # Put the outputs into a directory for easy transfer
-    base = './meshfem3D_files'
-    if not os.path.exists(base):
-        os.makedirs(base)
-
     # Template for setting a flat layer
     flat_layer = f".false. 2 2 {lon_min:.1f}d0 {lat_min:.1f}d0 180.d0 180.d0"
+
     # Hardcoded topo layer, CHANGE THIS
     topo_fid = "interface_topo.dat"
     topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0"
 
     # Write to a new file
-    print("\twriting interfaces.dat")
-    with open(os.path.join(base, "interfaces.dat"), "w") as f:
+    logger.info("WRITING interfaces.dat")
+    with open(os.path.join(dir_name, "interfaces.dat"), "w") as f:
         f.write("# number of interfaces\n")
         f.write(" {ninterfaces}\n".format(ninterfaces=len(interfaces) + 1))
 
         # Write flat layers up to topo
-        for i, (interface, fid)  in enumerate(zip(interfaces, reversed(fids))):
+        for i, (interface, fid) in enumerate(zip(interfaces, reversed(fids))):
             f.write("# interface number {}\n".format(i+1))
             f.write(f" {flat_layer}\n")
             f.write(f" {fid}\n")
@@ -368,57 +432,73 @@ def write_interfaces(template, layers, interfaces, lat_min, lon_min, fids=[]):
     # Write the individual interface files
     for fid, interface in zip(fids, interfaces):
         # Skip top interface (topography)
-        print(f"\twriting {fid}")
-        with open(os.path.join(base, fid), "w") as f:
+        logger.info(f"WRITING INTERACE {fid}")
+        with open(os.path.join(dir_name, fid), "w") as f:
             for i in range(4):
                 f.write("-{}\n".format(abs(int(interface * 1E3))))
 
 
-def prepare_meshfem():
+def prepare_meshfem(parameter_file, mesh_par_file_template,
+                    interfaces_template, dir_name):
     """
     Run all the above functions and output the necessary meshfem3D files
-    :return:
     """
-    mesh_par_file_template = "./template_Mesh_Par_file"
-    interfaces_template = "./template_interfaces.dat"
+    assert(os.path.exists(parameter_file))
+    assert (os.path.exists(mesh_par_file_template))
+    assert (os.path.exists(interfaces_template))
+    # Put the outputs into a directory for easy transfer
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
 
-    pars = set_parameters()
+    try:
+        pars = set_parameters(parameter_file)
 
-    print("Preparing Meshfem3D files")
-    grid_space = minimum_grid_spacing(slowest_wavespeed=pars["vs_min_km_per_s"],
-                                      shortest_period=pars["shortest_period_s"]
-                                      )
-    nproc_x, nproc_y = number_of_processors(nproc=pars["nproc"],
-                                            x_length=pars["x_length_km"],
-                                            y_length=pars["y_length_km"]
-                                            )
-    nex_x, nex_y = number_of_elements(
-        nproc_x=nproc_x, nproc_y=nproc_y, x_length=pars["x_length_km"],
-        y_length=pars["y_length_km"], grid_space=grid_space,
-        shortest_period_s=pars["shortest_period_s"]
-    )
-    layers = vertical_doubling_proportions(depth=pars["mesh_depth_km"],
-                                           ndoublings=pars["ndoublings"],
-                                           interfaces=pars["interfaces"],
-                                           grid_space=grid_space
-                                           )
-    write_mesh_par_file(template=mesh_par_file_template,
-                        lat_min=pars["lat_min"], lat_max=pars["lat_max"],
-                        lon_min=pars["lon_min"], lon_max=pars["lon_max"],
-                        depth=pars["mesh_depth_km"],
-                        utm_projection=pars["utm_projection"],
-                        nex_x=nex_x, nex_y=nex_y, nproc_x=nproc_x,
-                        nproc_y=nproc_y, ndoublings=pars["ndoublings"],
-                        layers=layers,
-                        mantle_from=pars["mantle_from_interface_idx"]
-                        )
-    write_interfaces(template=interfaces_template, layers=layers,
-                     interfaces=pars["interfaces"], lat_min=pars["lat_min"],
-                     lon_min=pars["lon_min"], fids=pars["interface_fids"]
-                     )
-    
-    calculate_nelements(nex_x, nex_y, layers)
+        grid_space = minimum_grid_spacing(
+            slowest_wavespeed=pars["vs_min_km_per_s"],
+            shortest_period=pars["shortest_period_s"]
+                                          )
+        nproc_x, nproc_y = number_of_processors(nproc=pars["nproc"],
+                                                x_length=pars["x_length_km"],
+                                                y_length=pars["y_length_km"]
+                                                )
+        nex_x, nex_y = number_of_elements(
+            nproc_x=nproc_x, nproc_y=nproc_y, x_length=pars["x_length_km"],
+            y_length=pars["y_length_km"], grid_space=grid_space,
+            shortest_period_s=pars["shortest_period_s"]
+        )
+        layers = vertical_doubling_proportions(depth=pars["mesh_depth_km"],
+                                               ndoublings=pars["ndoublings"],
+                                               interfaces=pars["interfaces"],
+                                               grid_space=grid_space
+                                               )
+        write_mesh_par_file(template=mesh_par_file_template, dir_name=dir_name,
+                            lat_min=pars["lat_min"], lat_max=pars["lat_max"],
+                            lon_min=pars["lon_min"], lon_max=pars["lon_max"],
+                            depth=pars["mesh_depth_km"],
+                            utm_projection=pars["utm_projection"],
+                            nex_x=nex_x, nex_y=nex_y, nproc_x=nproc_x,
+                            nproc_y=nproc_y, ndoublings=pars["ndoublings"],
+                            layers=layers,
+                            mantle_from=pars["mantle_from_interface_idx"]
+                            )
+        write_interfaces(template=interfaces_template, dir_name=dir_name,
+                         layers=layers, interfaces=pars["interfaces"],
+                         lat_min=pars["lat_min"], lon_min=pars["lon_min"],
+                         fids=pars["interface_fids"]
+                         )
+
+        calculate_nelements(nex_x, nex_y, layers)
+    except Exception as e:
+        traceback.print_exc()
+        pass
+
+    # Hacky way to get the output log in the right name
+    os.rename("log_mesh_temp.out", f"./{dir_name}/{pars['tag']}.out")
 
 
 if __name__ == "__main__":
-    prepare_meshfem()
+    prepare_meshfem(parameter_file="./parmesh.json",
+                    mesh_par_file_template="./template_Mesh_Par_file",
+                    interfaces_template="./template_interfaces.dat",
+                    dir_name="./meshfem3D_files"
+                    )

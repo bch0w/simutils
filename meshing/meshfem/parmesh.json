@@ -1,0 +1,21 @@
+{
+	"tag": "nztn1664",
+    "lat_min": -42.5,
+    "lat_max": -37.0,
+    "lon_min": 173.0,
+    "lon_max": 178.5,
+    "utm_projection": -60,
+    "mesh_depth_km": 400.0,
+    "interfaces": [
+        16,
+        64
+    ],
+    "interface_fids": [
+        "shallow.dat",
+        "deep.dat"
+    ],
+    "mantle_from_interface_idx": null,
+    "nproc": 120,
+    "shortest_period_s": 8.0,
+    "vs_min_km_per_s": 1.0
+}
