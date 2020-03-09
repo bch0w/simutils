@@ -4,7 +4,7 @@
     "lat_max": -37.0,
     "lon_min": 173.0,
     "lon_max": 178.5,
-    "utm_projection": -59,
+    "utm_projection": -60,
     "mesh_depth_km": 400.0,
     "interfaces": [
         16,

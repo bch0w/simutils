@@ -409,7 +409,7 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
 
     # Write to a new file
     logger.info("WRITING interfaces.dat")
-    with open(os.path.join(dir_name, template), "w") as f:
+    with open(os.path.join(dir_name, "interfaces.dat"), "w") as f:
         f.write("# number of interfaces\n")
         f.write(" {ninterfaces}\n".format(ninterfaces=len(interfaces) + 1))
 
