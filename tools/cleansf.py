@@ -36,7 +36,7 @@ def delete_(path, dryrun=False):
                     os.remove(fid)
         
         
-def clean_solver(dryrun=False):
+def clean_solver(dryrun=False, save_mainsolver=True):
     """
     Cleans the current Seisflows solver directory, leaving the main solver
 
@@ -55,6 +55,9 @@ def clean_solver(dryrun=False):
         if os.path.islink(event):
             continue
         print(f"scratch/solver/{os.path.basename(event)}")
+        if save_mainsolver and i == 0:
+            print("\tmainsolver, skipping")
+            continue
         print("\tremoving...", end=" ")
         for del_path in [os.path.join(event, 'bin'),
                          os.path.join(event, 'DATA', 'tomo_files'),
@@ -95,15 +98,11 @@ if __name__ == "__main__":
         dryrun = True
         print("DRYRUN")
     
-    try:
-        delete_main = bool(sys.argv[2])
-    except IndexError:
-        delete_main = False
-    
     # USER PARAMETERS
+    save_mainsolver = True
     clean_pyatoa = False
     clean_slurm = False   
  
-    clean_solver(dryrun)
+    clean_solver(dryrun, save_mainsolver)
     clean_main(pyatoa=clean_pyatoa, slurm=clean_slurm, dryrun=dryrun)
 

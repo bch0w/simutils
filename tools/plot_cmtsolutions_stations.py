@@ -7,8 +7,8 @@ import glob
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from pyatoa.utils.operations.calculations import myround
-from pyatoa.utils.operations.source_receiver import lonlat_utm
+from pyatoa.utils.tools.calculate import myround
+from pyatoa.utils.tools.srcrcv import lonlat_utm
 
 mpl.rcParams['lines.markersize'] = 5
 mpl.rcParams['xtick.labelsize'] = 'x-small'
@@ -19,7 +19,7 @@ fontsize = 7.5
 specfem_data = "./"
 coastline_npy = "/scale_wlg_persistent/filesets/home/chowbr/primer/auxiliary/coastline/nz_resf_coast_mod_utm60H_xyz.npy"
 
-plot_cmtsolutions = True
+plot_cmtsolutions = False
 plot_stations = True
 
 f, ax = plt.subplots(1, dpi=200)
