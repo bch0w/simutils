@@ -48,6 +48,7 @@ The JSON parameter file can contain the following parameters
   but is not a hard requirement. An MRP test will need to be performed
 """
 import os
+import sys
 import json
 import logging
 import traceback
@@ -90,12 +91,12 @@ def set_parameters(fid="./parmesh.json"):
     for key, item in parameters.items():
         logger.info(f"\t{key}: {item}")
 
-    parameters["ndoublings"] = len(parameters["interfaces"])
+    parameters["ndoublings"] = len(parameters["doubling_layers"])
 
     # Make sure there are enough fids for each interface, or that none specified
     assert((len(parameters["interface_fids"]) == 0) or
            (len(parameters["interfaces"]) == len(parameters["interface_fids"]))
-           )
+           ), "interfaces number must match interface_fids number"
 
     # Convert latlon to UTM
     x_min, y_min = lonlat_utm(parameters["lon_min"], parameters["lat_min"],
@@ -114,7 +115,8 @@ def set_parameters(fid="./parmesh.json"):
     return parameters
 
 
-def minimum_grid_spacing(slowest_wavespeed, shortest_period):
+def minimum_grid_spacing(slowest_wavespeed, shortest_period,
+                         grid_space_top_hv=None):
     """
     Define minimum grid spacing based on slowest wavespeed and shortest period
 
@@ -125,15 +127,28 @@ def minimum_grid_spacing(slowest_wavespeed, shortest_period):
     :rtype: float
     :return: minimum element spacing of the mesh
     """
-    logger.info("CALCULATING MINIMUM GRID SPACE")
-    # Value of 2 comes from two points per wavelength
-    min_grid_space = (shortest_period * slowest_wavespeed) / 2
-    logger.info(f"\tT_min/V_min = {min_grid_space}")
-    grid_space = myround(min_grid_space, 2, 'down') or min_grid_space
-    logger.info(f"\trounded to nearest factor of 2: {grid_space}")
-    logger.info(f"\tMIN GRID SPACE = {grid_space} km")
+    logger.info("CALCULATING MINIMUM GRID SPACE AT TOP OF MESH")
+    if grid_space_top_hv:
+        grid_space_h, grid_space_v = grid_space_top_hv
+        logger.info("\tGrid space XYZ given")
+        logger.info(f"\tMIN GRID SPACE HORIZONTAL: {grid_space_h}")
+        logger.info(f"\tMIN GRID SPACE VERTICAL: {grid_space_v}")
+        return grid_space_h, grid_space_v
+
+    else:
+        logger.info("\tManually calculating grid space based on T and V")
+
+        # Value of 2 comes from two points per wavelength
+        min_grid_space = (shortest_period * slowest_wavespeed) / 2
+        logger.info(f"\tT_min/V_min = {min_grid_space}")
+        grid_space_h = myround(min_grid_space, 2, 'down') or min_grid_space
+        grid_space_v = grid_space_h / 2
+        if grid_space_h == myround(min_grid_space, 2, 'down'):
+            logger.info(f"\trounded to nearest factor of 2")
+        logger.info(f"\tMIN GRID SPACE HORIZONTAL = {grid_space_h} km")
+        logger.info(f"\tMIN GRID SPACE VERTICAL = {grid_space_v} km")
         
-    return grid_space
+        return grid_space_h, grid_space_v
 
 
 def number_of_processors(nproc, x_length, y_length):
@@ -186,8 +201,8 @@ def number_of_processors(nproc, x_length, y_length):
 def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
                        shortest_period_s):
     """
-    Define the number of elements in each horizontal direction based on number
-    of processors
+    Define the number of elements in each horizontal direction at the top of the
+    mesh based on number of processors
 
     :type nproc_x: int
     :param nproc_x: number of processors in the x-direction
@@ -206,7 +221,7 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
     :rtype nex_y: number of elements in the y-direction
     :return nex_y: int
     """
-    logger.info("CALCULATING NUMBER OF ELEMENTS")
+    logger.info("CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH")
     # meshfem requires the number of grid points be an integer multiple of 8
     # times the number of processors in a given direction
     c = 1
@@ -239,10 +254,10 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
     return int(nex_x), int(nex_y)
 
 
-def calculate_nelements(nex_x, nex_y, layers):
+def calculate_nelements(nex_x, nex_y, layers, ):
     """
-    Calculates the total number of elements in the mesh, taking doubling layers
-    into consideration
+    Calculates the total number of elements in the mesh, taking horizontal
+    doubling layers into consideration
     
     :type nex_x: int
     :param nex_x: number of elements in the x direction at the surface
@@ -255,37 +270,38 @@ def calculate_nelements(nex_x, nex_y, layers):
     """
     logger.info("CALCULATING NUMBER OF ELEMENTS")
     nelements = 0
-    layers_from_top = layers[::-1]
+    layers_from_top = layers
+    layers_from_top.sort()
     for i, nz in enumerate(layers_from_top):
-        j = i + 1 
-        nelements += (nex_x * nex_y) / (2 * j) * nz
+        j = i + 1
+        elements_in_layer = (nex_x * nex_y) / (2 * j) * nz
+        logger.info(f"\t{elements_in_layer} in layer {j}")
+        nelements += elements_in_layer
 
     nelements = int(nelements)
-
     logger.info(f"\tNUM_ELEM = {nelements}")
     
     return nelements
-         
 
-def vertical_doubling_proportions(depth, ndoublings, interfaces, grid_space):
+
+def vertical_doubling_proportions(top_of_mesh, depth, interfaces, grid_space_z):
     """
     Set the number of vertical doubling layers
-
     :param depth:
     :param ndoublings:
     :param interfaces:
     :return:
     """
-    logger.info("CALCULATING NUMBER OF VERTICAL DOUBLING LAYERS")
+    logger.info("CALCULATING NUMBER OF VERTICAL DOUBLING LAYERS (interfaces)")
     # Start interfaces from the top, include the bottom interface of depth
-    all_interfaces = [0] + interfaces + [depth]
+    all_interfaces = [top_of_mesh] + interfaces + [depth]
     all_interfaces.sort()
 
     layers = []
-    for i in range(ndoublings + 1):
+    for i in range(len(interfaces) + 1):
         j = i + 1
         num_layers = ((all_interfaces[j] - all_interfaces[i]) /
-                      ((2 ** i) * grid_space))
+                      ((2 ** i) * grid_space_z))
         layers.append(myround(num_layers, 1, "near"))
 
     # Get an even number of elements, place new layers on top
@@ -302,81 +318,122 @@ def vertical_doubling_proportions(depth, ndoublings, interfaces, grid_space):
     return layers
 
 
-def write_mesh_par_file(template, dir_name, lat_min, lat_max, lon_min, lon_max,
-                        depth, utm_projection, nex_x, nex_y, nproc_x, nproc_y,
-                        ndoublings, layers, mantle_from=None):
+def approx_element_number(depth_km, layers, top, bottom, grid_space_top):
     """
-    Write the Mesh_Par_file with the given values and a template script
+    Return an approximate element number based on the depth, the grid space
+    at the top of the mesh, and the known vertical doubling layers.
 
-    TO DO:
-        add the capability to dynamically set the number of doubling layers
+    NOTE: Element numbering starts from the bottom!
 
-    :type template: str
-    :param template: fid of the Mesh_Par_file template, preformatted
-    :type dir_name: str
-    :param dir_name: directory to store output files
-    :param lat_min: minimum latitude of the mesh
-    :param lat_max: maximum latitude of the mesh
-    :param lon_min: maximum longitude of the mesh
-    :param lon_max: maximum longitude of the mesh
-    :param depth: depth of the mesh in km
-    :param utm_projection: utm projection to convert lat lon to
-    :param nex_x: number of elements in the x direction
-    :param nex_y: number of elements in the y direction
-    :param nproc_x: number of processors in the x direction
-    :param nproc_y: number of processors in the y direction
-    :param ndoublings: number of doubling layers
-    :type layers: list
-    :param layers: number of elements in each layer
-    :type mantle_from: int
-    :param mantle_from: if given, sets the index of the mantle layer, allowing
-        for internal interfaces/doubling layers within the mantle, but not
-        changing the number of regions or materials
+    :type depth_km: float
+    :param depth_km: depth of the requested element, depth increase positive
+    :rtype: int
+    :return: approximate element
     """
-    logger.info("WRITING Mesh_Par_file")
+    num_elem = sum(layers)
 
-    with open(template, "r") as f:
-        lines = f.read()
+    # Return mesh bottom if requested
+    if depth_km == bottom:
+        logger.info(f"\tdepth {depth_km}km is bottom of mesh {bottom}")
+        return 1
+    elif depth_km == top:
+        logger.info(f"\tdepth {depth_km}km is top of mesh {top}km")
+        return num_elem
 
-    # Allows the mantle to contain interfaces/doubling layers, but still retain
-    # the same region/material id within. The nz_3b is a hack to pick the right
-    # end layer, but this is hardcoded to only have 3 layers, should be changed
-    if mantle_from:
-        nmaterials = nregions = mantle_from + 1
-        nz_3b = sum(layers)
-    else:
-        nmaterials = nregions = ndoublings + 1
-        nz_3b = sum(layers[:3])
+    # Ensure we don't change the grid_space_z variable
+    grid_space_vertical = grid_space_top
 
-    lines = lines.format(lat_min=lat_min, lat_max=lat_max, lon_min=lon_min,
-                         lon_max=lon_max, depth=depth,
-                         utm_projection=utm_projection,
-                         nex_xi=nex_x, nex_eta=nex_y, nproc_xi=nproc_x,
-                         nproc_eta=nproc_y, ndoublings=ndoublings,
-                         nz_doubling_1=sum(layers[:1]),
-                         nz_doubling_2=sum(layers[:2]),
-                         nmaterials=nmaterials, nregions=nregions,
-                         nz_1a=1,
-                         nz_1b=sum(layers[:1]),
-                         nz_2a=sum(layers[:1]) + 1,
-                         nz_2b=sum(layers[:2]),
-                         nz_3a=sum(layers[:2]) + 1,
-                         nz_3b=nz_3b,
-                         )
+    # Reverse the Z axis so increasing depth is positive
+    current_depth = top
 
-    # Hacky way to incorporate different doubling layers
-    if mantle_from:
-        logger.info("\n!!! You must add the following to the Mesh_Par_file !!!")
-        for i, layer in enumerate(layers[:-1]):
-            j = i + 1
-            logger.info('NZ_DOUBLING_{j}{space}= {layer}'.format(
-                j=j, space=' '*19, layer=sum(layers[:j]))
-            )
-            logger.info(
-                "!!! You must add the following to the Mesh_Par_file !!!\n")
+    # Start counting down from the top layer
+    element = num_elem
+    for num_lay in layers:
+        # Count through the number of layer in each grouping
+        for _ in range(1, num_lay + 1):
+            current_depth += grid_space_vertical
+            if current_depth > depth_km:
+                logger.info(f"\tdepth {depth_km}km is roughly element "
+                            f"{element} at depth {current_depth}km")
+                return element
+            else:
+                element -= 1
+        # The next layer means vertical doubling
+        grid_space_vertical *= 2
 
-    with open(os.path.join(dir_name, "Mesh_Par_file"), "w") as f:
-        f.write(lines)
+    logger.warning("You weren't supposed to see this... sorry")
+    sys.exit()
+
+
+def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
+                                   nex_eta, top, bottom, grid_space_z):
+    """
+    Define the string that gives the doubling layers which control the
+    horizontal doubling of element area, as well as the strings that define
+    nmaterials and nregions which control different material properties of
+    different sections of the mesh.
+
+    There should atleast be one doubling layer, one material and one region.
+    """
+    # Ensure that we start from the top layer
+    layers.sort()
+
+    logger.info("FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)")
+    db_fmt = ""
+    db_template = "NZ_DOUBLING_{j}                   = {value}\n"
+    doubling_layers.sort(reverse=True)
+    nz_per_doubling_layer = []
+    for i, dl in enumerate(doubling_layers):
+        elem_num = approx_element_number(depth_km=dl, layers=layers, top=top,
+                                         bottom=bottom,
+                                         grid_space_top=grid_space_z)
+        nz_per_doubling_layer.append(elem_num)
+        db_fmt += db_template.format(j=i+1, value=elem_num)
+    logger.info(f"\tNDOUBLING LAYERS = {nz_per_doubling_layer}")
+
+    # Format the reigons and materials files
+    logger.info("FORMATTING NREGIONS AND NMATERIALS")
+    # material, id, rho, vp, vs, Qk, Qm, anisotropy_flag, domain_id
+    materials_template = "{j}  9999.  9999.  9999.  9999.  9999.  0  2\n"
+    # nex_xi_beg, nex_xi_end, nex_eta_beg, nex_eta_end, nz_beg, nz_end, mat_id
+    regions_template = ("{nex_begin:<5} {nex_xi:<5} {nex_begin:<5} "
+                        "{nex_eta:<5} {nz_beg:<5} {nz_end:<5} {j:<5}\n")
+
+    # Regions define interfaces so nregions is 1 additional
+    nregions = nmaterials = len(regions) + 1
+    logger.info(f"\tnregions = nmaterials = {nregions}")
+
+    # Ensure we start counting from the bottom of the mesh, element number 1
+    nz_begin = 1
+
+    # Include the top of the mesh in the regions
+    regions.sort(reverse=True)
+    regions += [top]
+
+    materials_out = ""
+    regions_out = ""
+    # Use range because
+    for i, reg in enumerate(regions):
+        j = i + 1
+        # Materials don't need to be specific as they will be overwritten
+        # by external tomography files. Otherwise User will have to manual set
+        materials_out += materials_template.format(j=j)
+
+        # Regions are described by the interfaces of the external tomo files
+        nz_end = approx_element_number(depth_km=reg, layers=layers, top=top,
+                                       bottom=bottom,
+                                       grid_space_top=grid_space_z)
+        regions_out += regions_template.format(nex_begin="1",
+                                               nex_xi=nex_xi,
+                                               nex_eta=nex_eta,
+                                               nz_beg=nz_begin,
+                                               nz_end=nz_end,
+                                               j=j)
+
+        # Ensure that the next layer starts on the next element
+        nz_begin = nz_end + 1
+
+    return db_fmt, nregions, nmaterials, regions_out, materials_out
 
 
 def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
@@ -400,6 +457,10 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
         excluding topography and the bottom of the mesh. If left blank, defaults
         to 1, 2 ... until the number of layers
     """
+    # Ensure counting layers from bottom
+    layers_from_bottom = layers
+    layers_from_bottom.sort(reverse=True)
+
     # Template for setting a flat layer
     flat_layer = f".false. 2 2 {lon_min:.1f}d0 {lat_min:.1f}d0 180.d0 180.d0"
 
@@ -426,7 +487,7 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
 
         # Write number of elements in each layer
         f.write("# number of spectral elements per layer (from bottom)\n")
-        for j, layer in enumerate(layers):
+        for j, layer in enumerate(layers_from_bottom):
             f.write(f" {layer}\n")
 
     # Write the individual interface files
@@ -453,34 +514,60 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
     try:
         pars = set_parameters(parameter_file)
 
-        grid_space = minimum_grid_spacing(
+        # Determine the grid space based on wavespeed/min period or by user set
+        grid_space_h, grid_space_v = minimum_grid_spacing(
+            grid_space_top_hv=pars["grid_space_top_hv"],
             slowest_wavespeed=pars["vs_min_km_per_s"],
             shortest_period=pars["shortest_period_s"]
                                           )
+
+        # Number of processors controlled by given User set parameters
         nproc_x, nproc_y = number_of_processors(nproc=pars["nproc"],
                                                 x_length=pars["x_length_km"],
                                                 y_length=pars["y_length_km"]
                                                 )
+
+        # Number of elements controlled by Specfem requirements
         nex_x, nex_y = number_of_elements(
             nproc_x=nproc_x, nproc_y=nproc_y, x_length=pars["x_length_km"],
-            y_length=pars["y_length_km"], grid_space=grid_space,
+            y_length=pars["y_length_km"], grid_space=grid_space_h,
             shortest_period_s=pars["shortest_period_s"]
         )
-        layers = vertical_doubling_proportions(depth=pars["mesh_depth_km"],
-                                               ndoublings=pars["ndoublings"],
-                                               interfaces=pars["interfaces"],
-                                               grid_space=grid_space
+
+        # Doubling layers control doubling in height of elements
+        layers = vertical_doubling_proportions(
+            top_of_mesh=pars["mesh_top_km"], depth=pars["mesh_depth_km"],
+            interfaces=pars["interfaces"], grid_space_z=grid_space_v
                                                )
-        write_mesh_par_file(template=mesh_par_file_template, dir_name=dir_name,
-                            lat_min=pars["lat_min"], lat_max=pars["lat_max"],
-                            lon_min=pars["lon_min"], lon_max=pars["lon_max"],
-                            depth=pars["mesh_depth_km"],
-                            utm_projection=pars["utm_projection"],
-                            nex_x=nex_x, nex_y=nex_y, nproc_x=nproc_x,
-                            nproc_y=nproc_y, ndoublings=pars["ndoublings"],
-                            layers=layers,
-                            mantle_from=pars["mantle_from_interface_idx"]
-                            )
+
+        # Write out the specific format for doubling, materials and regions
+        doubling_layers, nregions, nmaterials, regions, materials = \
+            nmaterials_nregions_ndoublings(
+                doubling_layers=pars["doubling_layers"], layers=layers,
+                regions=pars["regions"], nex_xi=nex_x, nex_eta=nex_y,
+                top=pars["mesh_top_km"], bottom=pars["mesh_depth_km"],
+                grid_space_z=grid_space_v
+        )
+
+        # Format the template Mesh_Par_file
+        logger.info("WRITING Mesh_Par_file")
+        with open(mesh_par_file_template, "r") as f:
+            lines = f.read()
+        lines = lines.format(lat_min=pars["lat_min"], lat_max=pars["lat_max"],
+                             lon_min=pars["lon_min"], lon_max=pars["lon_max"],
+                             depth=pars["mesh_depth_km"],
+                             utm_projection=pars["utm_projection"],
+                             nex_xi=nex_x, nex_eta=nex_y, nproc_xi=nproc_x,
+                             nproc_eta=nproc_y,
+                             ndoublings=len(pars["doubling_layers"]),
+                             doubling_layers=doubling_layers,
+                             nmaterials=nmaterials, nregions=nregions,
+                             materials=materials, regions=regions
+                             )
+        with open(os.path.join(dir_name, "Mesh_Par_file"), "w") as f:
+            f.write(lines)
+
+        # Format the interfaces file
         write_interfaces(template=interfaces_template, dir_name=dir_name,
                          layers=layers, interfaces=pars["interfaces"],
                          lat_min=pars["lat_min"], lon_min=pars["lon_min"],

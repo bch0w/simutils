@@ -7,6 +7,7 @@ Assumes that the VTK files were made from the same mesh
 import os
 import sys
 import glob
+import numpy as np
 
 
 def read_file(pathname):
@@ -56,68 +57,8 @@ def read_file(pathname):
     return lines, header_dict
 
 
-def difference_vtk(model_a_fid, model_b_fid, reverse=1, method="subtract", 
-                   write=None):
-    """
-    read each model and scan line by line, difference all necessary values
-
-    the difference is defined as: c = a - b
-    to reverse, set reverse == -1
-
-    :type model_?: str
-    :param model_?: name of the model file
-    :type path: str
-    :param path: path holding the models to be read in
-    :type reverse: int
-    :param reverse: 1 for a-b, -1 for b-a
-    :type write: str
-    :param write: name of the output file to be written
-    :rtype differences: list
-    :return differences: list of the differences in values between a and b
-    """
-    # read files
-    model_a, header_dict_a = read_file(model_a_fid)
-    model_b, header_dict_b = read_file(model_b_fid)
-
-    # check that the files have the same characteristics before parsing
-    for key in header_dict_a.keys():
-        if key == "scalars":
-            continue
-        elif header_dict_a[key] != header_dict_b[key]:
-            sys.exit("{} not equal".format(key))
-
-    # parse through models together and separate by len of line, skip header
-    differences = []
-    start = header_dict_a["data_line"]
-    for a, b in zip(model_a[start:-1], model_b[start:-1]):
-        try:
-            difference = reverse * (float(a.strip()) - float(b.strip()))
-            # this will give a percent difference rather than absolute diff
-            if method == "divide":
-                difference /= float(a.strip())
-            differences.append(difference)
-        except (ValueError):
-            print("value error")
-
-    # Write out the differences to a new file
-    if write:
-        with open(write, "w") as f:
-            f.writelines(model_a[:header_dict_a["data_line"]])
-            for diff in differences:
-                if diff == 0:
-                    f.write("{:13.5f}    \n".format(float(diff)))
-                elif abs(diff) > 1:
-                    f.write("{:13.5f}    \n".format(float(diff)))
-                else:
-                    f.write("{:13.10f}    \n".format(float(diff)))
-            # Paraview will sometimes get stuck in a loop if there is no newline
-            # at the end of the file
-            f.write("\n")
-
-    return differences
-
-
-def dynamic_file_pick(basepath, method="all", globchoice="*"):
+def dynamic_file_pick(basepath, method="all", globchoice="*", 
+                      diff_method="subtract"):
     """
     Dynamically pick the VTK files to difference
     """
@@ -139,7 +80,8 @@ def dynamic_file_pick(basepath, method="all", globchoice="*"):
                 model_b = dynamic_pick[1]
 
         # Specfiy the output modle name based on the input model names
-        fid_out = "diff_{}_and_{}.vtk".format(
+        fid_out = "{}_{}_and_{}.vtk".format(
+                                    diff_method,
                                     os.path.basename(model_a).split(".")[0],
                                     os.path.basename(model_b).split(".")[0]
                                           )
@@ -164,7 +106,8 @@ def dynamic_file_pick(basepath, method="all", globchoice="*"):
                 else:
                     model_b.append(pick)
                     fid_out.append(os.path.join(
-                        basepath, "diff_{}_and_{}.vtk".format(
+                        basepath, "{}_{}_and_{}.vtk".format(
+                                        diff_method,
                                         os.path.basename(select).split(".")[0],
                                         os.path.basename(pick).split(".")[0])
                                                     ))
@@ -177,41 +120,122 @@ def dynamic_file_pick(basepath, method="all", globchoice="*"):
             model_b = input("Select model_b index: ")
             model_b = dynamic_pick[int(model_b)]
 
-            fid_out = "diff_{}_and_{}.vtk".format(
+            fid_out = "{}_{}_and_{}.vtk".format(
+                                    diff_method,
                                     os.path.basename(model_a).split(".")[0],
                                     os.path.basename(model_b).split(".")[0]
                                                   )
             fid_out = os.path.join(basepath, fid_out)
 
             return [model_a], [model_b], [fid_out]
+
         # Difference all models from one another
         elif method == "all":
             raise NotImplementedError
-        import ipdb;ipdb.set_trace()
-            
+
+
+def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
+    """
+    read each model and scan line by line, difference all necessary values
+
+    the difference is defined as: c = a - b
+
+    :type model_?: str
+    :param model_?: name of the model file
+    :type path: str
+    :param path: path holding the models to be read in
+    :type write: str
+    :param write: name of the output file to be written
+    :rtype differences: list
+    :return differences: list of the differences in values between a and b
+    """
+    # read files
+    model_a, header_dict_a = read_file(model_a_fid)
+    model_b, header_dict_b = read_file(model_b_fid)
+
+    # check that the files have the same characteristics before parsing
+    for key in header_dict_a.keys():
+        if key == "scalars":
+            continue
+        elif header_dict_a[key] != header_dict_b[key]:
+            sys.exit("{} not equal".format(key))
+
+    # parse through models together and separate by len of line, skip header
+    differences = []
+    start = header_dict_a["data_line"]
+    for a, b in zip(model_a[start:-1], model_b[start:-1]):
+        try:
+            a = float(a.strip())
+            b = float(b.strip())
+            if method in ["subtract", "divide"]:
+                difference = a - b
+                # this will give a percent difference rather than absolute diff
+                if method == "divide":
+                    difference /= a
+            # Take the natural log of the the quotient of a and b, this gives
+            # to first order approximation, the percent difference. Yoshi said
+            # Albert Tarantola said, "always view models in log space"
+            elif method == "log":
+                difference = np.log(a / b)
+
+            differences.append(difference)
+        except (ValueError):
+            print("value error")
+
+    # Write out the differences to a new file
+    if write:
+        with open(write, "w") as f:
+            f.writelines(model_a[:header_dict_a["data_line"]])
+            for diff in differences:
+                if diff == 0:
+                    f.write("{:13.5f}    \n".format(float(diff)))
+                elif abs(diff) > 1:
+                    f.write("{:13.5f}    \n".format(float(diff)))
+                else:
+                    f.write("{:13.10f}    \n".format(float(diff)))
+            # Paraview will sometimes get stuck in a loop if there is no newline
+            # at the end of the file
+            f.write("\n")
+
+    return differences
+
 
 if __name__ == "__main__":
+    """
+    PARAMETER SET
+    basepath (str): path to the .vtk files
+    model_? (str): for manual file picking set in parameters
+    dynamic_method (str): method for automatically selecting files
+        available - select, select_one, None
+    diff_method (str): method for differencing vtk values, 
+        available - subtract, divide, log
+    globchoice (str): wildcard for dynamic file picking
+    """
     basepath = './'
     model_a = "model_a"
     model_b = "model_b"
     dynamic_method = "select"
+    diff_method = "log"
     globchoice = "*"
 
-    # If the choice of models doesn't exist, pick based on the files available
+    # Dynamic file picking
     if not os.path.exists(os.path.join(basepath, model_a)):
         model_a, model_b, fid_out = dynamic_file_pick(basepath, dynamic_method,
-                                                      globchoice
+                                                      globchoice, diff_method,
                                                       )
+    # Static file picking
     else:
-        fid_out = ["diff_{}_and_{}.vtk".format(
+        fid_out = ["{}_{}_and_{}.vtk".format(
+                                diff_method,
                                 os.path.basename(model_a).split(".")[0],
                                 os.path.basename(model_b).split(".")[0]
                                               )]
         model_a = [model_a]
         model_b = [model_b]
-    # Difference Vtk files
+
+    # Difference VTK files
     for a, b, f in zip(model_a, model_b, fid_out):
-        print(f)
-        differences = difference_vtk(a, b, reverse=1, write=f)
+        print(f"diff {a} and {b} with '{diff_method}'... {f}")
+        differences = difference_vtk(a, b, write=f, method=diff_method)
 
 
