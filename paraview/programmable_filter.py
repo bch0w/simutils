@@ -6,6 +6,8 @@ filter to do these
 """
 
 """
+CONVERT COORDINATES AND UNITS
+
 Convert the coordinate XYZ from units of m to km and normalize origin to 0,
 Change the units of the output from units of m/s to km/s
 I honestly have no idea how I made this work, the documentation for these 
@@ -51,6 +53,53 @@ pdo.GetPointData().AddArray(ca)
 
 
 """
+CONVERT COORDINATES CARRY UNITS
+
+Convert the coordinate XYZ from units of m to km and normalize origin to 0,
+carry over the unit values but don't conver those
+"""
+from paraview import vtk
+
+pdi = self.GetInput()
+pdo = self.GetOutput()
+
+numPoints = pdi.GetNumberOfPoints()
+newPoints=vtk.vtkPoints()
+min_x, _, min_y, _, _, _ = pdi.GetBounds()
+for i in range(0, numPoints):
+    coords = pdi.GetPoint(i)
+    x, y, z = coords[:3]
+    x -= min_x
+    y -= min_y
+
+    # Convert to units of km
+    x *= 1E-3
+    y *= 1E-3
+    z *= 1E-3
+    newPoints.InsertPoint(i, x, y, z)
+
+# Set the new coordinate system
+pdo.SetPoints(newPoints)
+
+# Create a new array that will hold the converted values
+ivals = pdi.GetPointData().GetScalars()
+
+ca = vtk.vtkFloatArray()
+ca.SetName(ivals.GetName())
+ca.SetNumberOfComponents(1)
+ca.SetNumberOfTuples(numPoints)
+
+# Copy the values over element by element and convert
+for i in range(0, numPoints):
+  ca.SetValue(i, ivals.GetValue(i))
+
+# Set the new values
+pdo.GetPointData().AddArray(ca)
+
+
+"""
+CONVERT COORDINATES
+
 Convert the coordinate XYZ from units of m to km
 """
 from paraview import vtk

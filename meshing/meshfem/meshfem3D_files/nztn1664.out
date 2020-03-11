@@ -1,0 +1,60 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'tag': 'nztn1664', 'lat_min': -42.5, 'lat_max': -37.0, 'lon_min': 173.0, 'lon_max': 178.5, 'utm_projection': -60, 'mesh_depth_km': 400.0, 'mesh_top_km': -2.67, 'doubling_layers': [8, 30], 'interfaces': [3, 8, 30], 'interface_fids': ['topo_to_shallow.dat', 'shallow_to_crust.dat', 'crust_to_mantle.dat'], 'regions': [8, 50], 'nproc': 120, 'grid_space_top_hv': [2, 1], 'shortest_period_s': 1.0, 'vs_min_km_per_s': 1.0, 'top_vertical_element_ratio': 0.5}
+
+PARAMETERS FOR: nztn1664
+	tag: nztn1664
+	lat_min: -42.5
+	lat_max: -37.0
+	lon_min: 173.0
+	lon_max: 178.5
+	utm_projection: -60
+	mesh_depth_km: 400.0
+	mesh_top_km: -2.67
+	doubling_layers: [8, 30]
+	interfaces: [3, 8, 30]
+	interface_fids: ['topo_to_shallow.dat', 'shallow_to_crust.dat', 'crust_to_mantle.dat']
+	regions: [8, 50]
+	nproc: 120
+	grid_space_top_hv: [2, 1]
+	shortest_period_s: 1.0
+	vs_min_km_per_s: 1.0
+	top_vertical_element_ratio: 0.5
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 2
+	MIN GRID SPACE VERTICAL: 1
+CALCULATING NUMBER OF PROCESSORS
+	short direction is x
+	NPROC_X = 10
+	NPROC_Y = 12
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=9
+	NEX_X = 640
+	NEX_Y = 768
+	DX = 0.7221km
+	DY = 0.8036km
+CALCULATING NUMBER OF VERTICAL DOUBLING LAYERS (interfaces)
+	NLAYERS = 4
+	NELEMENTS_Z = 60
+	LAYER SIZE FROM BOTTOM = [46, 6, 6, 2]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	depth 30km is roughly element 48 at depth 31.33km
+	depth 8km is roughly element 54 at depth 9.33km
+	NDOUBLING LAYERS = [48, 54]
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 3
+	depth 50km is roughly element 45 at depth 51.33km
+	depth 8km is roughly element 54 at depth 9.33km
+	depth -2.67km is top of mesh -2.67km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+WRITING INTERACE topo_to_shallow.dat
+WRITING INTERACE shallow_to_crust.dat
+WRITING INTERACE crust_to_mantle.dat
+CALCULATING NUMBER OF ELEMENTS
+	491520.0 in layer 1
+	737280.0 in layer 2
+	491520.0 in layer 3
+	2826240.0 in layer 4
+	NUM_ELEM = 4546560

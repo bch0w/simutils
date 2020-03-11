@@ -6,12 +6,12 @@
 #-----------------------------------------------------------
 
 # coordinates of mesh block in latitude/longitude and depth in km
-LATITUDE_MIN                    = {lat_min:.1f}d0
-LATITUDE_MAX                    = {lat_max:.1f}d0
-LONGITUDE_MIN                   = {lon_min:.1f}d0
-LONGITUDE_MAX                   = {lon_max:.1f}d0
-DEPTH_BLOCK_KM                  = {depth:.1f}d0
-UTM_PROJECTION_ZONE             = {utm_projection}
+LATITUDE_MIN                    = -42.5d0
+LATITUDE_MAX                    = -37.0d0
+LONGITUDE_MIN                   = 173.0d0
+LONGITUDE_MAX                   = 178.5d0
+DEPTH_BLOCK_KM                  = 400.0d0
+UTM_PROJECTION_ZONE             = -60
 SUPPRESS_UTM_PROJECTION         = .false.
 
 # file that contains the interfaces of the model / mesh
@@ -24,12 +24,12 @@ CAVITY_FILE                     = no_cavity.dat
 # (must be 8 * multiple of NPROC below if mesh is not regular and contains
 #  mesh doublings)
 # (must be multiple of NPROC below if mesh is regular)
-NEX_XI                          = {nex_xi}
-NEX_ETA                         = {nex_eta}
+NEX_XI                          = 640
+NEX_ETA                         = 768
 
 # number of MPI processors along xi and eta (can be different)
-NPROC_XI                        = {nproc_xi}
-NPROC_ETA                       = {nproc_eta}
+NPROC_XI                        = 10
+NPROC_ETA                       = 12
 
 #-----------------------------------------------------------
 #
@@ -40,9 +40,11 @@ NPROC_ETA                       = {nproc_eta}
 # Regular/irregular mesh
 USE_REGULAR_MESH                = .false.
 # Only for irregular meshes, number of doubling layers and their position
-NDOUBLINGS                      = {ndoublings}
+NDOUBLINGS                      = 2
 # NZ_DOUBLING_1 is the parameter to set up if there is only one doubling layer
-{doubling_layers}
+NZ_DOUBLING_1                   = 48
+NZ_DOUBLING_2                   = 54
+
 
 #-----------------------------------------------------------
 #
@@ -76,7 +78,7 @@ THICKNESS_OF_Z_PML              = 12.3d0
 #-----------------------------------------------------------
 
 # number of materials
-NMATERIALS                      = {nmaterials}
+NMATERIALS                      = 3
 # define the different materials in the model as :
 # #material_id  #rho  #vp  #vs  #Q  #anisotropy_flag #domain_id
 # NOTE:
@@ -87,7 +89,10 @@ NMATERIALS                      = {nmaterials}
 #     Q                : quality factor
 #     anisotropy_flag  : 0=no anisotropy/ 1,2,.. check w/ aniso_model.f90
 #     domain_id        : 1=acoustic / 2=elastic
-{materials}
+1  9999.  9999.  9999.  9999.  9999.  0  2
+2  9999.  9999.  9999.  9999.  9999.  0  2
+3  9999.  9999.  9999.  9999.  9999.  0  2
+
 
 #-----------------------------------------------------------
 #
@@ -96,8 +101,11 @@ NMATERIALS                      = {nmaterials}
 #-----------------------------------------------------------
 
 # number of regions
-NREGIONS                        = {nregions}
+NREGIONS                        = 3
 # define the different regions of the model as :
 # NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-{regions}
+1     640   1     768   1     45    1    
+1     640   1     768   46    54    2    
+1     640   1     768   55    60    3    
+
 
