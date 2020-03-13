@@ -1,5 +1,6 @@
 {
 	"tag": "nztn1664",
+    "dir_name": "/scale_wlg_persistent/filesets/home/chowbr/primer/meshes/nz_tall_north/nztn_reloaded",
     "lat_min": -42.5,
     "lat_max": -37.0,
     "lon_min": 173.0,
@@ -8,22 +9,23 @@
     "mesh_depth_km": 400.0,
     "mesh_top_km": -2.67,
     "doubling_layers": [
-        8, 30
+        12, 64, 128
     ],
     "interfaces": [
-        3, 8, 30
+        6, 12, 64, 128
     ],
     "interface_fids": [
         "topo_to_shallow.dat",
         "shallow_to_crust.dat",
-        "crust_to_mantle.dat"
+        "crust_to_mantle.dat",
+        "mid_mantle.dat"
     ],
     "regions": [
         8, 50
     ],
     "nproc": 120,
-    "grid_space_top_hv": [2, 1],
-    "shortest_period_s": 1.0,
+    "grid_space_top_hv": [4, 2],
+    "shortest_period_s": 10.0,
     "vs_min_km_per_s": 1.0,
     "top_vertical_element_ratio": 0.5
 }
