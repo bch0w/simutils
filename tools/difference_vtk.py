@@ -177,6 +177,8 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
             # Albert Tarantola said, "always view models in log space"
             elif method == "log":
                 difference = np.log(a / b)
+            elif method == "poissons_ratio":
+                difference = 0.5 * (a**2 - 2 * b**2) / (a**2 - b**2)
 
             differences.append(difference)
         except (ValueError):
@@ -215,9 +217,15 @@ if __name__ == "__main__":
     model_a = "model_a"
     model_b = "model_b"
     dynamic_method = "select"
-    diff_method = "log"
+    diff_method = input("Method? [subtract, divide, log, poissons_ratio]: ")
+    # diff_method = "poissons_ratio"
     globchoice = "*"
 
+    if diff_method == "poissons_ratio":
+        print("file A is assumed to be Vp, file B to be Vs")
+    elif diff_method == "log":
+        print("log(a/b) gives (a-b)/b; 'a' should be final model to get "
+               "perturbation from initial model 'b'")
     # Dynamic file picking
     if not os.path.exists(os.path.join(basepath, model_a)):
         model_a, model_b, fid_out = dynamic_file_pick(basepath, dynamic_method,
