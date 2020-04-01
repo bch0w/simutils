@@ -8,7 +8,7 @@
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
 #SBATCH --time=0:00:30
-#SBATCH --output=combine_vol_data_vtk_%j.out
+#SBATCH --output=cvdv_log.out
 
 # Example Call
 # srun -n nproc xcombine... proc_start proc_end kernel dir_in dir_out hi_res
