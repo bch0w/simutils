@@ -9,24 +9,24 @@
     "mesh_depth_km": 400.0,
     "mesh_top_km": -2.67,
     "doubling_layers": [
-        16, 48
+        16, 68
     ],
     "interfaces": [
-        12, 36, 116
+        8, 48
     ],
     "interface_fids": [
         "shallow_to_crust.dat",
-        "crust_to_mantle.dat",
-        "mid_mantle.dat"
+        "crust_to_mantle.dat"
     ],
     "regions": [
         8, 50
     ],
     "nproc": 120,
-    "grid_space_top_hv": [6, 3],
+    "grid_space_top_hv": [8, 3.25],
     "shortest_period_s": 10.0,
-    "vs_min_km_per_s": 1.0,
-    "top_vertical_element_ratio": 0.5
+    "vs_min_km_per_s": 1.2,
+    "vp_max_km_per_s": 9.3,
+    "top_vertical_element_ratio": 1.0
 }
 
 

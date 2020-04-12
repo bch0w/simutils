@@ -7,7 +7,16 @@ change the string formatting in the write functions below
 
 NOTE:
 1) Doubling layers control the horizontal doubling of element area
-2) Interfaces control vertical doubling of element length
+2) Interfaces control vertical tripling of element length
+3) Doubling layers above interfaces causes high skewness, bad
+4) Put interfaces 1-2 layers above doubling layers if your elements are square 
+    at the top
+5) Better to keep the vertical element size smaller than horizontal at the top
+    because the interfaces will expand elements more than doubling layers
+6) Cartesian large domain:
+    2 interfaces, one element above 2 doubling layers, top element spacing 
+    with dx ~- 3*dz, gives a good mesh with no issues in skewness, 
+    in my experience
 
 Parameters must be set in the meshpar.json file (or user defined file)
 The JSON parameter file can contain the following parameters
@@ -161,6 +170,24 @@ def minimum_grid_spacing(slowest_wavespeed, shortest_period,
         logger.info(f"\tMIN GRID SPACE VERTICAL = {grid_space_v} km")
         
         return grid_space_h, grid_space_v
+
+
+def cfl_condition(dx, vmax, C=1):
+    """
+    Courant-Friedrichs-Lewy Condition cointrolling the minimum time step given
+    smallest velocity and grid spacing present in the numerical approximation
+    schema. C gives the dimensionless Courant number which is defaulted to 1
+    for an explicit (time-marching solver)
+    
+    :type dx: float
+    :param dx: smallest element spacing in mesh (can be dx, dy or dz) in km
+    :type vmax: float
+    :param vmax: largest velocity in mesh, in km/s
+    :type C: float
+    :param C: Courant number, default 1
+    """
+    logger.info("COURANT CRITERION")
+    logger.info(f"\tdt <= {dx*C/vmax:.2E}, for C={C}")
 
 
 def number_of_processors(nproc, x_length, y_length):
@@ -476,7 +503,7 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
     regions += [top]
 
     materials_out, regions_out, rgn_elem = "", "", []
-    input_materials = [3000, 7800, 4500, 9999., 1000.]
+    input_materials = [5500, 9500, 4500, 9999., 1000.]
     for i, reg in enumerate(regions):
         j = i + 1
         # Materials don't need to be specific as they will be overwritten
@@ -691,12 +718,13 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
             f.write(lines)
 
         # Format the interfaces file
-        write_interfaces(template=interfaces_template, 
-                         dir_name=pars["dir_name"], layers=layers, 
-                         interfaces=pars["interfaces"],
-                         lat_min=pars["lat_min"], lon_min=pars["lon_min"],
-                         fids=pars["interface_fids"]
-                         )
+        if pars["interfaces"]:
+            write_interfaces(template=interfaces_template, 
+                             dir_name=pars["dir_name"], layers=layers, 
+                             interfaces=pars["interfaces"],
+                             lat_min=pars["lat_min"], lon_min=pars["lon_min"],
+                             fids=pars["interface_fids"]
+                             )
 
         calculate_nelements(nex_x, nex_y, layers, nz)
     except Exception as e:
@@ -708,7 +736,7 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
 
 
 if __name__ == "__main__":
-    prepare_meshfem(parameter_file="./parmesh.json",
+    prepare_meshfem(parameter_file="./kgparmesh.json",
                     mesh_par_file_template="./template_Mesh_Par_file",
                     interfaces_template="./template_interfaces.dat",
                     )

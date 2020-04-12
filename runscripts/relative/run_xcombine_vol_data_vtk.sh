@@ -7,7 +7,7 @@
 #SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time=0:00:30
+#SBATCH --time=0:25:00
 #SBATCH --output=cvdv_log.out
 
 # Example Call

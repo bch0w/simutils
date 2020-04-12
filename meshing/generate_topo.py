@@ -1,4 +1,3 @@
-
 """
 There are some values required by the internal mesher that control the sizes
 of spectral elements in the horizontal and vertical directions. This collection
