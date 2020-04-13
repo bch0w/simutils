@@ -25,7 +25,10 @@ rcvs_fid = os.path.join(path_to_vtks, "rcvs.vtk")
 
 # Parameter choices
 parameters = ["vs", "vp"]
-file_tags = ["model", "gradient"]
+file_tags = ["model"] 
+model = "0004"
+kernels = ["2*", "3*"]
+
 
 def setup():
     """
@@ -55,9 +58,23 @@ def pre_organize(file_tag="model"):
     :rtype: int
     :return: number of unique models that need to be turned into .vtk files
     """
-    # Number of counts relates to time required for xcombine_vol_data_vtk
+    # Address kernels differently
+    if file_tag == "kernels":
+        count = _organize_kernels()
+    else:
+        count = _organize_models_gradients(file_tag)
+
+    print(f"{count} {file_tag} unique ids symlinked")
+    return count
+
+
+def _organize_models_gradients(tag):
+    """
+    Models and gradients are organized by parameter and model number
+    """
     count = 0
-    directories = glob(os.path.join("output", f"{file_tag}_????"))
+    # Number of counts relates to time required for xcombine_vol_data_vtk
+    directories = glob(os.path.join("output", f"{tag}_{model}"))
     for directory in directories:
         unique_id = os.path.basename(directory)
         for par in parameters:
@@ -75,12 +92,39 @@ def pre_organize(file_tag="model"):
                 dst = os.path.join(path_to_specfem, "SUM", new_filename)
                 os.symlink(os.path.abspath(src), dst)
 
-    print(f"{count} {file_tag} unique ids symlinked")
     return count
 
-
 def _organize_kernels():
-    pass
+    """
+    Kernels are organized by event id, so require a further level over
+    gradient and model directories
+    """
+    # Number of counts relates to time required for xcombine_vol_data_vtk
+    count = 0
+    directories = glob(os.path.join("output", f"kernels_{model}"))
+    for directory in directories:
+        unique_id = os.path.basename(directory)
+        for kernel in kernels:
+            events = glob(os.path.join(directory, kernel))
+            for event in events:
+                event_id = os.path.basename(event)
+                for par in parameters:
+                    count += 1
+                    srcs = glob(os.path.join(event, f"proc*_{par}*.bin"))
+                    for src in srcs:
+                        # e.g. proc000000_vs.bin
+                        filename = os.path.basename(src)
+                        # Add a unique tag to the filename, different if kernels
+                        parts = filename.split("_")
+                        # Rejoin end of string if e.g. 'vs_kernel' and not 'vs'
+                        parts[1] = "_".join(parts[1:])
+                        new_filename = "_".join([parts[0], unique_id, event_id, 
+                                                 parts[1]])
+                        # Set the source and destination for symlink
+                        dst = os.path.join(path_to_specfem, "SUM", new_filename)
+                        os.symlink(os.path.abspath(src), dst)
+    
+    return count
 
 
 def run_xcombine_vol_data_vtk(count):
@@ -99,7 +143,6 @@ def run_xcombine_vol_data_vtk(count):
         files = glob(os.path.join(path_to_specfem, "SUM", "*.vtk"))
         if len(files) == count:
             break
-        print(f"Completed {len(files)}/{count} vtk files")
         time.sleep(10)
 
 
@@ -252,6 +295,7 @@ if __name__ == "__main__":
     for ftag in file_tags:
         c_ = pre_organize(ftag)
         c += c_
+    import ipdb;ipdb.set_trace()
     run_xcombine_vol_data_vtk(c)
     post_organize()
     difference_models(outdir="diffs")
