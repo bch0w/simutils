@@ -65,12 +65,16 @@ if __name__ == "__main__":
     or not smooth enough
     """
     xmin = ymin = 0
-    xmax = ymax =  1000
+    xmax = 80.
+    ymax = 80.
     dx = dy = 1
-    kx = ky = 5
-    max_topo_m = 200.
+    kx = 6
+    ky = 6
+    # kx = ky = 10
+    max_topo_m = 1000.
     plot = True
-    save = "test"
+    save = "./test"
+    # save = "/scale_wlg_nobackup/filesets/nobackup/nesi00263/bchow/tomo/subduction/kg_twolayer/DATA/meshfem3D_files/kg_twolayer"
     create_topo(xmin, xmax, dx, kx, ymin, ymax, dy, ky, max_topo_m, plot, save)
 
 

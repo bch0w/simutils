@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=xmeshfem3D
 #SBATCH --nodes=1
-#SBATCH --ntasks=40
+#SBATCH --ntasks=25
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
 #SBATCH --account=nesi00263

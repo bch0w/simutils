@@ -25,8 +25,8 @@ rcvs_fid = os.path.join(path_to_vtks, "rcvs.vtk")
 
 # Parameter choices
 parameters = ["vs", "vp"]
-file_tags = ["model"] 
-model = "0004"
+file_tags = ["model", "gradient"] 
+model = "0003"
 kernels = ["2*", "3*"]
 
 
@@ -139,12 +139,9 @@ def run_xcombine_vol_data_vtk(count):
     os.chdir(path_to_specfem)
     subprocess.call(f"sbatch {path_to_xcomb}", shell=True)
     # Wait for all files to be created by sbatch
-    while True:
-        files = glob(os.path.join(path_to_specfem, "SUM", "*.vtk"))
-        if len(files) == count:
-            break
-        time.sleep(10)
-
+    wait_for = "n"
+    while wait_for != "y":
+        wait_for = input("Finished running xcomb? y/[n]: ")
 
 def post_organize():
     """
@@ -195,12 +192,13 @@ def difference_models(log=True, poissons=True, outdir="model"):
         for par in parameters:
             model_init = os.path.join(
                 path_to_vtks, "model", f"model_init_{par}.vtk")
-            models = glob(os.path.join(path_to_vtks, "model", "model*"))
+            models = glob(os.path.join(path_to_vtks, "model", f"model*{par}*"))
             for model in models:
-                if model == model_init:
+                if "init" in model:
                     continue
                 fid_out = os.path.join(outdir, f"log_{os.path.basename(model)}")
                 if not os.path.exists(fid_out):
+                    print(f"\t{os.path.basename(fid_out)}")
                     diff_vtk(model_a=model, model_b=model_init, fidout=fid_out,
                              method="log")
 
@@ -212,6 +210,7 @@ def difference_models(log=True, poissons=True, outdir="model"):
             fid_out = model_vp.replace("vp", "poissons")
             fid_out = os.path.join(outdir, os.path.basename(fid_out))
             if not os.path.exists(fid_out):
+                print(f"\t{os.path.basename(fid_out)}")
                 diff_vtk(model_a=model_vp, model_b=model_vs, fidout=fid_out,
                          method="poissons")
 
@@ -295,7 +294,6 @@ if __name__ == "__main__":
     for ftag in file_tags:
         c_ = pre_organize(ftag)
         c += c_
-    import ipdb;ipdb.set_trace()
     run_xcombine_vol_data_vtk(c)
     post_organize()
     difference_models(outdir="diffs")
