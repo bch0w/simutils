@@ -26,8 +26,8 @@ rcvs_fid = os.path.join(path_to_vtks, "rcvs.vtk")
 # Parameter choices
 parameters = ["vs", "vp"]
 file_tags = ["model", "gradient"] 
-model = "0003"
-kernels = ["2*", "3*"]
+model = "*"
+kernels = []
 
 
 def setup():
@@ -286,16 +286,17 @@ def diff_vtk(model_a, model_b, fidout, method="subtract"):
 
 
 if __name__ == "__main__":
-    if not os.path.exists(path_to_specfem):
-        sys.exit(-1)
-    # Run functions in order
-    c = 0
-    setup()
-    for ftag in file_tags:
-        c_ = pre_organize(ftag)
-        c += c_
-    run_xcombine_vol_data_vtk(c)
-    post_organize()
+    if True:
+        if not os.path.exists(path_to_specfem):
+            sys.exit(-1)
+        # Run functions in order
+        c = 0
+        setup()
+        for ftag in file_tags:
+            c_ = pre_organize(ftag)
+            c += c_
+        run_xcombine_vol_data_vtk(c)
+        post_organize()
     difference_models(outdir="diffs")
 
 

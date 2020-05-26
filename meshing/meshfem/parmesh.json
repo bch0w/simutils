@@ -1,28 +1,28 @@
 {
-	"tag": "10second",
-    "dir_name": "/scale_wlg_persistent/filesets/home/chowbr/primer/meshes/north_island/10second",
+	"tag": "ristau1D",
+    "dir_name": "./ristau1D",
     "lat_min": -42.5,
     "lat_max": -37.0,
     "lon_min": 173.0,
     "lon_max": 178.5,
     "utm_projection": -60,
     "mesh_depth_km": 400.0,
-    "mesh_top_km": -2.67,
+    "mesh_top_km": 0,
     "doubling_layers": [
-        16, 68
+        15, 40
     ],
     "interfaces": [
-        8, 48
+        6, 33
     ],
     "interface_fids": [
-        "shallow_to_crust.dat",
-        "crust_to_mantle.dat"
+        "interface1.dat",
+        "interface2.dat"
     ],
     "regions": [
-        8, 50
+        3, 6, 15, 33, 64, 95.4
     ],
     "nproc": 120,
-    "grid_space_top_hv": [8, 3.25],
+    "grid_space_top_hv": [6, 3],
     "shortest_period_s": 10.0,
     "vs_min_km_per_s": 1.2,
     "vp_max_km_per_s": 9.3,
