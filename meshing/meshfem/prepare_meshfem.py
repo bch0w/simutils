@@ -366,7 +366,7 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z):
     :return: number of elements in each layer corresponding to each desired
         interface. layers start counting from the bottom of the mesh
     """
-    logger.info("CALCULATING NUMBER OF VERTICAL DOUBLING LAYERS (interfaces)")
+    logger.info("CALCULATING NUMBER OF VERTICAL TRIPLING LAYERS (interfaces)")
 
     # Start interfaces from the top, include the bottom interface of depth
     all_interfaces = [top_of_mesh] + interfaces + [depth]
@@ -514,10 +514,11 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
                                                    qk=qk, qm=qm)
         # Step down the values of the input materials so that they still remain
         # physical, otherwise meshfem will whine
-        input_materials = [_-200 for _ in input_materials]
-        for _ in input_materials:
-            assert(_ > 0), \
-                "Number of material layers has caused default values to be neg."
+        # !!! Commented out for Ristau1D model, manual input material 
+        # input_materials = [_-200 for _ in input_materials]
+        # for _ in input_materials:
+        #     assert(_ > 0), \
+        #         "Number of material layers has caused default values to be neg."
 
         # Regions are described by the interfaces of the external tomo files
         nz_end = approx_element_number(depth_km=reg, 
@@ -733,10 +734,12 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
 
     # Hacky way to get the output log in the right name
     shutil.move("log_mesh_temp.out", f"{pars['dir_name']}/{pars['tag']}.out")
+    shutil.copy(parameter_file, 
+                f"{pars['dir_name']}/{os.path.basename(parameter_file)}")
 
 
 if __name__ == "__main__":
-    prepare_meshfem(parameter_file="./kgparmesh.json",
+    prepare_meshfem(parameter_file="./parmesh.json",
                     mesh_par_file_template="./template_Mesh_Par_file",
                     interfaces_template="./template_interfaces.dat",
                     )

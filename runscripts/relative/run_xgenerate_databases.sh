@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xgenerate_databases
-#SBATCH --nodes=4
-#SBATCH --ntasks=160
+#SBATCH --nodes=2
+#SBATCH --ntasks=80
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
 #SBATCH --account=nesi00263

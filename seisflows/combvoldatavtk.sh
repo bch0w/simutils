@@ -31,8 +31,9 @@ if [ -z "$1" ]
 then
     for f in ${DIR_IN}/proc000000_*.bin;
     do
-        # Cut out the kernel quantity name from the filename
-        QUANTITY=`echo ${f:18} | cut -d'.' -f 1`
+        # Cut out the kernel quantity name from the filename by removing 
+        # the proc000000_ portion of the 
+        QUANTITY=`echo ${f:17} | cut -d'.' -f 1`
 
         # Run the binary
         echo "xcombine_vol_data_vtk ${NPROC_START} ${NPROC_END} for ${QUANTITY}"
