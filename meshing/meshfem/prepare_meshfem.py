@@ -734,6 +734,8 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
 
     # Hacky way to get the output log in the right name
     shutil.move("log_mesh_temp.out", f"{pars['dir_name']}/{pars['tag']}.out")
+    shutil.copy(parameter_file, 
+                f"{pars['dir_name']}/{os.path.basename(parameter_file)}")
 
 
 if __name__ == "__main__":

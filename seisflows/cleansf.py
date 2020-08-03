@@ -61,8 +61,8 @@ def clean_solver(dryrun=False, save_mainsolver=True):
         print("\tremoving...", end=" ")
         for del_path in [os.path.join(event, 'bin'),
                          os.path.join(event, 'DATA', 'tomo_files'),
-                         os.path.join(event, 'traces'), 
-                         os.path.join(event, 'SEM'),
+                         # os.path.join(event, 'traces'), 
+                         # os.path.join(event, 'SEM'),
                          os.path.join(event, 'OUTPUT_FILES', 'timestamp*'),
                          os.path.join(event, 'OUTPUT_FILES', 'DATABASES_MPI')]:
             delete_(del_path, dryrun)

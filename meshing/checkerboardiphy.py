@@ -271,7 +271,7 @@ def parse_data_to_header(data):
         "nx": len(x_values), "ny": len(y_values), "nz": len(z_values),
         "vp_min": data[:, 4].min(), "vp_max": data[:, 3].max(),
         "vs_min": data[:, 4].min(), "vs_max": data[:, 4].max(),
-        "rho_min": data[:, 5].max(), "rho_max": data[:, 5].max(),
+        "rho_min": data[:, 5].min(), "rho_max": data[:, 5].max(),
     }
     return parsed_header
 
