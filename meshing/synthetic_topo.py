@@ -36,8 +36,11 @@ def create_topo(xmin, xmax, dx, kx, ymin, ymax, dy, ky, max_topo_m=1, plot=True,
 
     # Create a regular grid based on mesh dimensions
     x_reg = np.arange(xmin, xmax, dx)
-    y_reg = np.arange(ymin, ymax, dy)
+    y_reg = np.arange(ymin, ymax+dy/2, dy)
     x_grid, y_grid = np.meshgrid(x_reg, y_reg)
+    print(f"X: {len(x_reg)} / Y: {len(y_reg)}\n"
+          f"X0: {xmin} / Y0: {ymin}\n"
+          f"DX: {dx} / DY: {dy}")
 
     # Create the sine functions with given number of oscillations
     z_sin = sin2d(x_grid, y_grid, 2*np.pi*kx/(xmax-xmin), 
@@ -52,8 +55,21 @@ def create_topo(xmin, xmax, dx, kx, ymin, ymax, dy, ky, max_topo_m=1, plot=True,
 
     # Save the file into a format that Meshfem can recognize
     if save:
+        x_out = x_grid.flatten()
+        y_out = y_grid.flatten()
         z_out = z_sin.flatten()
-        np.savetxt(f"{save}.dat", z_out, fmt="%.2f")
+
+        # remove negative values from the topography
+        z_out = z_out.clip(min=0)
+
+        # Save a general purpose xyz file
+        xyz = np.hstack((np.array([x_out]).T, np.array([y_out]).T,
+                         np.array([z_out]).T))
+        np.savetxt(f"{save}.xyz", xyz, fmt="%.7f\t%.7f\t%.4f")
+
+        # Save the meshfem3D dat file
+        np.savetxt(f"{save}.dat", z_out, fmt="%.4f")
+
 
 
 if __name__ == "__main__":
@@ -64,13 +80,30 @@ if __name__ == "__main__":
     but you should be able to tell by the plot if the function is aliased 
     or not smooth enough
     """
-    xmin = ymin = 0
-    xmax = ymax =  1000
-    dx = dy = 1
+    # xmin = 642975.5657
+    # xmax = 785291.8532
+    # ymin = 5233238.5952
+    # ymax = 5459851.1609
+    # dx = 1000.
+    # dy = 1000.
+    # These are for the synthetic topo
+    # xmin = 172.7
+    # xmax = 174.5
+    # ymin = -43.0
+    # ymax = -41.0
+    # dx = 0.0075319
+    # dy = 0.0075319
+    # This is for the real topo
+    xmin = 172.7002728
+    xmax = 174.5983116
+    ymin = -43.0003455
+    ymax = -40.8989454
+    # ymax = -40.8914135
+    dx = dy = 0.0075319
     kx = ky = 5
-    max_topo_m = 200.
-    plot = True
-    save = "test"
+    max_topo_m = 5000.
+    plot = False
+    save = "kg_synth_topo"
     create_topo(xmin, xmax, dx, kx, ymin, ymax, dy, ky, max_topo_m, plot, save)
 
 

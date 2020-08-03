@@ -24,8 +24,8 @@ for fid in fids:
                 x, y, z = line.strip().split()
                 # Shift by origin and convert
                 x = (float(x) - x_origin) * convert
-                y = 305.
-                #y = (float(y) - y_origin) * convert
+                # y = 305.
+                y = (float(y) - y_origin) * convert
                 z = float(z) * convert
 
                 f.write(template.format(x=x, y=y, z=z))

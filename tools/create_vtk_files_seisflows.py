@@ -78,8 +78,7 @@ if method == "build":
         procs.sort()
         proc_a = int(os.path.basename(procs[0]).split('_')[0].split('proc')[1])
         proc_z = int(os.path.basename(procs[-1]).split('_')[0].split('proc')[1])
-         
-        
+
         # Loop through all the available gradients, created by Specfem
         print("GRADIENTS")
         for gradient_dir in glob.glob(glob_gradients):

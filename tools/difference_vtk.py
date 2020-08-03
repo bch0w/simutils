@@ -12,7 +12,7 @@ import numpy as np
 
 def read_file(pathname):
     """
-    read the file and return header info and data
+    Read the .vtk file and return header info and data
 
     :type pathname: str
     :param pathname: full path to the .vtk file to read
@@ -57,81 +57,91 @@ def read_file(pathname):
     return lines, header_dict
 
 
-def dynamic_file_pick(basepath, method="all", globchoice="*", 
-                      diff_method="subtract"):
+def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
     """
-    Dynamically pick the VTK files to difference
+    Dynamically pick the VTK files to difference, useful for differencing a 
+    single .vtk file from a list of other files. For example when taking
+    model differencing from the initial model. Returns lists containing
+    model_a, model_b and the output file identifiers.
+
+    :type basepath: str
+    :param basepath: path to where all .vtk files live
+    :type method: str
+    :param method: method for dynamic picking
+        1) select: choose model_a and model_b 
+        2) select_one: choose model_a or model_b, difference all other files 
+                       from the chosen model
+    :type globchoice: str
+    :param globchoice: custom wildcard for glob search
+    :type diff_method: str
+    :param diff_method: method for differencing the vtk files, see 
+        'difference_vtk()'
     """
-    dynamic_pick = glob.glob(os.path.join(basepath, f'{globchoice}.vtk'))
-    dynamic_pick.sort()
+    pick_list = glob.glob(os.path.join(basepath, f'{globchoice}.vtk'))
+    pick_list.sort()
 
-    # If the folder only contains two files
-    if len(dynamic_pick) == 2:
-        # If "model_init" make it first, if "model_true", make it last
-        for i, pick in enumerate(dynamic_pick):
-            if "model_init" in pick:
-                model_a = pick
-                model_b = dynamic_pick[1-i]
-            elif "model_true":
-                model_b = pick
-                model_a = dynamic_pick[1-i]
-            else:
-                model_a = dynamic_pick[0]
-                model_b = dynamic_pick[1]
+    # List out all the picks for the user
+    for i, pick in enumerate(pick_list):
+        print(f"{i}: {pick}")
+    print("\n")
 
-        # Specfiy the output modle name based on the input model names
+    # Select one model and difference all other models from it
+    if method == "select_one":
+        choice = input("Are you choosing model [a] or [b]?: ")
+        assert(choice in ["a", "b"]), "choice must be 'a' or 'b'"
+
+        select = input(f"Select index for model_{choice}: ")
+        select = pick_list[int(select)]
+        select_tag = os.path.basename(select).split(".")[0]  # e.g. model_0001
+        
+        # Model_1 will be a list of itself, Model_2 needs to be filled
+        model_1 = [select] * (len(pick_list) - 1)
+        model_2, fid_out = [], []
+
+        # Don't difference the selection from itself
+        pick_list.remove(select)
+
+        # Make sure output file id naming matches the order of selection
+        out_dict = {"a": "{d}_{s}_{p}.vtk",
+                    "b": "{d}_{p}_{s}.vtk"}
+        for pick in pick_list:
+            model_2.append(pick)
+            pick_tag = os.path.basename(pick).split(".")[0]
+            out_tag = os.path.join(basepath, 
+                                   out_dict[choice].format(d=diff_method,
+                                                           s=select_tag, 
+                                                           p=pick_tag)
+                                   )
+            # Shorten file tags to make them easier to read
+            out_tag = out_tag.replace("gradient_", "g")
+            out_tag = out_tag.replace("model_", "m")
+
+            fid_out.append(out_tag)
+        if choice == "a":
+            model_a, model_b = model_1, model_2
+        elif choice == "b":
+            model_b, model_a = model_1, model_2
+
+        return model_a, model_b, fid_out
+
+    # Select both models to difference
+    elif method == "select":
+        model_a = input("Select model_a index: ")
+        model_a = pick_list[int(model_a)] 
+
+        model_b = input("Select model_b index: ")
+        model_b = pick_list[int(model_b)]
+
         fid_out = "{}_{}_and_{}.vtk".format(
-                                    diff_method,
-                                    os.path.basename(model_a).split(".")[0],
-                                    os.path.basename(model_b).split(".")[0]
-                                          )
+                                diff_method,
+                                os.path.basename(model_a).split(".")[0],
+                                os.path.basename(model_b).split(".")[0]
+                                              )
         fid_out = os.path.join(basepath, fid_out)
 
         return [model_a], [model_b], [fid_out]
-    # If the folder contains multiple .vtk files
     else:
-        # List out all the picks for the user
-        for i, pick in enumerate(dynamic_pick):
-            print(f"{i}: {pick}")
-        
-        # Select one model and difference all other models from it
-        if method == "select_one":
-            select = input("Select index to difference from: ")
-            select = dynamic_pick[int(select)]
-            model_a = [select] * (len(dynamic_pick) - 1)
-            model_b, fid_out = [], []
-            for pick in dynamic_pick:
-                if pick == select:
-                    continue
-                else:
-                    model_b.append(pick)
-                    fid_out.append(os.path.join(
-                        basepath, "{}_{}_and_{}.vtk".format(
-                                        diff_method,
-                                        os.path.basename(select).split(".")[0],
-                                        os.path.basename(pick).split(".")[0])
-                                                    ))
-            return model_a, model_b, fid_out
-        # Select both models to difference
-        elif method == "select":
-            model_a = input("Select model_a index: ")
-            model_a = dynamic_pick[int(model_a)] 
-
-            model_b = input("Select model_b index: ")
-            model_b = dynamic_pick[int(model_b)]
-
-            fid_out = "{}_{}_and_{}.vtk".format(
-                                    diff_method,
-                                    os.path.basename(model_a).split(".")[0],
-                                    os.path.basename(model_b).split(".")[0]
-                                                  )
-            fid_out = os.path.join(basepath, fid_out)
-
-            return [model_a], [model_b], [fid_out]
-
-        # Difference all models from one another
-        elif method == "all":
-            raise NotImplementedError
+        raise NotImplementedError
 
 
 def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
@@ -214,32 +224,33 @@ if __name__ == "__main__":
     globchoice (str): wildcard for dynamic file picking
     """
     basepath = './'
-    model_a = "model_a"
-    model_b = "model_b"
-    dynamic_method = "select"
-    diff_method = input("Method? [subtract, divide, log, poissons_ratio]: ")
-    # diff_method = "poissons_ratio"
-    globchoice = "*"
+    dynamic = False
 
-    if diff_method == "poissons_ratio":
-        print("file A is assumed to be Vp, file B to be Vs")
-    elif diff_method == "log":
-        print("log(a/b) gives (a-b)/b; 'a' should be final model to get "
-               "perturbation from initial model 'b'")
-    # Dynamic file picking
-    if not os.path.exists(os.path.join(basepath, model_a)):
-        model_a, model_b, fid_out = dynamic_file_pick(basepath, dynamic_method,
-                                                      globchoice, diff_method,
-                                                      )
-    # Static file picking
+    if dynamic:
+        globchoice = input("Specific wildcard for selection? [e.g 'model_*']: ")
+        if not globchoice:
+            globchoice = "*"
+        pick_method = input("Selection method? [select, select_one]: ")
+        diff_method = input("Method? [subtract, divide, log, poissons_ratio]: ")
     else:
-        fid_out = ["{}_{}_and_{}.vtk".format(
-                                diff_method,
-                                os.path.basename(model_a).split(".")[0],
-                                os.path.basename(model_b).split(".")[0]
-                                              )]
-        model_a = [model_a]
-        model_b = [model_b]
+        globchoice = "model_*"
+        pick_method = "select_one"
+        diff_method = "log"
+
+
+    # Small reminder to aid in selection process
+    if diff_method == "poissons_ratio":
+        print(f"{'='*80}\nmodel_A = Vp; model_B = Vs{'='*80}")
+    elif diff_method == "log":
+        print(f"{'='*80}\n"
+              "For net model update / log difference:\n"
+              "log(a/b) ~= (a-b) / b; 'a'\n"
+              "model_a = FINAL;  model_b = INITIAL\n"
+              f"{'='*80}")
+
+    # Dynamic file picking
+    model_a, model_b, fid_out = pick_files(basepath, pick_method, globchoice, 
+                                           diff_method)
 
     # Difference VTK files
     for a, b, f in zip(model_a, model_b, fid_out):
