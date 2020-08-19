@@ -12,6 +12,7 @@ from glob import glob
 from pprint import pprint
 from os.path import join as oj
 from pyatoa.utils.read import read_specfem_vtk
+from pyatoa.utils.write import rcv_vtk_from_specfem, src_vtk_from_specfem
 
 
 def setup_sum_dir(path_to_specfem):
@@ -31,12 +32,12 @@ def setup_sum_dir(path_to_specfem):
         else:
             sys.exit("will not overwrite SUM directory, exiting")
 
-def discover_available():
+def discover_available(paths):
     """
     Determine which gradients, models, kernels and parameters are available to 
     create vtk files for.
     """
-    path_to_output = os.path.join(os.getcwd(), "output")
+    path_to_output = os.path.join(paths["cwd"], "output")
     assert(os.path.exists(path_to_output)), "output path does not exist"
 
     def split_tag(t):
@@ -76,11 +77,25 @@ def discover_available():
 
         else:
             directories = glob(oj(path_to_output, f"{l}_*"))
-            tags= [os.path.basename(_) for _ in directories]
+            tags = [os.path.basename(_) for _ in directories]
 
             bin_files = glob(oj(directories[0], "*"))
             params = set([split_tag(_) for _ in bin_files])
-        
+
+            # Check that these gradients/models have not been made yet
+            # Get a list of existing vtk files in the output directory
+            check = [os.path.basename(_).split('.')[0] for _ in 
+                                     glob(os.path.join(paths['vtkout'], l,'*'))]
+
+            # Here we assume that if one parameter exists, then all exit
+            import ipdb;ipdb.set_trace()
+            for t in tags:
+                for p in params:
+                    if f"{t}_{p}" in check:
+                        print(f"\t{t}_{p} already exists in output directory")
+                        tags.remove(t)
+                        break
+
             available[l]["tags"] = tags
             available[l]["params"] = list(params)
    
@@ -227,11 +242,23 @@ def post_organize(paths):
     assert(len(glob(oj(paths["specfem"], "SUM", "*"))) == 0)
 
 
+def create_srcrcv_vtk(paths):
+    """
+    One-time creation of source and receiver VTK files from the current 
+    directory using the CMTSOLUTIONS and STATIONS files
+    """
+    src_vtk_from_specfem(path_to_data=os.path.join(paths["cwd"], "sfDATA"),
+                         path_out=paths["vtkout"])
+
+    rcv_vtk_from_specfem(path_to_data=os.path.join(paths["cwd"], "sfDATA"),
+                         path_out=paths["vtkout"])
+
+
 if __name__ == "__main__":
     # PATHS SET HERE
-    cwd = os.getcwd()
-    paths = {"specfem": oj(cwd, "scratch", "solver", "mainsolver"),
-             "vtkout": oj(cwd, "pyatoa.io", "figures", "vtks"),
+    paths = {"cwd": os.getcwd(),
+             "specfem": oj(os.getcwd(), "scratch", "solver", "mainsolver"),
+             "vtkout": oj(os.getcwd(), "scratch", "preprocess", "vtks"),
              "xcomb": ("/scale_wlg_persistent/filesets/project/nesi00263/" 
                        "PyPackages/simutils/seisflows/combvoldatavtk.sh")
              }
@@ -239,10 +266,11 @@ if __name__ == "__main__":
 
     # Run the workflow
     setup_sum_dir(paths["specfem"])
-    available = discover_available()
+    available = discover_available(paths)
     pprint(available)
     check = input("Manual remove some files? y/[n]: ")
     if check == "y":
+        # File tags are located in `available`
         import ipdb; ipdb.set_trace()
 
     for tag in available.keys():
@@ -263,6 +291,8 @@ if __name__ == "__main__":
             if count:
                 run_xcombine_vol_data_vtk(paths)
                 post_organize(paths)
+
+    create_srcrcv_vtk(paths)
 
 
 
