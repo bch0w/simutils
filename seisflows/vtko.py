@@ -90,11 +90,13 @@ class VTKO:
             t = "_".join(t.split("_")[1:])  # e.g. mu_kernel.bin
             return "".join(t.split(".")[:-1])
 
-        print("discovering available models/gradients/kernels")
+        print("discovering available [models / gradients / kernels]")
         all_files = glob(os.path.join(output, "*_????"))
 
         # Figure out the labels of the directories, e.g. models, gradients etc.
         labels = set([os.path.basename(_).split("_")[0] for _ in all_files])
+        labels = sorted(list(labels))  # ensure the same order every time
+
         available = {t: {} for t in labels}
         for lab in labels:
             # kernel directory must be treated differently
@@ -132,13 +134,15 @@ class VTKO:
                 check = [os.path.basename(_).split('.')[0] for _ in
                          glob(os.path.join(self.dirout, lab, '*'))]
 
-                # Here we assume that if one parameter exists, then all exit
+                # Here we assume that if one parameter exists, then all exist
+                rm_tags = []
                 for t in tags:
                     for p in params:
                         if f"{t}_{p}" in check:
-                            print(f"\t{t}_{p} already exists, excluding...")
-                            tags.remove(t)
+                            print(f"\t{t} already exists, excluding...")
+                            rm_tags.append(t)
                             break
+                tags = [_ for _ in tags if _ not in rm_tags]
 
                 available[lab]["tags"] = tags
                 available[lab]["params"] = list(params)
@@ -147,13 +151,15 @@ class VTKO:
             sys.exit("no available models/gradients/kernels found")
         else:
             for lab in available.keys():
-                print(f"{l}: {len(available[l]['tags'])}", end=" / ")
+                print(f"{lab}: {len(available[lab]['tags'])}", end=" / ")
             print("")
 
         # Allow the user to manually edit the `available` before it is set as
         # a class attribute
+        print()
         pprint(available)
-        check = input("Manual remove some files? y/[n]: ")
+        print()
+        check = input("\nmanually remove files? y/[n]: ")
         if check == "y":
             # File tags are located in `available`
             import ipdb; ipdb.set_trace()
@@ -166,7 +172,7 @@ class VTKO:
         """
         c = 0
         for unique_id in self.pars["tags"]:  # e.g. model_0001
-            directory = os.path.join("output", unique_id)
+            directory = os.path.join(self.cwd, "output", unique_id)
             for par in self.pars["params"]:
                 srcs = glob(os.path.join(directory, f"proc*_{par}*.bin"))
                 for src in srcs:
@@ -181,6 +187,8 @@ class VTKO:
                     dst = os.path.join(self.specfem, "SUM", new_filename)
                     os.symlink(os.path.abspath(src), dst)
                     c += 1
+
+        print(f"\t{c} files symlinked")
         return c
 
     def organize_kernels(self, kernel):
@@ -211,6 +219,8 @@ class VTKO:
                     dst = os.path.join(self.specfem, "SUM", new_filename)
                     os.symlink(os.path.abspath(src), dst)
                     c += 1
+
+        print(f"\t{c} files symlinked")
         return c
 
     def run_xcomb(self):
@@ -274,7 +284,8 @@ class VTKO:
         print("organizing output files")
 
         # Move files
-        for i, src in glob(os.path.join(self.specfem, "SUM", "*.vtk")):
+        for i, src in enumerate(glob(os.path.join(
+                                                self.specfem, "SUM", "*.vtk"))):
             # e.g. model, kernel, gradient
             tag = os.path.basename(src).split("_")[0]
             dst_dir = os.path.join(self.dirout, tag)
@@ -310,27 +321,35 @@ class VTKO:
             rcv_vtk_from_specfem(path_to_data=os.path.join(self.cwd, "sfDATA"),
                                  path_out=self.dirout)
 
-    def run(self, **kwargs):
+    def run(self):
         """
         Main run function that calls upon the class to create .vtk from .bin
         """
-        self.setup(**kwargs)
-        self.discover()
+        self.setup()
+        self.discover()  # sets self.available
         self.create_srcrcv_vtk()
         for tag in self.available.keys():
-            # To be safe, set temp variables to None before they are set again
-            self.pars = None
-
             self.pars = self.available[tag]
+
             if tag == "kernels":
                 for kernel in self.pars["tags"]:
+                    print(f"organizing {tag} {kernel}") 
                     if self.organize_kernels(kernel):
                         self.run_xcomb()
                         self.post_organize()
             else:
+                # Ignore any empty labels
+                if not self.pars['tags']:
+                    continue
+                print(f"organizing {tag}") 
                 if self.organize_models_gradients():
                     self.run_xcomb()
                     self.post_organize()
+
+            # Ensure were back in the working directory for relative paths
+            os.chdir(self.cwd)
+
+        print("finished, thank you")
 
 
 if __name__ == "__main__":
