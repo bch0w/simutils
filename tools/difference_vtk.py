@@ -256,6 +256,27 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
 
     return differences
 
+def print_header(diff_method):
+    """
+    Display some information that should be relevant to the user in terms of how
+    to use the various options.
+    """
+    print("=" * 80)
+    if diff_method == "poissons":
+        print(f"For Poissons ratio: model_a = Vp; model_b = Vs")
+    elif diff_method == "log":
+        print("For net model update / log difference:\n"
+              "\nlog(a / b) ~= (a - b) / b\n"
+              "\nmodel_a = FINAL;  model_b = INITIAL\n")
+    elif diff_method == "divide":
+        print("For division: diff = model_a / model_b")
+    elif diff_method == "subtract":
+        print("For subtraction: diff = model_a - model_b")
+    elif diff_method == "pct":
+        print("For percentage difference: diff = "
+              "(model_a - model_b) / model_a")
+    print("=" * 80)
+
 
 if __name__ == "__main__":
     """
@@ -300,22 +321,7 @@ if __name__ == "__main__":
         pick_method = "select_one"
         diff_method = "log"
 
-    # Small reminder to aid in selection process
-    print("=" * 80)
-    if diff_method == "poissons":
-        print(f"For Poissons ratio: model_a = Vp; model_b = Vs")
-    elif diff_method == "log":
-        print("For net model update / log difference:\n"
-              "\nlog(a / b) ~= (a - b) / b\n"
-              "\nmodel_a = FINAL;  model_b = INITIAL\n")
-    elif diff_method == "divide":
-        print("For division: diff = model_a / model_b")
-    elif diff_method == "subtract":
-        print("For subtraction: diff = model_a - model_b")
-    elif diff_method == "pct":
-        print("For percentage difference: diff = "
-              "(model_a - model_b) / model_a")
-    print("=" * 80)
+    print_header(diff_method)
 
     # Dynamic file picking
     model_a, model_b, fid_out = pick_files(basepath, pick_method, globchoice, 

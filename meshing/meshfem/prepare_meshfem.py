@@ -359,7 +359,7 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z):
     :type depth: float
     :param depth: depth of the mesh in km (positive)
     :type interfaces: list of float
-    :param interfaces: interfaces for vertical doubling layers
+    :param interfaces: interfaces for vertical tripling layers
     :type grid_space_z: float
     :param grid_space_z: desired vertical grid spacing at the top of the mesh
     :rtype layers: list of float
@@ -399,7 +399,7 @@ def approx_element_number(depth_km, layers_from_top, top, bottom,
                           grid_space_top):
     """
     Return an approximate element number based on the depth, the grid space
-    at the top of the mesh, and the known vertical doubling layers.
+    at the top of the mesh, and the known vertical tripling layers.
 
     NOTE: Element numbering starts from the bottom!
 
@@ -468,10 +468,11 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
                                          layers_from_top=layers_from_top, 
                                          top=top, bottom=bottom,
                                          grid_space_top=grid_space_z)
-        if elem_num in cumulative_layers:
-            logger.info("\t!!! doubling layer matches interface layer, "
-                        "placing above interface")
-            elem_num -= 1
+        # This isnt necessary, matched interface and doubling layers is good
+        # if elem_num in cumulative_layers:
+        #     logger.info("\t!!! doubling layer matches interface layer, "
+        #                 "placing above interface")
+        #     elem_num -= 1
         nz_per_doubling_layer.append(elem_num)
         db_fmt += db_template.format(j=i+1, value=elem_num)
 
@@ -627,7 +628,7 @@ def pprint_mesh_stats(interfaces, doublings, regions, dx, dy, dz, top):
         if i == layers_nz:
             msg += "\n\t\tTop of Mesh"
         if i in interfaces:
-            msg += "\n\t\tInterface (vertical doubling)"
+            msg += "\n\t\tInterface (vertical tripling)"
             dz *= 3
         if i in doublings:
             msg += "\n\t\tDoubling (horizontal doubling)"

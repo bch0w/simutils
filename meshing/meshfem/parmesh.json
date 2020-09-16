@@ -1,6 +1,6 @@
 {
 	"tag": "forest",
-    "dir_name": "/home/chowbr/primer/meshes/forest/meshfem3D_files",
+    "dir_name": "/home/chowbr/primer/meshes/forest/3second",
     "lat_min": -42.5,
     "lat_max": -37.0,
     "lon_min": 173.0,
@@ -9,10 +9,10 @@
     "mesh_depth_km": 400.0,
     "mesh_top_km": -2.67,
     "doubling_layers": [
-        16, 68
+        10, 65
     ],
     "interfaces": [
-        8, 48
+        8, 60
     ],
     "interface_fids": [
         "shallow_to_crust.dat",
@@ -22,8 +22,8 @@
        8, 50
     ],
     "nproc": 80,
-    "grid_space_top_hv": [4, 2],
-    "shortest_period_s": 2.75,
+    "grid_space_top_hv": [2.5, 2],
+    "shortest_period_s": 3.0,
     "vs_min_km_per_s": 1.2,
     "vp_max_km_per_s": 9.3,
     "top_vertical_element_ratio": 1.0
