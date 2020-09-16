@@ -7,7 +7,7 @@
 #SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time=0:15:00
+#SBATCH --time=0:05:00
 #SBATCH --output=comb.log
 
 # Example Call
