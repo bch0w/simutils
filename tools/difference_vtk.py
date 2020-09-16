@@ -71,6 +71,15 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
         1) select: choose model_a and model_b 
         2) select_one: choose model_a or model_b, difference all other files 
                        from the chosen model
+        3) auto: auto search for models based on diff_method
+            for each of the given diff methods:
+                *log:      select model init as model b, and any other
+                           model tags as model a
+                *divide:   automatically calculates Vp/Vs ratio for all
+                           available Vp and Vs models
+                *poissons: automatically calculates Poissons ratio
+                           for all available Vp and Vs models
+
     :type globchoice: str
     :param globchoice: custom wildcard for glob search
     :type diff_method: str
@@ -82,7 +91,7 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
 
     # List out all the picks for the user
     for i, pick in enumerate(pick_list):
-        print(f"{i}: {pick}")
+        print(f"{i}: {os.path.basename(pick)}")
     print("\n")
 
     # Select one model and difference all other models from it
@@ -122,8 +131,6 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
         elif choice == "b":
             model_b, model_a = model_1, model_2
 
-        return model_a, model_b, fid_out
-
     # Select both models to difference
     elif method == "select":
         model_a = input("Select model_a index: ")
@@ -139,9 +146,45 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
                                               )
         fid_out = os.path.join(basepath, fid_out)
 
-        return [model_a], [model_b], [fid_out]
+        model_a = [model_a]
+        model_b = [model_b]
+        fid_out = [fid_out]
+
+    # Auto select models - Assuming we are in the working directory
+    elif method == "auto":
+        print("Auto selecting models")
+        model_a, model_b, fid_out = [], [], []
+        if diff_method == "log":
+            for tag in ["vp", "vs"]:
+                model_init = f"model_init_{tag}.vtk"
+                assert(os.path.exists(model_init)), f"{model_init} no existo"
+            
+                # Determine which other models are available besides init
+                other_models = glob.glob(model_init.replace("init", "????"))
+                other_models.remove(model_init)
+                for other_model in sorted(other_models):
+                    model_a.append(other_model)  # FINAL MODEL
+                    model_b.append(model_init)  # INITIAL MODEL
+                    model_number = other_model.split("_")[1]
+                    fid_out.append(f"update_{model_number}_{tag}.vtk")
+        elif diff_method in ["poissons", "divide"]:
+            # We will gather Vp files first, then choose Vs based on Vp names
+            vp_files = glob.glob("model_????_vp.vtk")
+            assert vp_files, "No Vp files found, cannot calculate ratios"
+            for vp_fid in sorted(vp_files):
+                vs_fid = vp_fid.replace("vp", "vs")
+                assert(os.path.exists(vs_fid)), f"No Vs file found for {vp_fid}"
+                model_a.append(vp_fid)
+                model_b.append(vs_fid)
+                model_number = vp_fid.split("_")[1]
+                if diff_method == "poissons":
+                    fid_out.append(f"ratio_{model_number}_poissons.vtk")
+                elif diff_method == "divide":
+                    fid_out.append(f"ratio_{model_number}_vpvs.vtk")
     else:
         raise NotImplementedError
+
+    return model_a, model_b, fid_out
 
 
 def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
@@ -177,21 +220,23 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
         try:
             a = float(a.strip())
             b = float(b.strip())
-            if method in ["subtract", "divide"]:
+            if method in ["subtract", "pct"]:
                 difference = a - b
                 # this will give a percent difference rather than absolute diff
-                if method == "divide":
+                if method == "pct":
                     difference /= a
+            if method == "divide":
+                difference = a / b
             # Take the natural log of the the quotient of a and b, this gives
             # to first order approximation, the percent difference. Yoshi said
             # Albert Tarantola said, "always view models in log space"
             elif method == "log":
                 difference = np.log(a / b)
-            elif method == "poissons_ratio":
+            elif method == "poissons":
                 difference = 0.5 * (a**2 - 2 * b**2) / (a**2 - b**2)
 
             differences.append(difference)
-        except (ValueError):
+        except ValueError:
             print("value error")
 
     # Write out the differences to a new file
@@ -223,30 +268,54 @@ if __name__ == "__main__":
         available - subtract, divide, log
     globchoice (str): wildcard for dynamic file picking
     """
-    basepath = './'
-    dynamic = False
+    basepath = os.getcwd()
+    dynamic = True
 
     if dynamic:
-        globchoice = input("Specific wildcard for selection? [e.g 'model_*']: ")
-        if not globchoice:
-            globchoice = "*"
-        pick_method = input("Selection method? [select, select_one]: ")
-        diff_method = input("Method? [subtract, divide, log, poissons_ratio]: ")
+        globchoice = "*"
+        # globchoice = input("Specific wildcard for selection? [e.g 'model_*']: ")
+        # if not globchoice:
+        #     globchoice = "*"
+
+        # Choose which method for picking files to diff. Allow both string and
+        # index choosing of method
+        available_pick = ["auto", "select", "select_one"]
+        pick_method = input(f"Selection method? {available_pick}: ")
+        try:
+            pick_method = available_pick[int(pick_method)]
+        except ValueError:
+            assert(pick_method in available_pick), f"unknown: {pick_method}"
+            pass
+
+        # Choose which method for diff'ing files, allow string and index choice
+        available_diff = ["log", "poissons", "divide", "pct", "subtract"]
+        diff_method = input(f"Method? {available_diff}: ")
+        try:
+            diff_method = available_diff[int(diff_method)]
+        except ValueError:
+            assert(diff_method in available_diff), f"unknown: {diff_method}"
+            pass
     else:
         globchoice = "model_*"
         pick_method = "select_one"
         diff_method = "log"
 
-
     # Small reminder to aid in selection process
-    if diff_method == "poissons_ratio":
-        print(f"{'='*80}\nmodel_A = Vp; model_B = Vs{'='*80}")
+    print("=" * 80)
+    if diff_method == "poissons":
+        print(f"For Poissons ratio: model_a = Vp; model_b = Vs")
     elif diff_method == "log":
-        print(f"{'='*80}\n"
-              "For net model update / log difference:\n"
-              "log(a/b) ~= (a-b) / b; 'a'\n"
-              "model_a = FINAL;  model_b = INITIAL\n"
-              f"{'='*80}")
+        print("For net model update / log difference:\n"
+              "\nlog(a / b) ~= (a - b) / b\n"
+              "\nmodel_a = FINAL;  model_b = INITIAL\n")
+    elif diff_method == "divide":
+        print("For division: diff = model_a / model_b")
+    elif diff_method == "subtract":
+        print("For subtraction: diff = model_a - model_b")
+    elif diff_method == "pct":
+        print("For percentage difference: diff = "
+              "(model_a - model_b) / model_a")
+    print("=" * 80)
 
     # Dynamic file picking
     model_a, model_b, fid_out = pick_files(basepath, pick_method, globchoice, 

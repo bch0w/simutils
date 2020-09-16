@@ -118,6 +118,29 @@ for i in range(0, numPoints):
     newPoints.InsertPoint(i, x, y, z)
 pdo.SetPoints(newPoints)
 
+"""
+CONVERT UNITS
+
+Convert units e.g. from m/s to km/s
+"""
+from paraview import vtk
+
+pdi = self.GetInput()
+pdo = self.GetOutput()
+ivals = pdi.GetPointData().GetScalars()
+numPoints = pdi.GetNumberOfPoints()
+newPoints=vtk.vtkPoints()
+ca = vtk.vtkFloatArray()
+ca.SetName(ivals.GetName())
+ca.SetNumberOfComponents(1)
+ca.SetNumberOfTuples(numPoints)
+
+# Copy the values over element by element and convert
+for i in range(0, numPoints):
+  ca.SetValue(i, ivals.GetValue(i) * 1E-3)
+
+# Set the new values
+pdo.GetPointData().AddArray(ca)
 
 
 """

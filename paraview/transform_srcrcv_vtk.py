@@ -8,9 +8,16 @@ import numpy as np
 from glob import glob
 
 fid_in = sys.argv[1]
+
+# Convert to 0 origin 
 x_origin = 171312.0
 y_origin = 5286950.0
 convert = 1E-3
+
+# Set constant values for each coordinate
+set_x = None
+set_y = 295.  # Set fixed Y-value, None not set
+set_z = None
 
 template = "{x:18.6E}{y:18.6E}{z:18.6E}\n"
 fids = glob(os.path.join("./", fid_in))
@@ -23,10 +30,18 @@ for fid in fids:
             try:
                 x, y, z = line.strip().split()
                 # Shift by origin and convert
-                x = (float(x) - x_origin) * convert
-                # y = 305.
-                y = (float(y) - y_origin) * convert
-                z = float(z) * convert
+                if set_x is not None:
+                    x = set_x
+                else:
+                    x = (float(x) - x_origin) * convert
+                if set_y is not None:
+                    y = set_y
+                else:
+                    y = (float(y) - y_origin) * convert
+                if set_z is not None:
+                    z = set_z
+                else:
+                    z = float(z) * convert
 
                 f.write(template.format(x=x, y=y, z=z))
             # ValueError thrown for header files
