@@ -10,7 +10,7 @@
 #SBATCH --time=00:00:45
 #SBATCH --output=sem_model_slice_%j.out
 
-XYZ_FILE="xyz_infile.txt"
+XYZ_FILE="shallow.xyz"
 MODEL_DIR="model_0005/"
 DATA_NAME="vs"
 OUTFILE="model.out"

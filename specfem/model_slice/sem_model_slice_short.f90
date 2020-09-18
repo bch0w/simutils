@@ -7,9 +7,9 @@
 ! As such, there are Python formatting curly-brackets included which will need
 ! to be set by Semslicer.
 !
-! NOTE: This version is considerably different from my current checked out
-!       version of Specfem (75e1785c912b996ac438deaa5b88137ac7705b0a), but was
-!       used by Kai Wang as recently as 2018 (?) so I've opted to use it.
+! NOTE: This code is meant was designed to work with 
+!       Specfem devel version: 75e1785c912b996ac438deaa5b88137ac7705b0a
+!       There are some compatibility issues with previous versions
 !
 ! github.com/bch0w/simutils/model_slice
 !
@@ -38,23 +38,31 @@ program sem_model_slice
   ! Hard code the max number of GLL points expected
   integer, parameter :: NMAXPTS = 10000000
 
+  !!! COMPATABILITY: CUSTOM_MPI_2REAL was removed from precision, hardcode here
+  integer, parameter :: CUSTOM_MPI_2REAL = MPI_2REAL
+
+  ! File names
+  character(len=500) :: xyz_infile, model_dir, data_name, outfile, prname
+
+  ! Tracker variables
   integer :: ier, sizeprocs, myrank, ios, i, j, k, ispec, iglob, ipt, npts
-  character(len=500) :: xyz_infile, model_dir, data_name, &
-          outfile, local_data_file, prname
   real(kind=CUSTOM_REAL), dimension(NMAXPTS) :: x, y, z, v, vmin, vall, &
           distmin, dist, distall
   integer, dimension(NMAXPTS) :: ispec_min, ix_min, iy_min, iz_min
   real(kind=CUSTOM_REAL), dimension(2, NMAXPTS) :: in, out
 
-  !!!
-  integer :: NSPEC_AB,NGLOB_AB
+  ! Number of spectral elements and global points
+  integer :: NSPEC_AB, NGLOB_AB
+
+  ! Irregular element shapes
+  integer :: NSPEC_IRREGULAR
+
+  ! Mesh Parameters
   integer, dimension(:,:,:,:), allocatable :: ibool
   real(kind=CUSTOM_REAL), dimension(:), allocatable :: xstore, ystore, zstore
-  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: vstore
-  !!
 
-  integer, dimension(NX, NY) :: itopo
-  double precision :: elevation
+  ! Model Parameters
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: vstore
 
   ! MPI initialization
   call MPI_INIT(ier)
@@ -67,11 +75,11 @@ program sem_model_slice
   call getarg(3, data_name)
   call getarg(4, outfile)
 
-  if(myrank==0)then
-    write(*,*) trim(xyz_infile)
-    write(*,*) trim(model_dir)
-    write(*,*) trim(data_name)
-    write(*,*) trim(outfile)
+  if (myrank == 0)then
+    write(*, *) "XYZ FILE: ", trim(xyz_infile)
+    write(*, *) "MODEL DIR: ", trim(model_dir)
+    write(*, *) "DATA NAME: ", trim(data_name)
+    write(*, *) "OUT FILE: ", trim(outfile)
   endif
 
   ! Read points to be interpolated
@@ -86,16 +94,27 @@ program sem_model_slice
   npts = i - 1
   if (myrank == 0) then
     write(*, *) 'Total number of points = ', npts
-    if (npts > NMAXPTS .or. npts <= 0) call &
-            exit_mpi(myrank, 'max npts exceeded')
+    if (npts > NMAXPTS .or. npts <= 0) then
+        call exit_mpi(myrank, 'max npts exceeded')
+    endif
   endif
 
-  ! Kai added read mesh to allocate grid points
-  write(prname, '(a,i6.6,a)') trim(model_dir)//'/proc',myrank,'_'
-  open(unit=27, file=trim(prname)//'external_mesh.bin', status='old', &
-          action='read', form='unformatted', iostat=ier)
+  ! Set the standard processor name to be re-used for file access
+  write(prname, '(a,i6.6,a)') trim(model_dir)//'/proc', myrank, '_'
+
+  ! Read external mesh to allocate grid points (Kai)
+  open(unit=27, file=trim(prname) // "external_mesh.bin", status='old', &
+        action='read', form='unformatted', iostat=ier)
+    if (ier /= 0) then
+        print *, 'Error opening external mesh file: ', trim(prname)
+        call exit_mpi(myrank, 'Error opening external mesh file')
+    endif
+
+  ! Allocate spectral elements and stored values
   read(27) NSPEC_AB
   read(27) NGLOB_AB
+  !!! COMPATABILITY: NSPEC_IRREGULAR not found in older versions
+  read(27) NSPEC_IRREGULAR 
 
   ! Allocates mesh arrays to [xyz]store for unstructured grid
   allocate(ibool(NGLLX, NGLLY, NGLLZ, NSPEC_AB), stat=ier)
@@ -105,7 +124,7 @@ program sem_model_slice
   allocate(vstore(NGLLX, NGLLY, NGLLZ, NSPEC_AB), stat=ier)
   if (ier /= 0) stop 'Error allocating array vstore'
 
-  ! read ibool file and global point arrays
+  ! Read ibool file and xyz points
   read(27) ibool
   read(27) xstore
   read(27) ystore
@@ -113,29 +132,34 @@ program sem_model_slice
   close(27)
 
   ! Read in chosen model data as variable vstore
-  write(prname,'(a,i6.6,a)') trim(model_dir)//'/proc', myrank,'_'
-  local_data_file = trim(prname) // trim(data_name)//'.bin'
-  open(unit = 27, file=local_data_file, status='old', iostat = ios, &
-          form ='unformatted')
-  if (ios /= 0) call exit_mpi(myrank, &
-          'Error reading model data file '//trim(local_data_file))
+  open(unit=27, file=trim(prname) // trim(data_name) // '.bin', &
+        status='old', iostat=ios, form ='unformatted')
+  if (ios /= 0) call exit_mpi(myrank, 'Error reading model data file')
   read(27) vstore
   close(27)
+    
+  ! Print some global variables for data checking and debugging
+  ! if (myrank == 0) write(*, *) "NSPEC: ", NSPEC_AB
+  ! if (myrank == 0) write(*, *) "NGLOB: ", NGLOB_AB
+  ! write (*, *)  "RANK: ", myrank, "XVAL: ", MAXVAL(xstore), MINVAL(xstore)
+  ! write (*, *)  "RANK:" , myrank, "YVAL: ", MAXVAL(ystore), MINVAL(ystore)
+  ! write (*, *)  "RANK: ", myrank, "ZVAL: ", MAXVAL(zstore), MINVAL(zstore)
+  ! write (*, *) "RANK: ", myrank, "VAL:", MAXVAL(vstore), MINVAL(vstore)
 
   ! Search for local minimum-distance point
-  distmin(1:npts) = HUGEVAL
+  distmin(1: npts) = HUGEVAL
 
   do ispec = 1, NSPEC_AB
     do k = 1, NGLLZ
       do j = 1, NGLLY
         do i = 1, NGLLX
           iglob = ibool(i, j, k, ispec)
-          dist(1: npts) = &
-                  dsqrt((x(1:npts) - dble(xstore(iglob))) ** 2 &
-                  +(y(1:npts)-dble(ystore(iglob))) ** 2 &
-                  +(z(1:npts)-dble(zstore(iglob))) ** 2)
-          do ipt=1,npts
-            if(dist(ipt) < distmin(ipt)) then
+          dist(1: npts) = dsqrt(&
+                   (x(1: npts) - dble(xstore(iglob))) ** 2 + &
+                   (y(1: npts) - dble(ystore(iglob))) ** 2 + &
+                   (z(1: npts) - dble(zstore(iglob))) ** 2)
+          do ipt = 1, npts
+            if (dist(ipt) < distmin(ipt)) then
               distmin(ipt) = dist(ipt)
               ispec_min(ipt) = ispec
               ix_min(ipt) = i
@@ -147,46 +171,52 @@ program sem_model_slice
         enddo
       enddo
     enddo
-    ! end of loop on all the elements in current slice
+  ! end of loop on all the elements in current slice
   enddo
 
   ! Frees up memory
   deallocate(ibool)
-  deallocate(xstore,ystore,zstore,vstore)
+  deallocate(xstore, ystore, zstore, vstore)
 
   call MPI_BARRIER(MPI_COMM_WORLD,ier)
   if (myrank == 0) print *, 'Done looping over global points ...'
 
-  ! choose the minimum value
+  ! Uncomment to export raw data and manually choose the minimum value
+  write(prname, '(a,i6.6,a)') 'OUTPUT_FILES/rawvals_', myrank, '.txt'
+  open(33,file=prname)
+  do i = 1, npts
+    write(33, *) i, myrank, distmin(i), ispec_min(i), &
+        ix_min(i), iy_min(i), iz_min(i),vmin(i)
+  enddo
+  close(33)
 
-  !  write(prname,'(a,i6.6,a)') 'OUTPUT_FILES/in_',myrank,'.txt'
-  !  open(33,file=prname)
-  !  do i = 1, npts
-  !    write(33,*) i, myrank, distmin(i), ispec_min(i), ix_min(i), iy_min(i), iz_min(i),vmin(i)
-  !  enddo
-  !  close(33)
-
+  ! Determine the global minmimum distance based on rank number, this will 
+  ! decide which gll point is the closest to the requested grid point
   do i = 1, npts
     in(1, i) = distmin(i)
     in(2, i) = myrank    ! myrank is coerced to a double
   enddo
-  call MPI_REDUCE(in,out,npts,CUSTOM_MPI_2REAL,MPI_MINLOC,0,MPI_COMM_WORLD,ier)
+  call MPI_REDUCE(in, out, npts, CUSTOM_MPI_2REAL, MPI_MINLOC, 0, &
+                    MPI_COMM_WORLD, ier)
 
-  !  if (myrank == 0)  then
-  !   open(33,file='OUTPUT_FILES/out.txt')
-  !   do i = 1, npts
-  !     write(33,*) i, out(1,i), out(2,i)
-  !  enddo
-  !   close(33)
-  !  endif
+  ! Uncomment to export files containing the rank which pertains to the min dist
+  if (myrank == 0)  then
+   open(33, file='OUTPUT_FILES/min_rank_dist.txt')
+   do i = 1, npts
+     write(33,*) i, out(1, i), out(2, i)
+  enddo
+   close(33)
+  endif
 
+  ! Let all the processes know which ranks correspond to shortest distances
   call MPI_BCAST(out, 2*npts, CUSTOM_MPI_TYPE, 0, MPI_COMM_WORLD, ier)
 
-  v(1:npts) = 0
-  dist(1:npts) = 0.
+  ! Export the model value that pertains to the rank with the shortest distance
+  v(1: npts) = 0
+  dist(1: npts) = 0.
 
   do i = 1, npts
-    if (myrank == nint(out(2,i))) then
+    if (myrank == nint(out(2, i))) then
       v(i) = vmin(i)
 !      if (GLL_INTERPOLATION) call xeg_search(x(i),y(i),z(i),&
 !                 ispec_min(i),ix_min(i),iy_min(i),iz_min(i),v(i))
@@ -194,6 +224,7 @@ program sem_model_slice
     endif
   enddo
 
+  ! Sum values and distances, everything will be 0 except the chosen one
   call MPI_REDUCE(v, vall, npts, CUSTOM_MPI_TYPE, MPI_SUM, 0, &
           MPI_COMM_WORLD, ier)
   call MPI_REDUCE(dist, distall, npts, CUSTOM_MPI_TYPE, MPI_SUM, 0, &
@@ -204,7 +235,7 @@ program sem_model_slice
     print *, 'Writing output file ...'
     open(12, file=outfile, status='unknown')
     do i = 1, npts
-      write(12,*) x(i), y(i), z(i), vall(i), distall(i)
+      write(12, *) x(i), y(i), z(i), vall(i), distall(i)
     enddo
     close(12)
   endif
