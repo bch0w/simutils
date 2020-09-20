@@ -24,25 +24,32 @@ def make_grid(x_min, x_max, dx, y_min, y_max, dy, z_min, z_max, dz,
 def define_regions(region):
     """
     Define fine-mesh grid for shallow structure
+    NZ-North Mesh actual dimensions:
+        x_min = 171311.859
+        x_max = 633468.312
+        y_min = 5286952.00
+        y_max = 5904085.00
+
+    Ebht19 interpolated by Carl Tape has three levels:
+        shallow: 
+            zmim=-8000., zmax=2642.156, dx=1, dy=1, dz=0.25
+        crust: 
+            zmim=-50000., zmax=-8000., dx=2, dy=2, dz=1
+        mantle: 
+            zmim=-400000., zmax=-50000., dx=8, dy=8, dz=4
     """
-    kwargs = {"x_min": 171311.859,
-              "x_max": 633468.312,
-              "y_min": 5286952.00,
-              "y_max": 5904085.00
-              }
-    kwargs = {"x_min": 172000.00,
-              "x_max": 620000.00,
-              "y_min": 5287000.00,
-              "y_max": 5904000.00
+    kwargs = {"x_min": 170000.00,
+              "x_max": 635000.00,
+              "y_min": 5286000.00,
+              "y_max": 5905000.00
               }
     
     if region == "shallow":
         kwargs.update({"z_min": -8000.00,
-                       # "z_max": 2642.156004,
-                       "z_max": -7000.00,
-                       "dx": 10 * 1E3,  # 1
-                       "dy": 10 * 1E3,  # 1
-                       "dz": 1 * 1E3  # .25
+                       "z_max": 2642.156004,
+                       "dx": 5 * 1E3, 
+                       "dy": 5 * 1E3, 
+                       "dz": 5 * 1E3  
                        })
     elif region == "crust":
         kwargs.update({"z_min": -50000.00,
@@ -73,7 +80,8 @@ def make_all():
 
 
 if __name__ == "__main__":
-    make_all()
+    # make_all()
+    make_grid(fid="shallow.xyz", **define_regions("shallow"))
 
 
 
