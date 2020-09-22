@@ -7,13 +7,13 @@
 #SBATCH --clusters=maui
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
-#SBATCH --time=00:00:45
+#SBATCH --time=01:00:00
 #SBATCH --output=sem_model_slice_%j.out
 
 XYZ_FILE="shallow.xyz"
-MODEL_DIR="model_0005/"
+MODEL_DIR="model_0017/"
 DATA_NAME="vs"
-OUTFILE="model.out"
+OUTFILE="model_0017_vs.out"
 
 echo "xsem_model_slice"
 echo
