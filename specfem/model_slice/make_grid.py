@@ -11,12 +11,15 @@ def make_grid(x_min, x_max, dx, y_min, y_max, dy, z_min, z_max, dz,
     """
     x_reg = np.arange(x_min, x_max, dx)
     y_reg = np.arange(y_min, y_max, dy)
+    z_reg = np.arange(z_min, z_max, dz)
     x_grid, y_grid = np.meshgrid(x_reg, y_reg)
     x_out = x_grid.flatten()
     y_out = y_grid.flatten()
 
+    print(f"{fid}: {len(x_reg) * len(y_reg) * len(z_reg)} points")
+
     with open(fid, "w") as f:
-        for z in np.arange(z_min, z_max, dz):
+        for z in z_reg:
             for x, y in zip(x_out, y_out):
                 f.write(f"{x:16.3f}\t{y:16.3f}\t{z:16.3f}\n")
         
@@ -46,10 +49,10 @@ def define_regions(region):
     
     if region == "shallow":
         kwargs.update({"z_min": -8000.00,
-                       "z_max": 2642.156004,
-                       "dx": 5 * 1E3, 
-                       "dy": 5 * 1E3, 
-                       "dz": 5 * 1E3  
+                       "z_max": 3000.00,
+                       "dx": 2 * 1E3, 
+                       "dy": 2 * 1E3, 
+                       "dz": 1 * 1E3  
                        })
     elif region == "crust":
         kwargs.update({"z_min": -50000.00,
