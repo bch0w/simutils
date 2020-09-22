@@ -14,8 +14,8 @@ def output_model(output_dir="./output", model_out=None):
     Find MODEL_INIT, symlink all aux files into `model_out`. 
     If model out not defined, will choose the largest model number.
 
-    :type working_dir: str
-    :param working_dir: path to the main SeisFlows directory 
+    :type output_dir: str
+    :param output_dir: path to the main SeisFlows directory
     :type model_out: int
     :param model_out: model number to be used for output. Defaults to the 
         largest value. Ignores model_true and model_init
