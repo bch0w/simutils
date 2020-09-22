@@ -90,9 +90,10 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
     pick_list.sort()
 
     # List out all the picks for the user
-    for i, pick in enumerate(pick_list):
-        print(f"{i}: {os.path.basename(pick)}")
-    print("\n")
+    if method != "auto":
+        for i, pick in enumerate(pick_list):
+            print(f"{i}: {os.path.basename(pick)}")
+        print("\n")
 
     # Select one model and difference all other models from it
     if method == "select_one":
@@ -163,24 +164,32 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
                 other_models = glob.glob(model_init.replace("init", "????"))
                 other_models.remove(model_init)
                 for other_model in sorted(other_models):
+                    model_number = other_model.split("_")[1]
+                    fid_out_ = f"update_{model_number}_{tag}.vtk"
+                    if os.path.exists(fid_out_):
+                        print(f"{fid_out_} exists, skipping...")
+                        continue
                     model_a.append(other_model)  # FINAL MODEL
                     model_b.append(model_init)  # INITIAL MODEL
-                    model_number = other_model.split("_")[1]
-                    fid_out.append(f"update_{model_number}_{tag}.vtk")
+                    fid_out.append(fid_out_)
         elif diff_method in ["poissons", "divide"]:
             # We will gather Vp files first, then choose Vs based on Vp names
             vp_files = glob.glob("model_????_vp.vtk")
             assert vp_files, "No Vp files found, cannot calculate ratios"
             for vp_fid in sorted(vp_files):
+                model_number = vp_fid.split("_")[1]
+                if diff_method == "poissons":
+                    fid_out_ = f"ratio_{model_number}_poissons.vtk"
+                elif diff_method == "divide":
+                    fid_out_ = f"ratio_{model_number}_vpvs.vtk"
+                if os.path.exists(fid_out_):
+                    print(f"{fid_out_} exists, skipping...")
+                    continue
                 vs_fid = vp_fid.replace("vp", "vs")
                 assert(os.path.exists(vs_fid)), f"No Vs file found for {vp_fid}"
                 model_a.append(vp_fid)
                 model_b.append(vs_fid)
-                model_number = vp_fid.split("_")[1]
-                if diff_method == "poissons":
-                    fid_out.append(f"ratio_{model_number}_poissons.vtk")
-                elif diff_method == "divide":
-                    fid_out.append(f"ratio_{model_number}_vpvs.vtk")
+                fid_out.append(fid_out_)
     else:
         raise NotImplementedError
 
@@ -321,7 +330,8 @@ if __name__ == "__main__":
         pick_method = "select_one"
         diff_method = "log"
 
-    print_header(diff_method)
+    if pick_method != "auto":
+        print_header(diff_method)
 
     # Dynamic file picking
     model_a, model_b, fid_out = pick_files(basepath, pick_method, globchoice, 
