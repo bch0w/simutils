@@ -2,32 +2,33 @@
 # NOTE: domain and region_1 are required parameters.
 # Additional region_i can be included, where 1 <= i <= inf
 # Units can be meters [m] or kilometers [km]; will be scaled to meters
+# NOTE: Try to ensure overlap between depth values so that there are no gaps
 domain:
   xmin: 170.
   xmax: 635.
   ymin: 5286.
   ymax: 5905.
   units: km
+# region_1:
+#   tag: shallow
+#   zmin: -8.
+#   zmax: 3.
+#   dx: 2.
+#   dy: 2.
+#   dz: 1.
+# region_1:
+#   tag: crust
+#   zmin: -50.
+#   zmax: -6.
+#   dx: 4.
+#   dy: 4.
+#   dz: 2.
 region_1:
-  tag: shallow
-  zmin: -8.
-  zmax: 3.
-  dx: 2.
-  dy: 2.
-  dz: 1.
-region_2:
-  tag: crust
-  zmin: -50.
-  zmax: -8.
-  dx: 4.
-  dy: 4.
-  dz: 2.
-region_3:
   tag: mantle
-  zmin: -50.
-  zmax: -8.
-  dx: 4.
-  dy: 4.
-  dz: 2.
+  zmin: -400.
+  zmax: -45.
+  dx: 8.
+  dy: 8.
+  dz: 4.
 
 

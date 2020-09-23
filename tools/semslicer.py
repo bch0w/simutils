@@ -4,14 +4,16 @@ functions to generate regular grids, run the script on a SLURM HPC system,
 and generate the input external tomography (.xyz) files required for a
 subsequent SPECFEM run.
 
-NOTE: The fortran binary file should be named 'semslicer'
+NOTE: The fortran binary file should be named 'xsemslicer'
 """
 import os
+import sys
 import yaml
 import datetime
 import subprocess
 import numpy as np
 from glob import glob
+from shutil import rmtree
 
 
 class Pot(dict):
@@ -70,12 +72,15 @@ class Semslicer:
         self.variables = None
         self._scratch = "./scratch"
 
+        if not os.path.exists(self._scratch):
+            os.makedirs(self._scratch)
+
     def clean(self):
         """
         Delete scratch directory
         """
         if os.path.exists(self._scratch):
-            os.remove(self._scratch)
+            rmtree(self._scratch)
             os.makedirs(self._scratch)
 
     def make_grids(self):
@@ -106,11 +111,10 @@ class Semslicer:
             setattr(self, f"region_{i}", reg)
 
             # Save these grid files to the scratch directory
-            if not os.path.exists(os.path.join(self._scratch, grid_tag)):
-                with open(os.path.join(self._scratch, grid_tag), "w") as f:
-                    for z in z_reg:
-                        for x, y in zip(x_out, y_out):
-                            f.write(f"{x:16.3f}\t{y:16.3f}\t{z:16.3f}\n")
+            with open(os.path.join(self._scratch, grid_tag), "w") as f:
+                for z in z_reg:
+                    for x, y in zip(x_out, y_out):
+                        f.write(f"{x:16.3f}\t{y:16.3f}\t{z:16.3f}\n")
 
     def get_model_values(self, model_dir):
         """
@@ -119,7 +123,7 @@ class Semslicer:
         binfiles = [os.path.basename(_) for _ in
                     glob(os.path.join(model_dir, "*"))]
         # list comprehension strips string parts, e.g. 'proc000001_vp.bin' -> 1
-        self.nproc = max([int(_.split('_')[0][4:]) for _ in binfiles])
+        self.nproc = max([int(_.split('_')[0][4:]) for _ in binfiles]) + 1
 
         # list comprehension strips all but var e.g. 'proc000001_vp.bin' -> 'vp'
         variables = [os.path.splitext(_.split('_')[1])[0] for _ in binfiles]
@@ -138,48 +142,50 @@ class Semslicer:
         assert(os.path.exists(model_dir)), f"{model_dir} does not exist"
         self.make_grids()
         if self.nproc is None:
-            self.calc_nproc(model_dir)
+            self.get_model_values(model_dir)
 
         # Scratch name
-        script_fid = os.path.join(self.scratch, f"run_semslicer.sh")
+        script_fid = os.path.join(self._scratch, f"run_semslicer.sh")
 
         # Submit job for each region and data file
         for data_name in data_names:
             assert(data_name in self.variables), \
                 f"{data_name} not in {self.variables}"
             for i in range(1, self.nregions):
-                region = getattr(self, "region_{i}")
+                region = getattr(self, f"region_{i}")
                 out_file = f"{data_name}_{region.grid_tag}"
+                log_file = os.path.join(self._scratch, "log_semslicer_%j.out")
 
-                # Overwrite the run script each time
+                job_time = str(datetime.timedelta(minutes=region.npts / 20000))
+
+                # Strip microseconds from time
+                job_time = job_time.split(".")[0]
+
+                # Overwrite the run script each time, kinda nasty because 
+                # were relative pathing back and forth. Maybe should fix this
                 with open(script_fid, "w") as f:
-                    f.write("#!/bin/bash -e\n\n"
-                            "srun -n {nproc:d} semslicer ")
-                    f.write(f"{os.path.join(self._scratch, region.grid_tag)} ")
-                    f.write(f"{os.path.join(model_dir, '')} ")
-                    f.write(f"{data_name} ")
-                    f.write(f"{out_file} ")
-
-                # Submit the run script that was just generated
-                jobtime = str(datetime.timedelta(minutes=region.npts / 25000))
-
-                submit_call = " ".join([
-                    "sbatch",
-                    "--account=nesi00263",
-                    "--job-name=semslicer",
-                    f"--nodes={region.nproc // 40}",  # Maui has 40 cores/node
-                    f"--ntasks={region.nproc}",
-                    "--cpus-per-task=1",
-                    "--clusters=maui",
-                    "--partition=nesi_research",
-                    f"--time={jobtime}",
-                    "--output=semslicer_%j.out"
-                    "script_fid"
-                ])
+                    f.write(f"#!/bin/bash -e\n\n"
+                            f"#SBATCH --account=nesi00263\n"
+                            f"#SBATCH --job-name=semslicer\n"
+                            f"#SBATCH --nodes={self.nproc // 40}\n"
+                            f"#SBATCH --ntasks={self.nproc}\n"
+                            f"#SBATCH --cpus-per-task=1\n"
+                            f"#SBATCH --clusters=maui\n"
+                            f"#SBATCH --partition=nesi_research\n"
+                            f"#SBATCH --time={job_time}\n"
+                            f"#SBATCH --output={log_file}\n"
+                            )
+                    f.write("\n")
+                    f.write(f"srun -n {self.nproc:d} xsemslicer "
+                            f"{os.path.join(self._scratch, region.grid_tag)} "
+                            f"{os.path.join(model_dir, '')} "
+                            f"{data_name} "
+                            f"{out_file} "
+                            )
 
                 # Submit jobs with no job checking, since this is only run once
                 # in a while, we can just manual check the outputs
-                subprocess.run([submit_call], capture_output=True)
+                subprocess.run(["sbatch", script_fid])
 
     def write_xyz_files(self):
         """
@@ -194,7 +200,7 @@ class Semslicer:
         data = Pot(vp=[], vs=[], rho=[], qmu=[], qkappa=[])
 
         for i in range(1, self.nregions):
-            region = getattr(self, "region_{i}")
+            region = getattr(self, f"region_{i}")
 
             # Collect data from the output files
             for j, data_name in enumerate(data.keys()):
@@ -211,24 +217,13 @@ class Semslicer:
 
                 data[data_name] = v
 
-            dx = x[1] - x[0]
-            dy = y[1] - y[0]
-            dz = z[1] - z[0]
+            xvals = np.unique(x)
+            yvals = np.unique(y)
+            zvals = np.unique(z)
 
-            # Check domain values against internal attributes
-            assert (x.min() == self.domain.xmin), "xmin does not match"
-            assert (x.max() == self.domain.xmax), "xmax does not match"
-            assert (y.min() == self.domain.ymin), "ymin does not match"
-            assert (y.min() == self.domain.ymax), "ymax does not match"
-
-            # Check region values against internal attributes
-            assert (z.min() == region.zmin()), \
-                f"{region.tag} zmin does not match"
-            assert (z.max() == region.zmax()), \
-                f"{region.tag} zmax does not match"
-            assert (dx == region.dx), f"dx does not match"
-            assert (dy == region.dy), f"dy does not match"
-            assert (dz == region.dz), f"dz does not match"
+            dx = xvals[1] - xvals[0]
+            dy = yvals[1] - yvals[0]
+            dz = zvals[1] - zvals[0]
 
             # Use the output values to define the header
             with open(f"tomography_model_{region.tag}.xyz", "w") as f:
@@ -239,8 +234,8 @@ class Semslicer:
                 # Line 2, spacing values. Assuming spacing is constant
                 f.write(f"{dx:.1f} {dy:.1f} {dz:.1f}\n")
 
-                # Line 3, npts for each direction
-                f.write(f"{len(x):d} {len(y):d} {len(z):d}\n")
+                # Line 3, number of unique points for each direction
+                f.write(f"{len(xvals):d} {len(yvals):d} {len(zvals):d}\n")
 
                 # Line 4, min and max values for each quantity
                 f.write(f"{data.vp.min():.1f} {data.vp.max():.1f} ")
@@ -254,6 +249,17 @@ class Semslicer:
                     f.write(f"{data.rho[k]:.1f} {data.qmu[k]:.1f} ")
                     f.write(f"{data.qkappa[k]:.1f}\n")
 
+if __name__ == "__main__":
+    assert(len(sys.argv) > 1), "Argument must be 'submit' or 'write'"
+    cfg_file = "cfg_nznorth.yaml"
+    model = "model_0017"
 
-
-
+    if sys.argv[1] == "submit":
+        ss = Semslicer(cfg_file)
+        ss.submit_jobs_maui(model)
+    elif sys.argv[1] == "write":
+        ss = Semslicer(cfg_file)
+        ss.write_xyz_files()
+    else:
+        "Argument must be 'submit' or 'write'"
+           

@@ -182,7 +182,7 @@ program sem_model_slice
   if (myrank == 0) print *, 'Done looping over global points ...'
 
   ! Uncomment to export raw data and manually choose the minimum value
-  write(prname, '(a,i6.6,a)') 'OUTPUT_FILES/rawvals_', myrank, '.txt'
+  write(prname, '(a,i6.6,a)') 'scratch/rawvals_', myrank, '.txt'
   open(33,file=prname)
   do i = 1, npts
     write(33, *) i, myrank, distmin(i), ispec_min(i), &
@@ -201,7 +201,7 @@ program sem_model_slice
 
   ! Uncomment to export files containing the rank which pertains to the min dist
   if (myrank == 0)  then
-   open(33, file='OUTPUT_FILES/min_rank_dist.txt')
+   open(33, file='scratch/min_rank_dist.txt')
    do i = 1, npts
      write(33,*) i, out(1, i), out(2, i)
   enddo
