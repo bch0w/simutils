@@ -122,6 +122,7 @@ class Semslicer:
         """
         binfiles = [os.path.basename(_) for _ in
                     glob(os.path.join(model_dir, "*"))]
+
         # list comprehension strips string parts, e.g. 'proc000001_vp.bin' -> 1
         self.nproc = max([int(_.split('_')[0][4:]) for _ in binfiles]) + 1
 
@@ -133,9 +134,9 @@ class Semslicer:
         """
         Submit an SBATCH job to the NZ cluster Maui. Auto generate the output
         file name based on the input grid file and data name.
-        :return:
         """
         if data_names is None:
+            # These are the required values for an external tomography file
             data_names = ["vp", "vs", "rho", "qmu", "qkappa"]
 
         # Determine parameters from model directory and make the grid files
@@ -144,7 +145,7 @@ class Semslicer:
         if self.nproc is None:
             self.get_model_values(model_dir)
 
-        # Scratch name
+        # Scratch sbatch file to be overwritten multiple times
         script_fid = os.path.join(self._scratch, f"run_semslicer.sh")
 
         # Submit job for each region and data file
@@ -156,13 +157,14 @@ class Semslicer:
                 out_file = f"{data_name}_{region.grid_tag}"
                 log_file = os.path.join(self._scratch, "log_semslicer_%j.out")
 
+                # Job time is empirically derived with some conservative buffer
                 job_time = str(datetime.timedelta(minutes=region.npts / 20000))
 
                 # Strip microseconds from time
                 job_time = job_time.split(".")[0]
 
                 # Overwrite the run script each time, kinda nasty because 
-                # were relative pathing back and forth. Maybe should fix this
+                # were relative pathing back and forth. Maybe should fix this?
                 with open(script_fid, "w") as f:
                     f.write(f"#!/bin/bash -e\n\n"
                             f"#SBATCH --account=nesi00263\n"
@@ -190,8 +192,7 @@ class Semslicer:
     def write_xyz_files(self):
         """
         Write the header and the XYZ files based on the output values of the
-        fortran file
-        :return:
+        fortran file. Filenames based on 'model_tomography_bryant.f90'
         """
         # Get the grid attributes incase this is run in a separate instance
         self.make_grids()
@@ -225,13 +226,14 @@ class Semslicer:
             dy = yvals[1] - yvals[0]
             dz = zvals[1] - zvals[0]
 
-            # Use the output values to define the header
+            # Use the output values to define the header, they may be different
+            # from the input cfg values that are stored internally
             with open(f"tomography_model_{region.tag}.xyz", "w") as f:
-                # Line 1, min and max values
+                # Line 1, min and max spatial values
                 f.write(f"{x.min():.1f} {y.min():.1f} {z.max():.1f} "
                         f"{x.max():.1f} {y.max():.1f} {z.min():.1f}\n")
 
-                # Line 2, spacing values. Assuming spacing is constant
+                # Line 2, spacing values, assuming spacing is constant
                 f.write(f"{dx:.1f} {dy:.1f} {dz:.1f}\n")
 
                 # Line 3, number of unique points for each direction
