@@ -197,10 +197,10 @@ class Semslicer:
         # Get the grid attributes incase this is run in a separate instance
         self.make_grids()
 
-        # These are the required values for the external tomo files
-        data = Pot(vp=[], vs=[], rho=[], qmu=[], qkappa=[])
-
         for i in range(1, self.nregions):
+            # These are the required values for the external tomo files
+            data = Pot(vp=[], vs=[], rho=[], qmu=[], qkappa=[])
+
             region = getattr(self, f"region_{i}")
 
             # Collect data from the output files
@@ -218,6 +218,7 @@ class Semslicer:
 
                 data[data_name] = v
 
+            # Get the actualy grid point and spacing values
             xvals = np.unique(x)
             yvals = np.unique(y)
             zvals = np.unique(z)
@@ -226,12 +227,18 @@ class Semslicer:
             dy = yvals[1] - yvals[0]
             dz = zvals[1] - zvals[0]
 
+            # External tomo file requires qp and qs but outputs qk and qm
+            # Qp must be derived from Vp, Vs, Qmu, Qkappa;  Qs == Qmu
+            # Conversion following Dahlen and Tromp Eq. 9.59
+            f = 4 / 3 * (data.vs / data.vp) ** 2
+            data["qp"] = 1 / ((1 - f) / data.qkappa + f / data.qmu) 
+
             # Use the output values to define the header, they may be different
             # from the input cfg values that are stored internally
             with open(f"tomography_model_{region.tag}.xyz", "w") as f:
                 # Line 1, min and max spatial values
-                f.write(f"{x.min():.1f} {y.min():.1f} {z.max():.1f} "
-                        f"{x.max():.1f} {y.max():.1f} {z.min():.1f}\n")
+                f.write(f"{x.min():.1f} {y.min():.1f} {z.min():.1f} "
+                        f"{x.max():.1f} {y.max():.1f} {z.max():.1f}\n")
 
                 # Line 2, spacing values, assuming spacing is constant
                 f.write(f"{dx:.1f} {dy:.1f} {dz:.1f}\n")
@@ -248,8 +255,9 @@ class Semslicer:
                 for k in range(len(x)):
                     f.write(f"{x[k]:.1f} {y[k]:.1f} {z[k]:.1f} ")
                     f.write(f"{data.vp[k]:.1f} {data.vs[k]:.1f} ")
-                    f.write(f"{data.rho[k]:.1f} {data.qmu[k]:.1f} ")
-                    f.write(f"{data.qkappa[k]:.1f}\n")
+                    f.write(f"{data.rho[k]:.1f} {data.qp[k]:.1f} ")
+                    f.write(f"{data.qmu[k]:.1f}\n")
+
 
 if __name__ == "__main__":
     assert(len(sys.argv) > 1), "Argument must be 'submit' or 'write'"
