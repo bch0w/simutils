@@ -83,26 +83,49 @@ class Semslicer:
             rmtree(self._scratch)
             os.makedirs(self._scratch)
 
+    def check_depth_ranges(self):
+        """
+        Using `arange` to create the structured grids may sometimes leave gaps
+        in the depth ranges if the start/end points and spacing are not chosen
+        correctly. Quickly check that the regions cover the entire depth range
+        """ 
+        z_mins, z_maxs = [], []
+        for i in range(1, self.nregions):
+            reg = getattr(self, f"region_{i}")
+            z_reg = np.arange(reg.zmin, reg.zmax + reg.dz, reg.dz)
+            z_mins.append(z_reg.min())
+            z_maxs.append(z_reg.max())
+        
+        z_mins = np.array(z_mins)
+        z_maxs = np.array(z_maxs)       
+ 
+        # Check that there are no gaps in the depths covered by each region
+        assert ((z_maxs[1:] - z_mins[:-1] >= 0)).all(), f"Gaps in depth ranges"
+
     def make_grids(self):
         """
         Generate the input grid files that will be used for querying the model
         Store the number of points in the internal attributes. Optional write
         grid to text files.
         """
+        self.check_depth_ranges()
+
         for i in range(1, self.nregions):
             reg = getattr(self, f"region_{i}")
 
-            # Establish the regular grid based on the particular region
-            x_reg = np.arange(self.domain.xmin, self.domain.xmax, reg.dx)
-            y_reg = np.arange(self.domain.ymin, self.domain.ymax, reg.dy)
-            z_reg = np.arange(reg.zmin, reg.zmax, reg.dz)
+            # Establish the regular grid (inclusive) based on each region
+            x_reg = np.arange(self.domain.xmin, self.domain.xmax + reg.dx, 
+                              reg.dx)
+            y_reg = np.arange(self.domain.ymin, self.domain.ymax + reg.dy, 
+                              reg.dy)
+            z_reg = np.arange(reg.zmin, reg.zmax + reg.dz, reg.dz)
 
             x_grid, y_grid = np.meshgrid(x_reg, y_reg)
             x_out = x_grid.flatten()
             y_out = y_grid.flatten()
 
             npts = len(x_reg) * len(y_reg) * len(z_reg)
-            print(f"{reg.tag}: {npts} points")
+            print(f"{reg.tag:<8}: {npts} points")
             grid_tag = f"{reg.tag}_grid.xyz"
 
             reg.npts = npts
@@ -193,6 +216,13 @@ class Semslicer:
         """
         Write the header and the XYZ files based on the output values of the
         fortran file. Filenames based on 'model_tomography_bryant.f90'
+
+        ..warning::
+            Sometimes if adjacent values are the same, Fortran will output them
+            formatted together: e.g. 0 0 0 => 3*0
+            This will cause a ValueError in numpy.loadtxt(). Could write a 
+            function to clean the files beforehand, but happens so rarely that
+            manually changing may be enough.
         """
         # Get the grid attributes incase this is run in a separate instance
         self.make_grids()
@@ -261,7 +291,8 @@ class Semslicer:
 
 if __name__ == "__main__":
     assert(len(sys.argv) > 1), "Argument must be 'submit' or 'write'"
-    cfg_file = "cfg_nznorth.yaml"
+    
+    cfg_file = "cfg.yaml"
     model = "model_0017"
 
     if sys.argv[1] == "submit":
