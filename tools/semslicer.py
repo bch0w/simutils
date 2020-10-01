@@ -246,7 +246,7 @@ class Semslicer:
                 f.write(f"{data.vp.min():.1f} {data.vp.max():.1f} ")
                 f.write(f"{data.vs.min():.1f} {data.vs.max():.1f} ")
                 f.write(f"{data.rho.min():.1f} {data.rho.max():.1f}\n")
-                
+
                 # Lines 5+: x, y, z, vp, vs, rho, qp, qs
                 for k in range(len(x)):
                     f.write(f"{x[k]:.1f} {y[k]:.1f} {z[k]:.1f} ")
