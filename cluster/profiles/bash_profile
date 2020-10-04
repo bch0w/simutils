@@ -1,0 +1,28 @@
+# Get the aliases and functions
+PROJECT_ID="nesi00263"
+if [ -f ~/.bashrc ]; then
+        . ~/.bashrc
+        source ~/primer/simutils/cluster/seisflows3_paths
+        if [[ "$HOSTNAME" = maui* ]];
+        then
+            export PS1="[maui] \u@\h [\W] $ "
+            # export NESI_EASYBUILD_PROJECT_ID=${PROJECT_ID}
+            # module load project 
+            # echo easybuild project id: $NESI_EASYBUILD_PROJECT_ID
+            # echo \[MAUI\] modules loaded: project
+            export PATH=/nesi/project/nesi00263/PyPackages/conda_envs/tomo/bin/:$PATH
+            echo tomo python set as default
+        elif [ "$HOSTNAME" = w-mauivlab01.maui.niwa.co.nz ];
+        then
+            module load Anaconda3/5.2.0-GCC-7.1.0
+            source activate tomo
+            export PS1="($(basename """$CONDA_PREFIX""")) [ancil] \u@\h [\W] $ "
+            echo \[MAUI ANCIL\] 
+        elif [ "$HOSTNAME" = mahuika01.mahuika.nesi.org.nz ];
+        then
+            export PS1="[mahuika] \u@\h [\W] $ "
+        elif [ "$HOSTNAME" = mahuika02.mahuika.nesi.org.nz ];
+        then
+            export PS1="[mahuika] \u@\h [\W] $ "
+        fi 
+fi
