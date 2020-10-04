@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=forward
-#SBATCH --nodes=4
-#SBATCH --ntasks=160
+#SBATCH --nodes=1
+#SBATCH --ntasks=80
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
 #SBATCH --account=nesi00263

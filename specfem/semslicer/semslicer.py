@@ -293,7 +293,7 @@ if __name__ == "__main__":
     assert(len(sys.argv) > 1), "Argument must be 'submit' or 'write'"
     
     cfg_file = "cfg.yaml"
-    model = "model_0017"
+    model = "model_notopo"
 
     if sys.argv[1] == "submit":
         ss = Semslicer(cfg_file)
