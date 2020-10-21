@@ -14,7 +14,7 @@
 ! github.com/bch0w/simutils/model_slice
 !
 ! REQUIRES:
-!   exit_mpi.f90
+!   utm_geo.f90
 !
 ! RUBRIC:
 !   sem_model_slice xyz_infile model_dir data_name outfile
@@ -42,7 +42,8 @@ program sem_model_slice
   integer, parameter :: CUSTOM_MPI_2REAL = MPI_2REAL
 
   ! File names
-  character(len=500) :: xyz_infile, model_dir, data_name, outfile, prname
+  character(len=500) :: xyz_infile, topo_infile, model_dir, data_name, &
+          outfile, prname
 
   ! Tracker variables
   integer :: ier, sizeprocs, myrank, ios, i, j, k, ispec, iglob, ipt, npts
@@ -64,6 +65,10 @@ program sem_model_slice
   ! Model Parameters
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: vstore
 
+  ! Topography parameters
+  integer, parameter :: NX = 720
+  integer, parameter :: NY = 720
+
   ! MPI initialization
   call MPI_INIT(ier)
   call MPI_COMM_SIZE(MPI_COMM_WORLD, sizeprocs, ier)
@@ -71,12 +76,14 @@ program sem_model_slice
 
   ! Input arguments
   call getarg(1, xyz_infile)
-  call getarg(2, model_dir)
-  call getarg(3, data_name)
-  call getarg(4, outfile)
+  call getarg(2, topo_infile)
+  call getarg(3, model_dir)
+  call getarg(4, data_name)
+  call getarg(5, outfile)
 
   if (myrank == 0)then
     write(*, *) "XYZ FILE: ", trim(xyz_infile)
+    write(*, *) "TOPO FILE: ", trim(topo_infile)
     write(*, *) "MODEL DIR: ", trim(model_dir)
     write(*, *) "DATA NAME: ", trim(data_name)
     write(*, *) "OUT FILE: ", trim(outfile)
@@ -232,9 +239,16 @@ program sem_model_slice
 
   ! Write out the final .XYZ file containing location and model value
   if (myrank == 0) then
+    ! Read in the topography file
+    call read_topo_file(topo, NX, NY, topo_infile)
+
     print *, 'Writing output file ...'
     open(12, file=outfile, status='unknown')
     do i = 1, npts
+      ! Check if Z value is above topography
+      call topography_value(topo, x(i), y(i), elevation)
+      ! -1000 is the placeholder value to say this point is above topography
+      if (elevation < z(i)) vall(i) = -1000.00
       write(12, *) x(i), y(i), z(i), vall(i), distall(i)
     enddo
     close(12)
@@ -243,6 +257,106 @@ program sem_model_slice
   call MPI_FINALIZE(ier)
 
 end program sem_model_slice
+
+!------------------------------------------------------------------------------
+
+subroutine read_topo_file(topo, nx, ny, topo_infile)
+  ! ============================================================================
+  !
+  ! Read a topography .dat file and return the values
+  !
+  ! ============================================================================
+  implicit none
+  include "constants.h"
+
+  ! TO DO: Move these into a separate ssconstants.h
+  integer :: ix, iy
+  character(len=100) :: topo_file
+
+  ! Use an integer array to store topography values
+  integer :: topo(nx, ny)
+  topo(:, :) = 0
+
+  ! Open and read the topography file
+  open(unit=13, file=topo_file, status='old', action='read')
+  do iy = 1, NX
+    do ix = 1, NY
+      read(13, *) topo(ix, iy)
+    enddo
+  enddo
+  close(13)
+
+end subroutine read_topo_file
+
+!------------------------------------------------------------------------------
+
+subroutine topography_value(topo, x, y, elevation)
+  ! ============================================================================
+  !
+  ! A subroutine that provides the uppermost point of the topography
+  ! or bathymetry given an location X, Y
+  !
+  ! ============================================================================
+  implicit none
+  include 'constants.h'
+
+  integer, dimension(NX_TOPO, NY_TOPO) :: topo
+  double precision :: x, y
+  double precision :: elevation
+
+  double precision :: lon, lat
+  integer :: icornerlon, icornerlat
+  double precision :: lon_corner, lat_corner, ratio_xi, ratio_eta
+
+  ! These need to match the values in interfaces.dat
+  ! TO DO: Move these into a separate ssconstants.h
+  integer, parameter :: UTM_PROJECTION_ZONE  = -60
+  integer, parameter :: NLON = 720
+  integer, parameter :: NLAT = 720
+  double precision, parameter :: LON_MIN = 173.
+  double precision, parameter :: LAT_MIN = -43.
+  double precision, parameter :: SPACING_LON = 0.00833
+  double precision, parameter :: SPACING_LAT = 0.00833
+  logical, parameter :: SUPPRESS_UTM_PROJECTION  = .false.
+
+  ! Convert UTM query to Geodetic (lat/lon) coordinates
+  call utm_geo(lon, lat, x, y, UTM_PROJECTION_ZONE, IUTM2LONGLAT, &
+          SUPPRESS_UTM_PROJECTION)
+
+  ! Get coordinate of corner in bathy/topo model
+  icornerlon = int((lon - LON_MIN) / SPACING_LON) + 1
+  icornerlat = int((lat - LAT_MIN) / SPACING_LAT) + 1
+
+  ! Avoid edge effects and extend with identical point if outside model
+  if(icornerlon < 1) icornerlon = 1
+  if(icornerlon > NLON - 1) icornerlon = NLON - 1
+  if(icornerlat < 1) icornerlat = 1
+  if(icornerlat > NLAT - 1) icornerlat = NLAT - 1
+
+  ! Compute coordinates of corner
+  lon_corner = LON_MIN + (icornerlon - 1) * SPACING_LON
+  lat_corner = LAT_MIN + (icornerlat - 1) * SPACING_LAT
+
+  ! Compute ratio for interpolation
+  ratio_xi = (lon - lon_corner) / SPACING_LON
+  ratio_eta = (lat - lat_corner) / SPACING_LAT
+
+  ! Avoid edge effects
+  if(ratio_xi < 0.) ratio_xi = 0.
+  if(ratio_xi > 1.) ratio_xi = 1.
+  if(ratio_eta < 0.) ratio_eta = 0.
+  if(ratio_eta > 1.) ratio_eta = 1.
+
+  ! Interpolate elevation at current point
+  elevation = &
+          topo(icornerlon, icornerlat) * (1. - ratio_xi) * (1. - ratio_eta) + &
+          topo(icornerlon + 1, icornerlat) * ratio_xi * (1. - ratio_eta) + &
+          topo(icornerlon + 1, icornerlat + 1) * ratio_xi * ratio_eta + &
+          topo(icornerlon, icornerlat + 1) * (1. - ratio_xi) * ratio_eta
+
+
+end subroutine topo_value
+
 
 !------------------------------------------------------------------------------
 
@@ -266,7 +380,7 @@ subroutine exit_MPI(myrank, error_msg)
   character(len=150) OUTPUT_FILES
 
   ! write error message to screen
-  write(*, *) error_msg(1:len(error_msg))
+  write(*, *) error_msg(1: len(error_msg))
   write(*, *) 'Error detected, aborting MPI... proc ', myrank
 
   ! write error message to file
