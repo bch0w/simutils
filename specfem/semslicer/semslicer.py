@@ -33,7 +33,7 @@ class Pot(dict):
         :param by: multiply by this value
         """
         for key, value in self.items():
-            if isinstance(value, float):
+            if isinstance(value, float) or isinstance(value, int):
                 setattr(self, key, value * by)
 
 
@@ -55,7 +55,10 @@ class Semslicer:
         assert(os.path.exists(cfg_fid)), f"{cfg_fid} does not exist"
         config = yaml.safe_load(open(cfg_fid))
         for key in config:
-            setattr(self, key, Pot(config[key]))
+            try:
+                setattr(self, key, Pot(config[key]))    
+            except ValueError:
+                setattr(self, key, config[key])
 
         # Convert values from km to m if required
         assert(self.domain.units.lower() in ["m", "km"]), \
@@ -66,7 +69,11 @@ class Semslicer:
                     part.mult(by=1E3)
 
         # Will be used to dynamically loop through all regions
-        self.nregions = len(vars(self))
+        nreg = 1
+        for key in vars(self).keys():
+            if "region_" in key:
+                nreg += 1
+        self.nregions = nreg
 
         self.nproc = None
         self.variables = None
@@ -90,11 +97,19 @@ class Semslicer:
         correctly. Quickly check that the regions cover the entire depth range
         """ 
         z_mins, z_maxs = [], []
+        subregions = {}
         for i in range(1, self.nregions):
             reg = getattr(self, f"region_{i}")
             z_reg = np.arange(reg.zmin, reg.zmax + reg.dz, reg.dz)
-            z_mins.append(z_reg.min())
-            z_maxs.append(z_reg.max())
+
+            try:
+                # Check if this region is split into subregions, these should 
+                # NOT overlap
+                int(reg.tag.split("_")[-1])
+                continue
+            except ValueError:
+                z_mins.append(z_reg.min())
+                z_maxs.append(z_reg.max())
         
         z_mins = np.array(z_mins)
         z_maxs = np.array(z_maxs)       
@@ -102,7 +117,7 @@ class Semslicer:
         # Check that there are no gaps in the depths covered by each region
         assert ((z_maxs[1:] - z_mins[:-1] >= 0)).all(), f"Gaps in depth ranges"
 
-    def make_grids(self):
+    def make_grids(self, write=True):
         """
         Generate the input grid files that will be used for querying the model
         Store the number of points in the internal attributes. Optional write
@@ -134,10 +149,11 @@ class Semslicer:
             setattr(self, f"region_{i}", reg)
 
             # Save these grid files to the scratch directory
-            with open(os.path.join(self._scratch, grid_tag), "w") as f:
-                for z in z_reg:
-                    for x, y in zip(x_out, y_out):
-                        f.write(f"{x:16.3f}\t{y:16.3f}\t{z:16.3f}\n")
+            if write:
+                with open(os.path.join(self._scratch, grid_tag), "w") as f:
+                    for z in z_reg:
+                        for x, y in zip(x_out, y_out):
+                            f.write(f"{x:16.3f}\t{y:16.3f}\t{z:16.3f}\n")
 
     def get_model_values(self, model_dir):
         """
@@ -153,15 +169,11 @@ class Semslicer:
         variables = [os.path.splitext(_.split('_')[1])[0] for _ in binfiles]
         self.variables = list(set(variables))
 
-    def submit_jobs_maui(self, model_dir, data_names=None):
+    def submit_jobs_maui(self, model_dir):
         """
         Submit an SBATCH job to the NZ cluster Maui. Auto generate the output
         file name based on the input grid file and data name.
         """
-        if data_names is None:
-            # These are the required values for an external tomography file
-            data_names = ["vp", "vs", "rho", "qmu", "qkappa"]
-
         # Determine parameters from model directory and make the grid files
         assert(os.path.exists(model_dir)), f"{model_dir} does not exist"
         self.make_grids()
@@ -172,7 +184,7 @@ class Semslicer:
         script_fid = os.path.join(self._scratch, f"run_semslicer.sh")
 
         # Submit job for each region and data file
-        for data_name in data_names:
+        for data_name in self.data:
             assert(data_name in self.variables), \
                 f"{data_name} not in {self.variables}"
             for i in range(1, self.nregions):
@@ -229,7 +241,7 @@ class Semslicer:
 
         for i in range(1, self.nregions):
             # These are the required values for the external tomo files
-            data = Pot(vp=[], vs=[], rho=[], qmu=[], qkappa=[])
+            data = Pot({_:[] for _ in self.data})
 
             region = getattr(self, f"region_{i}")
 
@@ -239,12 +251,24 @@ class Semslicer:
                 assert(os.path.exists(fid)), f"{fid} does not exist"
 
                 # We only need x, y, and z once
-                if j == 0:
-                    x, y, z, v, _ = np.loadtxt(fid, dtype=float,
-                                               delimiter=",").T
-                else:
-                    _, _, _, v, _ = np.loadtxt(fid, dtype=float,
-                                               delimiter=",").T
+                try:
+                    if j == 0:
+                        x, y, z, v, d = np.loadtxt(fid, dtype=float,
+                                                   delimiter=",").T
+
+                        # Simple check to see what the min and max distance from 
+                        # grid point to nearest neighbor gll point. Useful for 
+                        # catching unrealistically large values of d
+                        print(f"{region.grid_tag}:\n"
+                              f"MINIMUM DISTANCE = {d.min()}m\n"
+                              f"MAXIMUM DISTANCE = {d.max()}m\n"
+                              )
+
+                    else:
+                        _, _, _, v, _ = np.loadtxt(fid, dtype=float,
+                                                   delimiter=",").T 
+                except ValueError as e:
+                    raise ValueError(f"{fid} needs manual review") from e
 
                 data[data_name] = v
 
@@ -288,19 +312,115 @@ class Semslicer:
                     f.write(f"{data.rho[k]:.1f} {data.qp[k]:.1f} ")
                     f.write(f"{data.qmu[k]:.1f}\n")
 
+    def combine_subregions(self):
+        """
+        If a region has very dense grid spacing, the cluster may segfault due to
+        the temporary storage of a very large number of points. To work around 
+        this, a region can be split into sub-regions with the same grid spacing,
+        but covering a range of depths, effectively splitting the job using 
+        embarassing-parallelization. This utility function recombines the 
+        necessary subregions so that the function write_xyz_files() can be 
+        called with the expected behavior.
+
+        ..warning::
+            This only handles the case where the zmin/zmax values of adjacent
+            layers are touching, or not. If the layers overlap, then redundant
+            points will be written into the resulting .xyz file.
+            To avoid errors, ensure that your subregions touch, or are separated
+            by 'dz'
+        """
+        self.make_grids() 
+
+        # This defines the line format passed to np.savetxt
+        xyz_fmt = ["%8.1f", "%10.1f", "%8.1f", "%12.5f", "%12.5f"] 
+
+        # Determine which regions are divided into sub-regions
+        region_lists = {}
+        for i in range(1, self.nregions):
+            region_label = f"region_{i}"
+            region = getattr(self, region_label)
+            region_name = region.tag.split("_")[0]
+            if region_name not in region_lists:
+                region_lists[region_name] = [region_label]         
+            else:
+                region_lists[region_name].append(region_label)
+
+        # For any regions divided into sub-regions, combine the .xyz files
+        # into a single region file for each data parameter
+        for data_name in self.data:
+            for region_name, region_list in region_lists.items():
+                # Don't care about the regions that aren't sub-divided
+                if len(region_list) <= 1:
+                    continue
+
+                # Continuously write to disk to avoid storing data 
+                fid_out = f"{data_name}_{region_name}_grid.xyz"
+                print(fid_out)
+
+                # Since we're opening the file in append mode, ensure that some
+                # old file doesn't already exist
+                if os.path.exists(fid_out):
+                    os.remove(fid_out)
+
+                with open(fid_out, "ab") as f:
+                    # Used to check if the Z values overlap, which we don't want 
+                    # because that is redundant
+                    zmin_last, zmax_last = None, None
+
+                    for i, region_label in enumerate(region_list):
+                        region = getattr(self, region_label)
+                        print(f"\t{region.tag}")
+
+                        # Can only start checking depth after the first subregn
+                        zmin = region.zmin
+                        zmax = region.zmax
+                        if i >= 1:
+                            # Adjacent boundaries means have to exclude 
+                            # redundant depth slices. Works if regions are being
+                            # built upwards or downwards
+                            if zmax == zmin_last:
+                                zmax -= region.dz
+                            elif zmin == zmax_last:
+                                zmin += region.dz
+
+                        fid = f"{data_name}_{region.grid_tag}"
+                        d = np.loadtxt(fid, dtype=float, delimiter=',')
+
+                        # Exclude adjacent boundaries, here we're assuming the 
+                        # structure of the xyz file, i.e. Z values in 2nd column
+                        _len_d_orgn = len(d)
+                        d = d[np.where((d[:,2] >= zmin) & (d[:,2] <= zmax))]
+                        print(f"\tboundaries npts: {_len_d_orgn} -> {len(d)}")
+                        
+                        np.savetxt(f, d, delimiter=",", fmt=xyz_fmt)
+                                    
+                        zmin_last = zmin
+                        zmax_last = zmax
+
+                # Sorta hacky: re-read written file and sort depth values in
+                # descending order since they won't have any natural order and
+                # the xyz values need to match when writing into single xyz file
+                # which means reverse sorted by Z then Y then X
+                d = np.genfromtxt(fid_out, delimiter=",", dtype=None,
+                                  names=["x", "y", "z", "v", "d"])
+                d.sort(order=["z", "y", "x"])
+
+                print(f"\t{fid_out}: {len(d)} pts")
+                np.savetxt(fid_out, d, delimiter=",", fmt=xyz_fmt)
+                
 
 if __name__ == "__main__":
-    assert(len(sys.argv) > 1), "Argument must be 'submit' or 'write'"
-    
     cfg_file = "cfg.yaml"
     model = "model_0017"
+    ss = Semslicer(cfg_file)
 
-    if sys.argv[1] == "submit":
-        ss = Semslicer(cfg_file)
-        ss.submit_jobs_maui(model)
-    elif sys.argv[1] == "write":
-        ss = Semslicer(cfg_file)
-        ss.write_xyz_files()
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "submit":
+            ss.submit_jobs_maui(model)
+        elif sys.argv[1] == "write":
+            ss.write_xyz_files()
+        elif sys.argv[1] == "combine":
+            ss.combine_subregions()
     else:
-        "Argument must be 'submit' or 'write'"
+        ss.make_grids(write=False)
            

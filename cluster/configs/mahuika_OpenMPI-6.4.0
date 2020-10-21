@@ -1,0 +1,3 @@
+ml OpenMPI/2.0.2-GCC-6.3.0
+ml GCC/5.4.0
+ml CUDA/8.0.61

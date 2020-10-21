@@ -1,0 +1,7 @@
+#!/bin/bash
+export PYTHONUNBUFFERED=true  # quickly get Python output logs
+export HDF5_USE_FILE_LOCKING='FALSE'  # trying to avoid (unable to lock file, h5py error)
+export PATH=$PATH:/scale_wlg_persistent/filesets/project/nesi00263/PyPackages/seisflows3/scripts
+export PATH=/opt/slurm/bin:$PATH  # hacky way to get srun in path when submitting ancil to main
+export PYTHONPATH=$PYTHONPATH:/scale_wlg_persistent/filesets/project/nesi00263/PyPackages/seisflows3
+export PYTHONPATH=$PYTHONPATH:/scale_wlg_persistent/filesets/project/nesi00263/PyPackages/seisflows-super

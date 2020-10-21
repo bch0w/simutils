@@ -1,6 +1,6 @@
 {
 	"tag": "forest",
-    "dir_name": "/home/chowbr/primer/meshes/forest/3second",
+    "dir_name": "./created/forest/6second",
     "lat_min": -42.5,
     "lat_max": -37.0,
     "lon_min": 173.0,
@@ -9,10 +9,10 @@
     "mesh_depth_km": 400.0,
     "mesh_top_km": -2.67,
     "doubling_layers": [
-        10, 65
+        16, 68
     ],
     "interfaces": [
-        8, 60
+        8, 48
     ],
     "interface_fids": [
         "shallow_to_crust.dat",
@@ -22,8 +22,8 @@
        8, 50
     ],
     "nproc": 80,
-    "grid_space_top_hv": [2.5, 2],
-    "shortest_period_s": 3.0,
+    "grid_space_top_hv": [6, 2],
+    "shortest_period_s": 6.0,
     "vs_min_km_per_s": 1.2,
     "vp_max_km_per_s": 9.3,
     "top_vertical_element_ratio": 1.0
