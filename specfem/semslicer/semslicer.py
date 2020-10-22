@@ -4,7 +4,45 @@ functions to generate regular grids, run the script on a SLURM HPC system,
 and generate the input external tomography (.xyz) files required for a
 subsequent SPECFEM run.
 
-NOTE: The fortran binary file should be named 'xsemslicer'
+.. note:: The fortran binary file should be named 'xsemslicer'
+
+.. note:: 
+    Here are a few notes related to running semslicer from problems that I
+    encountered while running it:
+
+    * Make sure the spacing of your structured grid is smaller than the smallest
+    gll point size in each direction. This ensures that you are actually 
+    sampling each gll point. If you don't do this, the nearest neighbor 
+    selection is at risk of pulling values that are quite far from expected 
+    depending on how strong the parameter gradient is. 
+    You made need to downsample afterwards
+    * Beware of topography, both actual topography, and mesh topography
+    introduced by doubling layers and high-skew elements. The nearest neighbor
+    algorithm has trouble grabbing the correct values for regions with high skew
+    which may lead to large differences between expected and interpolated vals.
+    For me this was evident in a slice across the entire domain showing uniform
+    difference between expected and interpolated values. Sampling my structured
+    grid at very high sampling (< smallest GLL distance) remedied this
+    * Breaking your model into regions (e.g. shallow, crust, mantle) is a good
+    idea as usually the required grid spacing gets larger with depth. Even then
+    very high sampling rate in the shallow may encounter segfaults due to the 
+    extremely large number of points (10s of millions for me). Here you may need
+    to break that region into multiple sub-regions (shallow_1, shallow_2, etc..)
+    and then recombine them into a single region file.
+    * When recombining region files, ensure that the point order is sorted in 
+    the correct order, as SPECFEM (and semslicer) are stupid and dont actually
+    read the grid point values, but assume it based on the start and end points.
+    That means, grid points must go in order Z, Y, X, which looks like this:
+
+    min_x,       min_y          min_z
+    min_x + dx   min_y          min_z
+    ...
+    max_x        min_y          min_z
+    min_x        min_y + dy     min_z
+    ...
+
+    Hopefully you can figure out the rest from there. Took me three straight 
+    weeks to figure out all this stuff, and what a struggle it was...
 """
 import os
 import sys
