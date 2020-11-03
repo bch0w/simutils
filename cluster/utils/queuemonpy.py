@@ -15,7 +15,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("jobid", type=str, nargs="*",
+    parser.add_argument("jobid", type=str, nargs="?",
                         help="The numerical job identifier, collected as list")
     parser.add_argument("-p", "--password", required=True, type=str, nargs="?")
     parser.add_argument("-a", "--account", type=str, nargs=1,
@@ -28,6 +28,9 @@ def parse_args():
     parser.add_argument("-w", "--wait", type=int, nargs=1, default=60,
                         help="Time to wait between sacct queries to cluster in "
                              "minutes")
+    parser.add_argument("-i", "--initial", nargs="?", type=int, default=0,
+                        help="Send an initial email when tracking starts, "
+                             "0 for no, 1 for yes")
 
     return parser.parse_args()
 
@@ -44,12 +47,25 @@ class Queuemonpy:
         self.args = parse_args()
         if check_login:
             try:
-                self.send(subject=f"QMONPY TRACKING: {self.args.jobid}",
-                          body="Courtesy email that job tracking has begun")
+                if bool(self.args.initial):
+                    self.send(subject=f"QMONPY TRACKING: {self.args.jobid}",
+                              body="Courtesy email that job tracking has begun")
+                else:
+                    self.login()
             except Exception as e:
                 print(f"Problem signing into email account "
                       f"{self.args.user}:\n{e}")
                 sys.exit(-1)
+
+    def login(self):
+        """
+        Login to the email client, used for testing the email client before
+        beginning job tracking
+        """
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.ehlo()
+        server.login(self.args.user, self.args.password)
+        server.close()
 
     def send(self, subject, body):
         """
@@ -88,15 +104,16 @@ class Queuemonpy:
                  f"-j {jobid}")
         stdout = subprocess.run(check, capture_output=True, shell=True,
                                 text=True).stdout
+        final_status = None
         for job in stdout.strip().split("\n"):
             jobid_temp, status = job.split()
             if jobid_temp == jobid:
-                return status
+                # Sometimes there are two matching jobids, take the latest one
+                final_status = status
             else:
                 # Any jobs that do not match the job id exactly are auxiliary
                 continue
-        else:
-            return None
+        return final_status
 
     def sacct(self, jobid):
         """
@@ -118,7 +135,7 @@ class Queuemonpy:
         Monitor ongoing jobs by repeatedly checking the status of jobsv until
         status other than 'RUNNING' is returned.
         """
-        jobids = self.args.jobid
+        jobids = [_ for _ in self.args.jobid.split(",")]
         while jobids:
             # [:] ensures that we can remove from an iterating list
             for jobid in jobids[:]:
