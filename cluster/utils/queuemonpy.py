@@ -132,7 +132,7 @@ class Queuemonpy:
 
     def monitor(self):
         """
-        Monitor ongoing jobs by repeatedly checking the status of jobsv until
+        Monitor ongoing jobs by repeatedly checking the status of jobs until
         status other than 'RUNNING' is returned.
         """
         jobids = [_ for _ in self.args.jobid.split(",")]
