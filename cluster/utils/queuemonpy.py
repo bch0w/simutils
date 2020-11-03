@@ -17,8 +17,7 @@ def parse_args():
 
     parser.add_argument("jobid", type=str, nargs="*",
                         help="The numerical job identifier, collected as list")
-    parser.add_argment("-p", "--password", type=str, nargs=1)
-
+    parser.add_argument("-p", "--password", required=True, type=str, nargs="?")
     parser.add_argument("-a", "--account", type=str, nargs=1,
                         default="chowbr", help="Account name on cluster")
     parser.add_argument("-c", "--cluster", type=str, nargs=1,
@@ -30,7 +29,7 @@ def parse_args():
                         help="Time to wait between sacct queries to cluster in "
                              "minutes")
 
-    return parser.parser_args()
+    return parser.parse_args()
 
 
 class Queuemonpy:
@@ -45,26 +44,18 @@ class Queuemonpy:
         self.args = parse_args()
         if check_login:
             try:
-                server = self.login()
-                server.close()
+                self.send(subject=f"QMONPY TRACKING: {self.args.jobid}",
+                          body="Courtesy email that job tracking has begun")
             except Exception as e:
                 print(f"Problem signing into email account "
                       f"{self.args.user}:\n{e}")
                 sys.exit(-1)
 
-    def login(self):
-        """
-        Login to the provided email account
-        """
-        server = smtplib.SMTP_SLL("smtp.gmail.com", 465)
-        server.ehlo()
-        server.login(self.args.user, self.args.password)
-
-        return server
-
     def send(self, subject, body):
         """
         Send an email to and from the given user with the given subject and body
+        Requires that less than secure apps are allowed access to the gmail 
+        account. Recommended that a non-critical email is used.
 
         :type subject: str
         :param subject: subject or header line of the email
@@ -77,7 +68,9 @@ class Queuemonpy:
                       f"\n"
                       f"{body}")
 
-        server = self.login()
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+        server.ehlo()
+        server.login(self.args.user, self.args.password)
         server.sendmail(self.args.user, self.args.user, email_text)
         server.close()
 
@@ -95,13 +88,13 @@ class Queuemonpy:
                  f"-j {jobid}")
         stdout = subprocess.run(check, capture_output=True, shell=True,
                                 text=True).stdout
-        for job in stdout.split("\n"):
-            jobid, status = job.split()
-            if "." in jobid or "_" in jobid:
-                # These are auxiliary jobs, not the main job
-                continue
-            else:
+        for job in stdout.strip().split("\n"):
+            jobid_temp, status = job.split()
+            if jobid_temp == jobid:
                 return status
+            else:
+                # Any jobs that do not match the job id exactly are auxiliary
+                continue
         else:
             return None
 
@@ -137,7 +130,7 @@ class Queuemonpy:
                               body=self.sacct(jobid))
                     jobids.remove(jobid)
 
-            time.wait(self.args.wait)
+            time.sleep(self.args.wait)
 
 if __name__ == "__main__":
     qmon = Queuemonpy()
