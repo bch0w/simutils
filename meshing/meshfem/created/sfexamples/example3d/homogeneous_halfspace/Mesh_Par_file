@@ -1,4 +1,6 @@
-# Created by simutils.prepare_meshfem
+# SeisFlows3 3D Example
+# For SPECFEM3D Cartesian 75e1785c912b996ac438deaa5b88137ac7705b0a
+# Committed Oct 18 2019
 #-----------------------------------------------------------
 #
 # Meshing input parameters
@@ -6,13 +8,13 @@
 #-----------------------------------------------------------
 
 # coordinates of mesh block in latitude/longitude and depth in km
-LATITUDE_MIN                    = -42.5d0
-LATITUDE_MAX                    = -37.0d0
-LONGITUDE_MIN                   = 173.0d0
-LONGITUDE_MAX                   = 178.5d0
-DEPTH_BLOCK_KM                  = 400.0d0
-UTM_PROJECTION_ZONE             = -60
-SUPPRESS_UTM_PROJECTION         = .false.
+LATITUDE_MIN                    = 0.d0
+LATITUDE_MAX                    = 2640.d0
+LONGITUDE_MIN                   = 0.d0
+LONGITUDE_MAX                   = 2640.d0
+DEPTH_BLOCK_KM                  = 1.440d0
+UTM_PROJECTION_ZONE             = 1
+SUPPRESS_UTM_PROJECTION         = .true.
 
 # file that contains the interfaces of the model / mesh
 INTERFACES_FILE                 = interfaces.dat
@@ -24,12 +26,12 @@ CAVITY_FILE                     = no_cavity.dat
 # (must be 8 * multiple of NPROC below if mesh is not regular and contains
 #  mesh doublings)
 # (must be multiple of NPROC below if mesh is regular)
-NEX_XI                          = 80
-NEX_ETA                         = 128
+NEX_XI                          = 32
+NEX_ETA                         = 32
 
 # number of MPI processors along xi and eta (can be different)
-NPROC_XI                        = 5
-NPROC_ETA                       = 8
+NPROC_XI                        = 4
+NPROC_ETA                       = 4
 
 #-----------------------------------------------------------
 #
@@ -38,7 +40,7 @@ NPROC_ETA                       = 8
 #-----------------------------------------------------------
 
 # Regular/irregular mesh
-USE_REGULAR_MESH                = .false.
+USE_REGULAR_MESH                = .true.
 # Only for irregular meshes, number of doubling layers and their position
 NDOUBLINGS                      = 2
 # NZ_DOUBLING_1 is the parameter to set up if there is only one doubling layer
@@ -78,7 +80,7 @@ THICKNESS_OF_Z_PML              = 12.3d0
 #-----------------------------------------------------------
 
 # number of materials
-NMATERIALS                      = 7
+NMATERIALS                      = 1
 # define the different materials in the model as :
 # #material_id  #rho  #vp  #vs  #Q  #anisotropy_flag #domain_id
 # NOTE:
@@ -89,14 +91,7 @@ NMATERIALS                      = 7
 #     Q                : quality factor
 #     anisotropy_flag  : 0=no anisotropy/ 1,2,.. check w/ aniso_model.f90
 #     domain_id        : 1=acoustic / 2=elastic
-1  2290  3000  1700  1592  200  0  2
-# 2  2570  4400  2540  1996  200  0  2
-2  2690  5300  3000  1574  200  0  2
-3  2720  6000  3500  2360  200  0  2
-4  2870  7400  4300  2208  200  0  2
-5  2910  7780  4390  1525  200  0  2
-6  2920  7940  4510  1632  200  0  2
-7  3040  8080  4520  1408  200  0  2
+1  2000  3000  2500  0  0  0  2
 
 
 #-----------------------------------------------------------
@@ -106,15 +101,9 @@ NMATERIALS                      = 7
 #-----------------------------------------------------------
 
 # number of regions
-NREGIONS                        = 7
+NREGIONS                        = 1
 # define the different regions of the model as :
 # NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-1     80    1     128    1     9    7    
-1     80    1     128   10    10    6    
-1     80    1     128   11    13    5    
-1     80    1     128   14    15    4    
-1     80    1     128   16    17    3    
-1     80    1     128   18    18    2    
-1     80    1     128   19    20    1
+1     32    1     32    1     16    1    
 
 
