@@ -23,6 +23,7 @@ with open("parameters.yaml") as f:
     for line in lines:
         if "NPROC: " in line:
             nproc = int(line.strip().split(":")[-1])
+            break
 
 # Read in the spatial coordinates once
 xvals = np.array([])
