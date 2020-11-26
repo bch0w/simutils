@@ -1,6 +1,12 @@
 """
 A simple way to plot the output SPECFEM2D binary files that are recovered
 during a SeisFlows inversion. 
+
+.. note::
+    This needs to be run inside a SeisFlows working directory, and requires
+    a parameters.yaml file to exist, as well as an output/ directory. 
+    Spatial coordinates are read in from the model_init/ directory, and 
+    .png files are outputted for each model and all available parameters.
 """
 import os
 import numpy as np
