@@ -42,6 +42,7 @@ def read_file(pathname):
             point_data_line = i
         elif "SCALARS" in line:
             scalars = line.strip().split()[1]
+            scalars_line = i
             data_line = i+2
 
     # easier returns in a dictionary
@@ -51,7 +52,7 @@ def read_file(pathname):
                    "cell_types_line": cell_types_line,
                    "points_data_n": point_data_n,
                    "points_data_line": point_data_line, "scalars": scalars,
-                   "data_line": data_line
+                   "scalars_line": scalars_line, "data_line": data_line
                    }
 
     return lines, header_dict
@@ -190,6 +191,16 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
                 model_a.append(vp_fid)
                 model_b.append(vs_fid)
                 fid_out.append(fid_out_)
+        elif diff_method == "mu":
+            vs_files = glob.glob("model_????_vs.vtk")
+            assert vs_files, "No Vs files found, cannot calcualte mu"
+            rho_file = glob.glob("*rho*.vtk")[0]
+            for vs_fid in sorted(vs_files):
+                model_number = vs_fid.split("_")[1]
+                fid_out_ = f"mu_{model_number}.vtk"
+                model_a.append(vs_fid)
+                model_b.append(rho_file)
+                fid_out.append(fid_out_)
     else:
         raise NotImplementedError
 
@@ -199,8 +210,6 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
 def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
     """
     read each model and scan line by line, difference all necessary values
-
-    the difference is defined as: c = a - b
 
     :type model_?: str
     :param model_?: name of the model file
@@ -243,6 +252,9 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
                 difference = np.log(a / b)
             elif method == "poissons":
                 difference = 0.5 * (a**2 - 2 * b**2) / (a**2 - b**2)
+            elif method == "mu":
+                # Units of GPa iff a~[m/2] and b~[kg/m**3]
+                difference = 1E-9 * (a**2 * b)
 
             differences.append(difference)
         except ValueError:
@@ -250,6 +262,14 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
 
     # Write out the differences to a new file
     if write:
+        # Replace the name of the data so paraview identifies it differently
+        old_value = header_dict_a["scalars"]
+        scalars_line = header_dict_a["scalars_line"]
+        # Kinda ugly but e.g. model_0001_vp -> model_0001_log
+        new_value = "_".join(old_value.split("_")[:-1] + [method])
+        model_a[scalars_line] = model_a[scalars_line].replace(old_value, 
+                                                              new_value)
+
         with open(write, "w") as f:
             f.writelines(model_a[:header_dict_a["data_line"]])
             for diff in differences:
@@ -284,6 +304,9 @@ def print_header(diff_method):
     elif diff_method == "pct":
         print("For percentage difference: diff = "
               "(model_a - model_b) / model_a")
+    elif diff_method == "mu":
+        print("For shear modulus mu: diff = a**2 * b\n"
+              "model_a = Vs; model_b = rho (density)")
     print("=" * 80)
 
 
@@ -318,7 +341,7 @@ if __name__ == "__main__":
             pass
 
         # Choose which method for diff'ing files, allow string and index choice
-        available_diff = ["log", "poissons", "divide", "pct", "subtract"]
+        available_diff = ["log", "poissons", "divide", "pct", "subtract", "mu"]
         diff_method = input(f"Method? {available_diff}: ")
         try:
             diff_method = available_diff[int(diff_method)]
