@@ -1,30 +1,26 @@
 #!/bin/bash -e
 
-#SBATCH --job-name=xspecfem3D
+#SBATCH --job-name=xmeshfem3D
 #SBATCH --nodes=1
-#SBATCH --ntasks=40
+#SBATCH --ntasks=25
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
 #SBATCH --account=nesi00263
 #SBATCH --partition=nesi_research
-#SBATCH --time 00:25:00
-#SBATCH --output=specfem3D_%j.out
+#SBATCH --time=00:00:45
+#SBATCH --output=meshfem3D_%j.out
 
-# Get the number of processors from Par_file, ignore comments
+# Get the number of processors from the Par_file, ignore comments
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
 BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
 
 # Make the Database directory
-mkdir -p $BASEMPIDIR
+mkdir -p ${BASEMPIDIR}
 
-# This is a MPI simulation
-echo "xspecfem3d ${NPROC} processors"
+echo "xmeshfem3D on ${NPROC} processors"
 echo
-time srun -n ${NPROC} ./bin/xspecfem3D
-
-# checks exit code
-if [[ $? -ne 0 ]]; then exit 1; fi
-
+echo "`date`"
+time srun -n ${NPROC} ./bin/xmeshfem3D
 echo
 echo "finished at: `date`"
 

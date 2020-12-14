@@ -26,3 +26,4 @@ for i, vp in enumerate(vp_km_per_s):
     rho = density[i] * 1E3 
    
     print(f"{len(vp_km_per_s)-i}  {rho:.0f}  {vp:.0f}  {vs:.0f}  {qk[i]:.0f}  {qm[i]:.0f}  0  2")
+
