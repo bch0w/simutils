@@ -4,7 +4,7 @@ SeisFlows Inversion
 """
 from glob import glob
 
-iterstep = "i06s00"
+iterstep = input("Iteration, step count? e.g. (i01s00): ")
 
 nwin = 0
 for fid in glob(f"{iterstep}_*.log"):

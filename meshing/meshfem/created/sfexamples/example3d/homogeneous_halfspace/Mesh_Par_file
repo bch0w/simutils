@@ -91,7 +91,7 @@ NMATERIALS                      = 1
 #     Q                : quality factor
 #     anisotropy_flag  : 0=no anisotropy/ 1,2,.. check w/ aniso_model.f90
 #     domain_id        : 1=acoustic / 2=elastic
-1  2000  3000  2500  0  0  0  2
+1  2000  3000  1750  9999.  9999.  0  2
 
 
 #-----------------------------------------------------------
