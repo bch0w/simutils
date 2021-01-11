@@ -1,23 +1,12 @@
 """
-A script to control Paraview using Python, setting up a figure and taking 
-screenshots at various depths or cross-sections through the model.
-Can be run in the Paraview Python Shell, or using PvPython from the CLI
+A script to control Paraview using Python, to be run in Paraview Python Shell
 """
 import os
+import sys
 import math
 import string
-import argparse
 from glob import glob
-from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
-                             Hide3DWidgets, Ruler, Show, Text, Render,
-                             GetActiveCamera, GetScalarBar,
-                             GetColorTransferFunction, GetActiveView,
-                             FindSource, SelectSurfacePoints,
-                             ExtractSelection, Delete, SetActiveSource,
-                             ClearSelection, GetActiveSource,
-                             GetDisplayProperties, SaveScreenshot,
-                             ResetSession, Hide, servermanager, OpenDataFile,
-                             ResetCamera, Clip, PointSource, Glyph,)
+from paraview.simple import *
 
 
 
@@ -127,21 +116,6 @@ PRESETS = {
         }
 
 
-# Pre-defined trench parallel cross sections w/ origins based on landmark
-# locations in UTM -60. Trench normal is defined as 40deg from the X-axis
-TRENCH_XSECTIONS = {"Wellington": [314007., 5426403., 0.,],
-                    "Flatpoint": [413092., 5433559., 0.,],
-                    "Castlepoint": [434724., 5471821., 0.,],
-                    "Akitio": [436980., 5511241., 0.],
-                    "Porangahau": [467051., 5538717., 0.,],
-                    "Elsthorpe": [484394., 5581561., 0.,],
-                    "Napier": [489374., 5626518., 0.,],
-                    "Mohaka": [507922., 5670909. ,0.,],
-                    "Mahia": [575567., 5665558., 0.,],
-                    "Gisborne": [588984., 5720001., 0.,],
-                    }
-
-
 def myround(x, base):
     """
     Round values to the nearest base
@@ -176,7 +150,6 @@ def depth_slice(vtk, depth):
 
     return slice_vtk
 
-
 def cross_section(vtk, normal, origin, name):
     """
     Cut a vertical cross section through a volume, with the plane parallel to
@@ -205,165 +178,99 @@ def cross_section(vtk, normal, origin, name):
     return slice_vtk
 
 
-def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
-                 font_color=None, reg_name="ruler"):
+def create_ruler(point1, point2, label="", ticknum=5, color=None):
     """
     Generate a ruler to be used as a scalebar
     """
     renderView = GetActiveViewOrCreate("RenderView")
 
-    ruler = Ruler(registrationName=reg_name)
+    ruler = Ruler()
     ruler.Point1 = point1
     ruler.Point2 = point2
     rulerDisplay = Show(ruler, renderView, "RulerSourceRepresentation")
     rulerDisplay.LabelFormat = label
     rulerDisplay.NumberOfTicks = ticknum
-    rulerDisplay.AxisColor = axis_color or COLOR
-    rulerDisplay.Color = font_color or COLOR
+    rulerDisplay.AxisColor = color or COLOR
+    rulerDisplay.Color = color or COLOR
     rulerDisplay.FontSize = FONTSIZE
 
     Hide3DWidgets(proxy=ruler)
 
     return ruler
 
-def create_text(s, position, fontsize=None, color=None, bold=False,
-                reg_name="text"):
-    """
-    Create and show a text object at a given position
-    """
-    renderView = GetActiveViewOrCreate("RenderView")
 
-    text = Text(registrationName=reg_name)
-    text.Text = s
-    textDisplay = Show(text, renderView)
-    textDisplay.Position = position
-    textDisplay.Bold = int(bold)
-    textDisplay.FontSize = fontsize or FONTSIZE
-    textDisplay.Color = color or COLOR
-
-    return text, textDisplay
-
-
-def set_colormap_create_colorbar(vtk, position, orientation, colormap=None,
-                                 title=None, fontsize=None, color=None):
-    """
-    Set the color transfer function based on preset values. Create a colorbar to
-    match the colormap
-    """
-    # COLORMAP: Change the colormap to the desired preset value
-    quantity = vtk.PointData.GetArray(0).Name  # e.g. model_init_vp
-    vsLUT = GetColorTransferFunction(quantity)
-    vsLUT.ApplyPreset(colormap or preset["colormap"], True)
-    vsLUT.UseAboveRangeColor = 0
-    vsLUT.UseBelowRangeColor = 0
-    vsLUT.NumberOfTableValues = preset["num_table_values"]
-    if preset["invert_cmap"]:
-        vsLUT.InvertTransferFunction()
-
-    # COLORBAR: Create the colorbar and set a common look
-    cbar = GetScalarBar(vsLUT)
-    cbar.Title = title or preset["cbar_title"]
-    cbar.ComponentTitle = ""
-    cbar.AutoOrient = 0
-    cbar.Orientation = orientation
-    cbar.Position = position
-    cbar.RangeLabelFormat = preset["range_label_format"]
-    cbar.AddRangeLabels = 1
-    cbar.ScalarBarThickness = 35
-    cbar.ScalarBarLength = 0.15
-    cbar.TitleFontSize = fontsize or FONTSIZE
-    cbar.LabelFontSize = fontsize or FONTSIZE
-    cbar.TitleColor = color or COLOR
-    cbar.LabelColor = color or COLOR
-
-    return vsLUT, cbar
-
-
-def show_colorbar():
-    """
-    Sometimes colorbar is not set to visible, this function will force it out
-    """
-    renderView = GetActiveViewOrCreate("RenderView")
-    active = GetActiveSource()
-    display = GetDisplayProperties(active, view=renderView)
-    display.SetScalarBarVisibility(renderView, True)
-
-
-def load_forest_state():
-    """
-    Load a Paraview State file that may contain, e.g. source receiver
-    glyphs, a coastline outline, etc. Specific to the Forest inversion which
-    contains specific object names
-    """
-    renderView = GetActiveViewOrCreate("RenderView")
-    servermanager.LoadState(
-        "/Users/Chow/Documents/academic/vuw/forest/forest.pvsm"
-    )
-
-    for source in ["receivers", "src_epicenter", "coast"]:
-        vtk_ = FindSource(source)
-        vtkDisplay_ = Show(vtk_, renderView, "GeometryRepresentation")
-        vtkDisplay_.SetRepresentationType("Surface With Edges")
-        vtkDisplay_.LineWidth = 2.0
-        vtkDisplay_.Opacity = 0.4
-        if source == "src_epicenter":
-            vtkDisplay_.AmbientColor = COLOR_TABLE["g"]
-            vtkDisplay_.DiffuseColor = COLOR_TABLE["g"]
-        elif source == "coast":
-            vtkDisplay_.PointSize = 1.5
-
-
-def delete_forest_state():
-    """
-    Remove objects related to the forest paraview state file=
-    """
-    for reg_name in ["receivers", "src_epicenter", "coast"]:
-        src = FindSource(reg_name)
-        Delete(src)
-
-
-def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
+def make_depth_slices(vtk, slices, save_path=os.getcwd()):
     """
     Main function for creating and screenshotting depth slices (slice plane 
     normal/perpendicular to Z axis). Creates a standardized look for the 
     depth slices with scale bar, colorbar and annotations
     """
-    # Open the model volume
-    vtk = OpenDataFile(fid)
-    RenameSource("surface", vtk)
-    Show(vtk)
-    ResetCamera()
-
     renderView = GetActiveViewOrCreate("RenderView")
 
+    # Text needs to be deleted manually at the end
+    text_objects = []
+
     # ANNOTATIONS: Depth slice annotations sit at the bottom-right corner
-    text, _ = create_text(s="", position=[0.625, 0.1], reg_name="text1",
-                fontsize=FONTSIZE * 2)
-    create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                position=[0.55, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
+    text = Text()
+    text_objects.append(text)
+    textDisplay = Show(text, renderView)
+    textDisplay.Position = [0.625, 0.1]
+    textDisplay.FontSize = FONTSIZE * 2
+    textDisplay.Color = COLOR
+
+    # File name annotations sit at the top right corner
+    text_tag = Text()
+    text_objects.append(text_tag)
+    text_tag.Text = save_fid
+    textTagDisplay = Show(text_tag, renderView)
+    textTagDisplay.Position = [0.55, 0.95]
+    textTagDisplay.FontSize = FONTSIZE
+    textTagDisplay.Color = COLOR
+
+    Render()
 
     # RULER: Create rulers as scalebar, sits under the colorbar, mid left
-    ruler_origin = [198000, 5722936, 0]
-    ruler_x = [298000, 5722936, 0]
-    ruler_y = [198000, 5622936, 0]
+    ruler_origin = [188068, 5722936, 0] 
+    ruler_x = [288068, 5722936, 0]
+    ruler_y = [188068, 5622936, 0]
 
-    create_ruler(point1=ruler_origin, point2=ruler_x, label="100km [X]",
-                 reg_name="ruler1")
-    create_ruler(point1=ruler_origin, point2=ruler_y, label="[Y]",
-                 reg_name="ruler2")
+    create_ruler(ruler_origin, ruler_x, "100km")
+    create_ruler(ruler_origin, ruler_y)
 
     # CAMERA: Move camera a bit closer
     camera = GetActiveCamera()
     camera.Dolly(1.2)
 
-    vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.249, 0.78],
-                                               orientation="Vertical",)
+    # COLORMAP: Change the colormap to the desired preset value
+    quantity = vtk.PointData.GetArray(0).Name  # e.g. model_init_vp
+    vsLUT = GetColorTransferFunction(quantity)
+    vsLUT.ApplyPreset(preset["colormap"], True)
+    vsLUT.UseAboveRangeColor = 0
+    vsLUT.UseBelowRangeColor = 0
+    if preset["invert_cmap"]:
+        vsLUT.InvertTransferFunction()
+
+    # COLORBAR: Create the colorbar and set a common look
+    cbar = GetScalarBar(vsLUT)
+    cbar.Title = preset["cbar_title"]
+    cbar.ComponentTitle = ""
+    cbar.AutoOrient = 0
+    cbar.Orientation = "Vertical"
+    cbar.Position = [0.249, 0.78]
+    cbar.RangeLabelFormat = preset["range_label_format"]
+    cbar.AddRangeLabels = 1
+    cbar.ScalarBarThickness = 35
+    cbar.ScalarBarLength = 0.15
+    cbar.TitleFontSize = FONTSIZE
+    cbar.LabelFontSize = FONTSIZE
+    cbar.TitleColor = COLOR
+    cbar.LabelColor = COLOR
 
     # SLICE: Generate slices through the volume at desired depth levels
+    slice_vtk = None
     for slice_ in slices:
         if slice_ == "surface":
             tag = "map"
-            slice_vtk = vtk
 
             # Hacky method to get data range by selecting surface points
             v = GetActiveView()
@@ -378,17 +285,16 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
             SetActiveSource(source)
             ClearSelection()
         else:
-            slice_vtk = depth_slice(vtk, float(slice_))
+            slice_vtk = depth_slice(vtk, slice_)
             tag = f"z_{slice_}km"
 
             # Determine colorbar bounds of slice to rescale colorbar
             vmin, vmax = slice_vtk.PointData.GetArray(0).GetRange(0)
 
-        text.Text = tag
-
         # Make sure that global bounds are set if required
         if preset["constant_bounds"]:
-            vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
+            vol_vmin, vol_vmax = vtk.PointData.GetArray(0).GetRange(0)
+            vmin, vmax = vol_vmin, vol_vmax
     
         # Some fields should be centered on 0 despite the actual data bounds
         if preset["center_cmap"]:
@@ -402,42 +308,43 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
        
         # Apply depth specific values
         vsLUT.RescaleTransferFunction(vmin, vmax)
-        show_colorbar()
+        text.Text = tag
+
+        # Ensure that the colorbar shows for each new slice
+        active = GetActiveSource()
+        display = GetDisplayProperties(active, view=renderView)
+        display.SetScalarBarVisibility(renderView, True)
 
         # SCREENSHOT: Save screenshot, hide slice and move on
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
                        ImageResolution=VIEW_SIZE, TransparentBackground=1)
-        Hide(slice_vtk, renderView)
+        if slice_vtk:
+            Hide(slice_vtk, renderView)
+        else:
+            Hide(vtk, renderView)
+
+    # CLEAR: ResetSession() wasnt getting rid of the text so delete manually
+    for txt in text_objects:
+        Delete(txt)
+        del txt
+    ResetSession()
 
 
-    # CLEAR: Remove any additional objects created during plotting
-    for reg_name in ["text1", "text2", "ruler1", "ruler2"]:
-        src = FindSource(reg_name)
-        Delete(src)
-
-
-def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
+def make_trench_cross_sections(vtk, origins, save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench 
     based on user-defined origin locations. Mark the origin locations 
     on the cross section for reference. Take screenshots
     """
-    # Open the model volume
-    vtk = OpenDataFile(fid)
-    RenameSource("surface", vtk)
-    Show(vtk)
-    ResetCamera()
-
-    # Pre-defined values for uniform look
     normal = [-0.64, -0.76, 0.]  # 40deg to the x-axis, from Donna's 2015 paper
     depth_cutoff_km = 100
-    
-    # Get global min and max of array for colorscale before slicing 
+    vol_vmin, vol_vmax = vtk.PointData.GetArray(0).GetRange(0)
+
     renderView = GetActiveViewOrCreate("RenderView")
     Hide(vtk, renderView)
 
-    for i, (name, origin) in enumerate(TRENCH_XSECTIONS.items()):
-        ab = string.ascii_uppercase[i]  # alphabetize for easier identification
+    for i, (name, origin) in enumerate(origins.items()):
+        ab = string.ascii_uppercase[i]
         tag = f"{ab}_{name.lower()}_trench_xsection"
 
         slice_vtk = cross_section(vtk=vtk, normal=normal, origin=origin,
@@ -478,33 +385,57 @@ def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
                    min(z)]
         ruler_v = [min(x), max(y), min(z) + dist_m]
 
-        create_ruler(point1=ruler_origin, point2=ruler_h,
-                     label=f"{dist_m/1E3:.0f}km", reg_name="ruler1")
-        create_ruler(point1=ruler_origin, point2=ruler_v, label="[Z]",
-                     reg_name="ruler2", font_color=COLOR_TABLE["w"])
+        rulerhDisplay = create_ruler(ruler_origin, ruler_h,
+                                     f"{dist_m/1E3:.0f}km")
+        rulervDisplay = create_ruler(ruler_origin, ruler_v)
 
         # GLPYH: Create a reference point based on the landmark location
-        point = PointSource(registrationName="point1")
+        point = PointSource()
         point.Center = origin
-        glyph = Glyph(Input=point, GlyphType="Cone", registrationName="glyph1")
+        glyph = Glyph(Input=point, GlyphType="Cone")
         glyph.GlyphType.Direction = [0., 0., -1.]
         glyph.ScaleFactor = 10000
         Show(glyph, renderView, "GeometryRepresentation")
 
         # Annotate text to match glyph
-        create_text(f"{ab}. {name}", [0.25, 0.65], reg_name="text1")
+        text = Text()
+        text.Text = f"{ab}. {name}"
+        textDisplay = Show(text, renderView)
+        textDisplay.Position = [0.25, 0.65]
+        textDisplay.FontSize = FONTSIZE * 2
+        textDisplay.Color = COLOR
 
+        # COLORMAP:
+        quantity = vtk.PointData.GetArray(0).Name  # e.g. model_init_vp
+        vsLUT = GetColorTransferFunction(quantity)
+        vsLUT.ApplyPreset(preset["colormap"], True)
+        vsLUT.UseAboveRangeColor = 0
+        vsLUT.UseBelowRangeColor = 0
+        if preset["invert_cmap"]:
+            vsLUT.InvertTransferFunction()
 
-        vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.25, 0.3],
-                                                   orientation="Horizontal",)
+        # COLORBAR: Create the colorbar and set a common look
+        cbar = GetScalarBar(vsLUT)
+        cbar.Title = preset["cbar_title"]
+        cbar.ComponentTitle = ""
+        cbar.AutoOrient = 0
+        cbar.Orientation = "Horizontal"
         cbar.TextPosition = "Ticks left/bottom, annotations right/top"
+        cbar.Position = [0.25, 0.3]
+        cbar.RangeLabelFormat = preset["range_label_format"]
+        cbar.AddRangeLabels = 1
+        cbar.ScalarBarThickness = 35
+        cbar.ScalarBarLength = 0.15
+        cbar.TitleFontSize = FONTSIZE
+        cbar.LabelFontSize = FONTSIZE
+        cbar.TitleColor = COLOR
+        cbar.LabelColor = COLOR
 
+        vmin, vmax = clip_vtk.PointData.GetArray(0).GetRange(0)
 
-        # SET COLORBAR BONDS:
+        # Make sure that global bounds are set if required
         if preset["constant_bounds"]:
-            vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
-        else:
-            vmin, vmax = clip_vtk.PointData.GetArray(0).GetRange(0)
+            vmin, vmax = vol_vmin, vol_vmax
 
         # Some fields should be centered on 0 despite the actual data bounds
         if preset["center_cmap"]:
@@ -516,7 +447,9 @@ def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
             vmin = myround(vmin, preset["round_base"])
             vmax = myround(vmax, preset["round_base"])
 
-        vsLUT.RescaleTransferFunction(vmin, vmax)
+        vsLUT.NumberOfTableValues = preset["num_table_values"]
+        vsLUT.RescaleTransferFunction(1.5, 2.1)
+        # vsLUT.RescaleTransferFunction(vmin, vmax)
 
         # Ensure that the colorbar shows for each new slice
         display = GetDisplayProperties(clip_vtk, view=renderView)
@@ -527,81 +460,105 @@ def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
         renderView.CameraFocalPoint = [1145158., 6494661., -57594.]
         renderView.CameraViewUp = [0, 0, 1]
 
+
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
                        ImageResolution=VIEW_SIZE, TransparentBackground=1)
+        for object in [clip_vtk, rulerhDisplay, rulervDisplay, glyph]:
+                       # textDisplay]:
+            Hide(object, renderView)
+        Delete(text)
+        del text
 
-        # Clean up for next plot
-        Hide(clip_vtk, renderView)
-        for reg_name in ["ruler1", "ruler2", "text1", "point1", "glyph1"]:
-            src = FindSource(reg_name)
-            Delete(src)
 
-
-def make_interface_projections():
+def load_forest_state(fid):
     """
+    Load a Paraview State file that may contain, e.g. source receiver
+    glyphs, a coastline outline, etc. Specific to the Forest inversion which
+    contains specific object names
 
-    :return:
+    :type fid: str
+    :param fid: file identifier for the state file
     """
-    pass
+    renderView = GetActiveViewOrCreate("RenderView")
+    servermanager.LoadState(fid)
 
-if __name__ == "__main__":
-    # Command line arguments to define behavior of script
-    parser = argparse.ArgumentParser()
-    parser.add_argument("file", type=str, help="file to plot with paraview")
-    parser.add_argument("-o", "--output", type=str, help="output path",
-                        default=os.getcwd())
-    parser.add_argument("-p", "--preset", type=str, 
-                        help="preset colormap and labels given file type")
-    parser.add_argument("-f", "--forest", action="store_true", 
-                        help="include forest state file", default=False)
-    parser.add_argument("-z", "--zslices", nargs="+", 
-                        help="depths to slice at, 'surface' to include "
-                             "surface projection",
-                        default=["surface", 2, 4, 6, 8, 10, 12, 14, 16, 18, 20,
-                                 25, 30, 35, 40, 45, 50])
-    parser.add_argument("-t", "--trench", action="store_true", 
-                        help="plot pre-defined cross-sections normal to trench",
-                        default=True)
-    args = parser.parse_args()
+    for source in ["receivers", "src_epicenter", "coast"]:
+        vtk_ = FindSource(source)
+        vtkDisplay_ = Show(vtk_, renderView, "GeometryRepresentation")
+        vtkDisplay_.SetRepresentationType("Surface With Edges")
+        vtkDisplay_.LineWidth = 2.0
+        vtkDisplay_.Opacity = 0.4
+        if source == "src_epicenter":
+            vtkDisplay_.AmbientColor = COLOR_TABLE["g"]
+            vtkDisplay_.DiffuseColor = COLOR_TABLE["g"]
+        elif source == "coast":
+            vtkDisplay_.PointSize = 1.5
 
 
-    for data_fid in glob(args.file):
-        # Pre-define the output directory to save figures
-        if args.forest:
-            save_fid = os.path.splitext(os.path.basename(data_fid))[0]
-            save_path = os.path.join(args.output, save_fid)
-        else:
-            save_path = args.output
+# =========================== USER PARAMETERS ==============================
 
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
+# File ID's specifying the chosen files
+state_fid = "/Users/Chow/Documents/academic/vuw/forest/forest.pvsm"
 
-        # Presets defined by labels assigned to the file names
-        if args.preset:
-            preset = args.preset
-        else:
-            preset = save_fid.split("_")
-            preset = "_".join(preset[:1] + preset[2:])
-        assert(preset in PRESETS), f"{preset} does not match preset keys"
-        preset = PRESETS[preset]
+# Common path for finding and saving files
+# base_path = "/Users/Chow/Documents/academic/vuw/forest/birch/"
+base_path = "/Users/Chow/Documents/academic/vuw/forest/birch/"
 
-        # Common viewing size so image proportions are correct in screenshots
-        renderView = GetActiveViewOrCreate("RenderView")
-        renderView.ViewSize = VIEW_SIZE
+# Allow for user-input files on the command line
+data_fids = glob(os.path.join(base_path, "vtk", "model",
+                              "ratio*0007*vs*"))
 
-        # Create depth slices
-        if args.zslices:
-            if args.forest:
-                load_forest_state()
-            make_depth_slices(data_fid, args.zslices, preset,
-                              save_path=save_path)
-            ResetSession()
-            if args.forest:
-                delete_forest_state()
+# Define where the slice the model in the XZ plane, surface implicit
+slices = ["surface", 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 25, 30, 50]
+slices = []
 
-        # Create trench normal slices
-        if args.trench:
-            make_trench_cross_sections(data_fid, preset, save_path=save_path)
-            ResetSession()
-           
+# Define trench parallel cross sections w/ origins based on landmark
+# locations in UTM -60. Normal is defined as 40deg from the X-axis
+origins = {"Wellington": [314007., 5426403., 0.,],
+           "Flatpoint": [413092., 5433559., 0.,],
+           "Castlepoint": [434724., 5471821., 0.,],
+           "Akitio": [436980., 5511241., 0.],
+           "Porangahau": [467051., 5538717., 0.,],
+           "Elsthorpe": [484394., 5581561., 0.,],
+           "Napier": [489374., 5626518., 0.,],
+           "Mohaka": [507922., 5670909. ,0.,],
+           "Mahia": [575567., 5665558., 0.,],
+           "Gisborne": [588984., 5720001., 0.,],
+           }
+
+# Save path for screenshots
+path_out = os.path.join(base_path, "test")
+# ==========================================================================
+
+for data_fid in data_fids:
+    # Define the output directory to save figures
+    save_fid = os.path.splitext(os.path.basename(data_fid))[0]
+    save_path = os.path.join(path_out, save_fid)
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    # Presets defined by labels assigned to the file names, ignore model num
+    preset = save_fid.split("_")
+    preset = "_".join(preset[:1] + preset[2:])
+    assert(preset in PRESETS), f"{preset} does not match preset keys"
+    preset = PRESETS[preset]
+
+    # Common viewing size so image proportions are correct in screenshots
+    renderView = GetActiveViewOrCreate("RenderView")
+    renderView.ViewSize = VIEW_SIZE
+
+    # Open the model volume
+    vtk = OpenDataFile(data_fid)
+    RenameSource("surface", vtk)
+    Show(vtk)
+    ResetCamera()
+
+    # Create depth slices
+    if slices:
+        load_forest_state(state_fid)
+        make_depth_slices(vtk, slices, save_path=save_path)
+
+    if origins:
+        make_trench_cross_sections(vtk, origins, save_path=save_path)
+
 
