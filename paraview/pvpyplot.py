@@ -1,0 +1,607 @@
+"""
+A script to control Paraview using Python, setting up a figure and taking 
+screenshots at various depths or cross-sections through the model.
+Can be run in the Paraview Python Shell, or using PvPython from the CLI
+"""
+import os
+import math
+import string
+import argparse
+from glob import glob
+from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
+                             Hide3DWidgets, Ruler, Show, Text, Render,
+                             GetActiveCamera, GetScalarBar,
+                             GetColorTransferFunction, GetActiveView,
+                             FindSource, SelectSurfacePoints,
+                             ExtractSelection, Delete, SetActiveSource,
+                             ClearSelection, GetActiveSource,
+                             GetDisplayProperties, SaveScreenshot,
+                             ResetSession, Hide, servermanager, OpenDataFile,
+                             ResetCamera, Clip, PointSource, Glyph,)
+
+
+
+# 'Global' constants set here
+COLOR_TABLE = {"k": [0., 0., 0.], "w": [1., 1., 1.], "r": [1., 0., 0.],
+               "b": [0., 0., 1.], "g": [0., 1., 0.], "y": [1., 1., 0.],
+               "o": [1., .5, 0.], "c": [0., 1., 1.], "gray": [.5, .5, .5]}
+
+FONTSIZE = 15
+COLOR = COLOR_TABLE["k"]
+VIEW_SIZE = [1037, 813]
+
+"""
+Preset parameters that should stay constant among certain file types
+
+:cbar_title (str): Label for the colorbar
+:colormap (str): Colormap to define LUT
+:invert_cmap (bool): Invert the original bounds of the colormap
+:center_cmap (bool): Ensure that the middle value of the colormap is 0
+:range_label_format (str): String formatter for the range bounds on colorbar
+:round_base (int): Round range labels to a base value, if None, no rounding
+:constant_bounds (bool): Keep the colorbar bounds constant for each screenshot
+:num_table_values (int): Number of segmentations in the colorbar
+"""
+PRESETS = {
+        "model_vp": 
+            {"cbar_title": "Vp [m/s]",
+             "colormap": "Rainbow Desaturated",
+             "invert_cmap": True,
+             "center_cmap": False,
+             "range_label_format": "%.1f",
+             "round_base": 10,
+             "constant_bounds": False,
+             "num_table_values": 64,
+             },
+        "model_vs": 
+            {"cbar_title": "Vs [m/s]",
+             "colormap": "Rainbow Desaturated",
+             "invert_cmap": True,
+             "center_cmap": False,
+             "range_label_format": "%.1f",
+             "round_base": 10,
+             "constant_bounds": False,
+             "num_table_values": 64,
+             },
+        "gradient_vp_kernel": 
+            {"cbar_title": "Vp Gradient [m^-2 s^2]",
+             "colormap": "Cool to Warm (Extended)",
+             "invert_cmap": True,
+             "center_cmap": True,
+             "range_label_format": "%.1E",
+             "round_base": None,
+             "constant_bounds": True,
+             "num_table_values": 64,
+             },
+        "gradient_vs_kernel": 
+            {"cbar_title": "Vs Gradient [m^-2 s^2]",
+             "colormap": "Cool to Warm (Extended)",
+             "invert_cmap": True,
+             "center_cmap": True,
+             "range_label_format": "%.1E",
+             "round_base": None,
+             "constant_bounds": True,
+             "num_table_values": 64,
+             },
+        "update_vp": 
+            {"cbar_title": "Vp Net Update [ln(m/m00)]",
+             "colormap": "Blue Orange (divergent)",
+             "invert_cmap": True,
+             "center_cmap": True,
+             "range_label_format": "%.02f",
+             "round_base": None,
+             "constant_bounds": True,
+             "num_table_values": 64,
+             },
+        "update_vs": 
+            {"cbar_title": "Vs Net Update [ln(m/m00)]",
+             "colormap": "Blue Orange (divergent)",
+             "invert_cmap": True,
+             "center_cmap": True,
+             "range_label_format": "%.02f",
+             "round_base": None,
+             "constant_bounds": True,
+             "num_table_values": 64,
+             },
+        "ratio_poissons": 
+            {"cbar_title": "Poisson's Ratio",
+             "colormap": "Blue - Green - Orange",
+             "invert_cmap": False,
+             "center_cmap": False,
+             "range_label_format": "%.1f",
+             "round_base": None,
+             "constant_bounds": True,
+             "num_table_values": 64,
+             },
+        "ratio_vpvs": 
+            {"cbar_title": "Vp/Vs Ratio",
+             "colormap": "Cool to Warm (Extended)",
+             # "colormap": "Rainbow Desaturated",
+             "invert_cmap": False,
+             "center_cmap": False,
+             "range_label_format": "%.1f",
+             "round_base": None,
+             "constant_bounds": True,
+             "num_table_values": 28,
+             },
+        }
+
+
+# Pre-defined trench parallel cross sections w/ origins based on landmark
+# locations in UTM -60. Trench normal is defined as 40deg from the X-axis
+TRENCH_XSECTIONS = {"Wellington": [314007., 5426403., 0.,],
+                    "Flatpoint": [413092., 5433559., 0.,],
+                    "Castlepoint": [434724., 5471821., 0.,],
+                    "Akitio": [436980., 5511241., 0.],
+                    "Porangahau": [467051., 5538717., 0.,],
+                    "Elsthorpe": [484394., 5581561., 0.,],
+                    "Napier": [489374., 5626518., 0.,],
+                    "Mohaka": [507922., 5670909. ,0.,],
+                    "Mahia": [575567., 5665558., 0.,],
+                    "Gisborne": [588984., 5720001., 0.,],
+                    }
+
+
+def myround(x, base):
+    """
+    Round values to the nearest base
+    """
+    return int(base * round(float(x) / base))
+
+
+def depth_slice(vtk, depth):
+    """
+    Slice a horizontal plane through a volume normal to the Z axis
+
+    :type vtk: 
+    :param vtk: opened data file
+    :type depth: float
+    :param depth: depth at which to slice through the model
+    """
+    # Generate the Z-normal slice and set at a specific depth
+    slice_vtk = Slice(vtk)
+    slice_vtk.SliceType = "Plane"
+    slice_vtk.SliceType.Normal = [0., 0., 1.]
+    origin = slice_vtk.SliceType.Origin
+    origin = [origin[0], origin[1], abs(depth) * -1E3]
+    slice_vtk.SliceType.Origin = origin
+
+    # Apply the slice and render the new view
+    renderView = GetActiveViewOrCreate("RenderView")
+    sliceDisplay = Show(slice_vtk, renderView)
+    RenameSource(f"z_{depth}km", slice_vtk)
+
+    # Hide the plane widget
+    Hide3DWidgets(proxy=slice_vtk)
+
+    return slice_vtk
+
+
+def cross_section(vtk, normal, origin, name):
+    """
+    Cut a vertical cross section through a volume, with the plane parallel to
+    the Z axis.
+
+    :type vtk: 
+    :param vtk: opened data file
+    :type normal: list of float
+    :param normal: normal vector of the plane
+    :type origin: list of float
+    :param origin: origin point for the 
+    """
+    slice_vtk = Slice(vtk)
+    slice_vtk.SliceType = "Plane"
+    slice_vtk.SliceType.Normal = normal
+    slice_vtk.SliceType.Origin = origin
+    
+    # Apply the slice and render the new view
+    renderView = GetActiveViewOrCreate("RenderView")
+    sliceDisplay = Show(slice_vtk, renderView)
+    RenameSource(name, slice_vtk)
+
+    # Hide the plane widget
+    Hide3DWidgets(proxy=slice_vtk)
+
+    return slice_vtk
+
+
+def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
+                 font_color=None, reg_name="ruler"):
+    """
+    Generate a ruler to be used as a scalebar
+    """
+    renderView = GetActiveViewOrCreate("RenderView")
+
+    ruler = Ruler(registrationName=reg_name)
+    ruler.Point1 = point1
+    ruler.Point2 = point2
+    rulerDisplay = Show(ruler, renderView, "RulerSourceRepresentation")
+    rulerDisplay.LabelFormat = label
+    rulerDisplay.NumberOfTicks = ticknum
+    rulerDisplay.AxisColor = axis_color or COLOR
+    rulerDisplay.Color = font_color or COLOR
+    rulerDisplay.FontSize = FONTSIZE
+
+    Hide3DWidgets(proxy=ruler)
+
+    return ruler
+
+def create_text(s, position, fontsize=None, color=None, bold=False,
+                reg_name="text"):
+    """
+    Create and show a text object at a given position
+    """
+    renderView = GetActiveViewOrCreate("RenderView")
+
+    text = Text(registrationName=reg_name)
+    text.Text = s
+    textDisplay = Show(text, renderView)
+    textDisplay.Position = position
+    textDisplay.Bold = int(bold)
+    textDisplay.FontSize = fontsize or FONTSIZE
+    textDisplay.Color = color or COLOR
+
+    return text, textDisplay
+
+
+def set_colormap_create_colorbar(vtk, position, orientation, colormap=None,
+                                 title=None, fontsize=None, color=None):
+    """
+    Set the color transfer function based on preset values. Create a colorbar to
+    match the colormap
+    """
+    # COLORMAP: Change the colormap to the desired preset value
+    quantity = vtk.PointData.GetArray(0).Name  # e.g. model_init_vp
+    vsLUT = GetColorTransferFunction(quantity)
+    vsLUT.ApplyPreset(colormap or preset["colormap"], True)
+    vsLUT.UseAboveRangeColor = 0
+    vsLUT.UseBelowRangeColor = 0
+    vsLUT.NumberOfTableValues = preset["num_table_values"]
+    if preset["invert_cmap"]:
+        vsLUT.InvertTransferFunction()
+
+    # COLORBAR: Create the colorbar and set a common look
+    cbar = GetScalarBar(vsLUT)
+    cbar.Title = title or preset["cbar_title"]
+    cbar.ComponentTitle = ""
+    cbar.AutoOrient = 0
+    cbar.Orientation = orientation
+    cbar.Position = position
+    cbar.RangeLabelFormat = preset["range_label_format"]
+    cbar.AddRangeLabels = 1
+    cbar.ScalarBarThickness = 35
+    cbar.ScalarBarLength = 0.15
+    cbar.TitleFontSize = fontsize or FONTSIZE
+    cbar.LabelFontSize = fontsize or FONTSIZE
+    cbar.TitleColor = color or COLOR
+    cbar.LabelColor = color or COLOR
+
+    return vsLUT, cbar
+
+
+def show_colorbar():
+    """
+    Sometimes colorbar is not set to visible, this function will force it out
+    """
+    renderView = GetActiveViewOrCreate("RenderView")
+    active = GetActiveSource()
+    display = GetDisplayProperties(active, view=renderView)
+    display.SetScalarBarVisibility(renderView, True)
+
+
+def load_forest_state():
+    """
+    Load a Paraview State file that may contain, e.g. source receiver
+    glyphs, a coastline outline, etc. Specific to the Forest inversion which
+    contains specific object names
+    """
+    renderView = GetActiveViewOrCreate("RenderView")
+    servermanager.LoadState(
+        "/Users/Chow/Documents/academic/vuw/forest/forest.pvsm"
+    )
+
+    for source in ["receivers", "src_epicenter", "coast"]:
+        vtk_ = FindSource(source)
+        vtkDisplay_ = Show(vtk_, renderView, "GeometryRepresentation")
+        vtkDisplay_.SetRepresentationType("Surface With Edges")
+        vtkDisplay_.LineWidth = 2.0
+        vtkDisplay_.Opacity = 0.4
+        if source == "src_epicenter":
+            vtkDisplay_.AmbientColor = COLOR_TABLE["g"]
+            vtkDisplay_.DiffuseColor = COLOR_TABLE["g"]
+        elif source == "coast":
+            vtkDisplay_.PointSize = 1.5
+
+
+def delete_forest_state():
+    """
+    Remove objects related to the forest paraview state file=
+    """
+    for reg_name in ["receivers", "src_epicenter", "coast"]:
+        src = FindSource(reg_name)
+        Delete(src)
+
+
+def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
+    """
+    Main function for creating and screenshotting depth slices (slice plane 
+    normal/perpendicular to Z axis). Creates a standardized look for the 
+    depth slices with scale bar, colorbar and annotations
+    """
+    # Open the model volume
+    vtk = OpenDataFile(fid)
+    RenameSource("surface", vtk)
+    Show(vtk)
+    ResetCamera()
+
+    renderView = GetActiveViewOrCreate("RenderView")
+
+    # ANNOTATIONS: Depth slice annotations sit at the bottom-right corner
+    text, _ = create_text(s="", position=[0.625, 0.1], reg_name="text1",
+                fontsize=FONTSIZE * 2)
+    create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
+                position=[0.55, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
+
+    # RULER: Create rulers as scalebar, sits under the colorbar, mid left
+    ruler_origin = [198000, 5722936, 0]
+    ruler_x = [298000, 5722936, 0]
+    ruler_y = [198000, 5622936, 0]
+
+    create_ruler(point1=ruler_origin, point2=ruler_x, label="100km [X]",
+                 reg_name="ruler1")
+    create_ruler(point1=ruler_origin, point2=ruler_y, label="[Y]",
+                 reg_name="ruler2")
+
+    # CAMERA: Move camera a bit closer
+    camera = GetActiveCamera()
+    camera.Dolly(1.2)
+
+    vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.249, 0.78],
+                                               orientation="Vertical",)
+
+    # SLICE: Generate slices through the volume at desired depth levels
+    for slice_ in slices:
+        if slice_ == "surface":
+            tag = "map"
+            slice_vtk = vtk
+
+            # Hacky method to get data range by selecting surface points
+            v = GetActiveView()
+            source = FindSource("surface")
+            SelectSurfacePoints(Rectangle=[0, 0, v.ViewSize[0], v.ViewSize[1]])
+            extract = ExtractSelection(Input=source)
+            vmin, vmax = extract.PointData.GetArray(0).GetRange(0)
+
+            # Get rid of the extraction surface
+            Delete(extract)
+            del extract
+            SetActiveSource(source)
+            ClearSelection()
+        else:
+            slice_vtk = depth_slice(vtk, float(slice_))
+            tag = f"z_{slice_}km"
+
+            # Determine colorbar bounds of slice to rescale colorbar
+            vmin, vmax = slice_vtk.PointData.GetArray(0).GetRange(0)
+
+        text.Text = tag
+
+        # Make sure that global bounds are set if required
+        if preset["constant_bounds"]:
+            vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
+    
+        # Some fields should be centered on 0 despite the actual data bounds
+        if preset["center_cmap"]:
+            vabsmax = max(abs(vmin), abs(vmax))
+            vmin, vmax = -1 * vabsmax, vabsmax
+
+        # If desired, round the colobar bounds to some base value
+        if preset["round_base"]:
+            vmin = myround(vmin, preset["round_base"])
+            vmax = myround(vmax, preset["round_base"])
+       
+        # Apply depth specific values
+        vsLUT.RescaleTransferFunction(vmin, vmax)
+        show_colorbar()
+
+        # SCREENSHOT: Save screenshot, hide slice and move on
+        SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
+                       ImageResolution=VIEW_SIZE, TransparentBackground=1)
+        Hide(slice_vtk, renderView)
+
+
+    # CLEAR: Remove any additional objects created during plotting
+    for reg_name in ["text1", "text2", "ruler1", "ruler2"]:
+        src = FindSource(reg_name)
+        Delete(src)
+
+
+def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
+    """
+    Create cross sections of a volume perpendicular to the Hikurangi trench 
+    based on user-defined origin locations. Mark the origin locations 
+    on the cross section for reference. Take screenshots
+    """
+    # Open the model volume
+    vtk = OpenDataFile(fid)
+    RenameSource("surface", vtk)
+    Show(vtk)
+    ResetCamera()
+
+    # Pre-defined values for uniform look
+    normal = [-0.64, -0.76, 0.]  # 40deg to the x-axis, from Donna's 2015 paper
+    depth_cutoff_km = 100
+    
+    # Get global min and max of array for colorscale before slicing 
+    renderView = GetActiveViewOrCreate("RenderView")
+    Hide(vtk, renderView)
+
+    for i, (name, origin) in enumerate(TRENCH_XSECTIONS.items()):
+        ab = string.ascii_uppercase[i]  # alphabetize for easier identification
+        tag = f"{ab}_{name.lower()}_trench_xsection"
+
+        slice_vtk = cross_section(vtk=vtk, normal=normal, origin=origin,
+                                  name=name)
+        Hide(slice_vtk, renderView)
+
+        # Cut off depths below a certain range as we are not interested in deep
+        clip_vtk = Clip(slice_vtk)
+        clip_vtk.ClipType = "Plane"
+        clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
+        clip_vtk.ClipType.Normal = [0., 0., -1.]
+        Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
+
+        # Reset the colorbounds to data range
+        active = GetActiveSource()
+        display = GetDisplayProperties(active, view=renderView)
+        display.RescaleTransferFunctionToDataRange(False, True)
+
+        # In order to set the camera, annotations, etc. in a general fashion,
+        # we need to determine the corner grid locations of the slice
+        dataPlane = servermanager.Fetch(clip_vtk)
+        x, y, z = [], [], []
+        for j in range(dataPlane.GetNumberOfPoints()):
+            x_, y_, z_ = dataPlane.GetPoint(j)
+            x.append(x_)
+            y.append(y_)
+            z.append(z_)
+
+        # RULERS: Create rulers for use as scalebars
+        dist_m = 100E3
+        angle_rad = math.atan(normal[0] / normal[1])
+        ruler_origin = [min(x), max(y), min(z)]  # bottom left
+
+        # Horizontal ruler dimensions must be found with the power of geometry!
+        # Took me way too long to figure out how to do this properly
+        ruler_h = [min(x) + dist_m * math.cos(angle_rad),
+                   max(y) - dist_m * math.sin(angle_rad),
+                   min(z)]
+        ruler_v = [min(x), max(y), min(z) + dist_m]
+
+        create_ruler(point1=ruler_origin, point2=ruler_h,
+                     label=f"{dist_m/1E3:.0f}km", reg_name="ruler1")
+        create_ruler(point1=ruler_origin, point2=ruler_v, label="[Z]",
+                     reg_name="ruler2", font_color=COLOR_TABLE["w"])
+
+        # GLPYH: Create a reference point based on the landmark location
+        point = PointSource(registrationName="point1")
+        point.Center = origin
+        glyph = Glyph(Input=point, GlyphType="Cone", registrationName="glyph1")
+        glyph.GlyphType.Direction = [0., 0., -1.]
+        glyph.ScaleFactor = 10000
+        Show(glyph, renderView, "GeometryRepresentation")
+
+        # Annotate text to match glyph
+        create_text(f"{ab}. {name}", [0.25, 0.65], reg_name="text1")
+
+
+        vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.25, 0.3],
+                                                   orientation="Horizontal",)
+        cbar.TextPosition = "Ticks left/bottom, annotations right/top"
+
+
+        # SET COLORBAR BONDS:
+        if preset["constant_bounds"]:
+            vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
+        else:
+            vmin, vmax = clip_vtk.PointData.GetArray(0).GetRange(0)
+
+        # Some fields should be centered on 0 despite the actual data bounds
+        if preset["center_cmap"]:
+            vabsmax = max(abs(vmin), abs(vmax))
+            vmin, vmax = -1 * vabsmax, vabsmax
+
+        # If desired, round the colobar bounds to some base value
+        if preset["round_base"]:
+            vmin = myround(vmin, preset["round_base"])
+            vmax = myround(vmax, preset["round_base"])
+
+        vsLUT.RescaleTransferFunction(vmin, vmax)
+
+        # Ensure that the colorbar shows for each new slice
+        display = GetDisplayProperties(clip_vtk, view=renderView)
+        display.SetScalarBarVisibility(renderView, True)
+
+        # Reset camera view to be normal to the plane. Specific to this plane
+        renderView.CameraPosition = [-249942., 4837978., -57594.]
+        renderView.CameraFocalPoint = [1145158., 6494661., -57594.]
+        renderView.CameraViewUp = [0, 0, 1]
+
+        SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
+                       ImageResolution=VIEW_SIZE, TransparentBackground=1)
+
+        # Clean up for next plot
+        Hide(clip_vtk, renderView)
+        for reg_name in ["ruler1", "ruler2", "text1", "point1", "glyph1"]:
+            src = FindSource(reg_name)
+            Delete(src)
+
+
+def make_interface_projections():
+    """
+
+    :return:
+    """
+    pass
+
+if __name__ == "__main__":
+    # Command line arguments to define behavior of script
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file", type=str, help="file to plot with paraview")
+    parser.add_argument("-o", "--output", type=str, help="output path",
+                        default=os.getcwd())
+    parser.add_argument("-p", "--preset", type=str, 
+                        help="preset colormap and labels given file type")
+    parser.add_argument("-f", "--forest", action="store_true", 
+                        help="include forest state file", default=False)
+    parser.add_argument("-z", "--zslices", nargs="+", 
+                        help="depths to slice at, 'surface' to include "
+                             "surface projection",
+                        default=["surface", 2, 4, 6, 8, 10, 12, 14, 16, 18, 20,
+                                 25, 30, 35, 40, 45, 50])
+    parser.add_argument("-t", "--trench", action="store_true", 
+                        help="plot pre-defined cross-sections normal to trench",
+                        default=True)
+    args = parser.parse_args()
+
+
+    for data_fid in glob(args.file):
+        # Pre-define the output directory to save figures
+        if args.forest:
+            save_fid = os.path.splitext(os.path.basename(data_fid))[0]
+            save_path = os.path.join(args.output, save_fid)
+        else:
+            save_path = args.output
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        # Presets defined by labels assigned to the file names
+        if args.preset:
+            preset = args.preset
+        else:
+            preset = save_fid.split("_")
+            preset = "_".join(preset[:1] + preset[2:])
+        assert(preset in PRESETS), f"{preset} does not match preset keys"
+        preset = PRESETS[preset]
+
+        # Common viewing size so image proportions are correct in screenshots
+        renderView = GetActiveViewOrCreate("RenderView")
+        renderView.ViewSize = VIEW_SIZE
+
+        # Create depth slices
+        if args.zslices:
+            if args.forest:
+                load_forest_state()
+            make_depth_slices(data_fid, args.zslices, preset,
+                              save_path=save_path)
+            ResetSession()
+            if args.forest:
+                delete_forest_state()
+
+        # Create trench normal slices
+        if args.trench:
+            make_trench_cross_sections(data_fid, preset, save_path=save_path)
+            ResetSession()
+           
+
