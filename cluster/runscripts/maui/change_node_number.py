@@ -9,6 +9,8 @@ num_tasks = int(input("Number of tasks/processors?: "))
 num_nodes = num_tasks // 40
 
 for fid in glob("*.sh"):
+    if "xcombine" in fid:
+        continue
     with open(fid) as f:
         lines = f.readlines()
     

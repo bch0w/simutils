@@ -1,0 +1,45 @@
+# This is a Config file to control the behavior of semslicer
+# NOTE: domain and region_1 are required parameters.
+# Additional region_i can be included, where 1 <= i <= inf
+# Units can be meters [m] or kilometers [km]; will be scaled to meters
+# NOTE: Try to ensure overlap between depth values so that there are no gaps
+data:
+    - vp
+    - vs
+    - rho
+    - qmu
+    - qkappa
+domain:
+  xmin: 170.
+  xmax: 635.
+  ymin: 5286.
+  ymax: 5905.
+  units: km
+region_1:
+  tag: shallow_1
+  zmin: 0.
+  zmax: 3.
+  dx: 1.
+  dy: 1.
+  dz: .25
+region_2:
+  tag: shallow_2
+  zmin: -3.
+  zmax: 0.
+  dx: 1.
+  dy: 1.
+  dz: .25
+region_3:
+  tag: shallow_3
+  zmin: -6.
+  zmax: -3.
+  dx: 1.
+  dy: 1.
+  dz: .25
+region_4:
+  tag: shallow_4
+  zmin: -9.
+  zmax: -6.
+  dx: 1.
+  dy: 1.
+  dz: .25
