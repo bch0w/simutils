@@ -17,7 +17,8 @@ from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              ClearSelection, GetActiveSource,
                              GetDisplayProperties, SaveScreenshot,
                              ResetSession, Hide, servermanager, OpenDataFile,
-                             ResetCamera, Clip, PointSource, Glyph,)
+                             ResetCamera, Clip, PointSource, Glyph,
+                             CreateRenderView, SetActiveView, GetSources)
 
 
 
@@ -43,7 +44,7 @@ Preset parameters that should stay constant among certain file types
 :num_table_values (int): Number of segmentations in the colorbar
 """
 PRESETS = {
-        "model_vp": 
+        "model_vp":
             {"cbar_title": "Vp [m/s]",
              "colormap": "Rainbow Desaturated",
              "invert_cmap": True,
@@ -53,7 +54,7 @@ PRESETS = {
              "constant_bounds": False,
              "num_table_values": 64,
              },
-        "model_vs": 
+        "model_vs":
             {"cbar_title": "Vs [m/s]",
              "colormap": "Rainbow Desaturated",
              "invert_cmap": True,
@@ -63,7 +64,7 @@ PRESETS = {
              "constant_bounds": False,
              "num_table_values": 64,
              },
-        "gradient_vp_kernel": 
+        "gradient_vp_kernel":
             {"cbar_title": "Vp Gradient [m^-2 s^2]",
              "colormap": "Cool to Warm (Extended)",
              "invert_cmap": True,
@@ -73,7 +74,7 @@ PRESETS = {
              "constant_bounds": True,
              "num_table_values": 64,
              },
-        "gradient_vs_kernel": 
+        "gradient_vs_kernel":
             {"cbar_title": "Vs Gradient [m^-2 s^2]",
              "colormap": "Cool to Warm (Extended)",
              "invert_cmap": True,
@@ -83,7 +84,7 @@ PRESETS = {
              "constant_bounds": True,
              "num_table_values": 64,
              },
-        "update_vp": 
+        "update_vp":
             {"cbar_title": "Vp Net Update [ln(m/m00)]",
              "colormap": "Blue Orange (divergent)",
              "invert_cmap": True,
@@ -93,7 +94,7 @@ PRESETS = {
              "constant_bounds": True,
              "num_table_values": 64,
              },
-        "update_vs": 
+        "update_vs":
             {"cbar_title": "Vs Net Update [ln(m/m00)]",
              "colormap": "Blue Orange (divergent)",
              "invert_cmap": True,
@@ -103,7 +104,7 @@ PRESETS = {
              "constant_bounds": True,
              "num_table_values": 64,
              },
-        "ratio_poissons": 
+        "ratio_poissons":
             {"cbar_title": "Poisson's Ratio",
              "colormap": "Blue - Green - Orange",
              "invert_cmap": False,
@@ -113,7 +114,7 @@ PRESETS = {
              "constant_bounds": True,
              "num_table_values": 64,
              },
-        "ratio_vpvs": 
+        "ratio_vpvs":
             {"cbar_title": "Vp/Vs Ratio",
              "colormap": "Cool to Warm (Extended)",
              # "colormap": "Rainbow Desaturated",
@@ -121,7 +122,7 @@ PRESETS = {
              "center_cmap": False,
              "range_label_format": "%.1f",
              "round_base": None,
-             "constant_bounds": True,
+             "constant_bounds": (1.55, 1.9),
              "num_table_values": 28,
              },
         }
@@ -149,11 +150,58 @@ def myround(x, base):
     return int(base * round(float(x) / base))
 
 
+def parse_slice_list(slice_list):
+    """
+    Slices are provided by the user and may consist of a list of mixed types, 
+
+    1) "surface" indicates a surface projection and should be zeroth index
+    2) depths may be provided as ints or floats, e.g. 5, 8.5. 
+    3) depths can also be provided as ranges e.g. 10-15,1 would indicate a range
+       of 10 to 15 by incriments of 1, inclusive, so 10, 11, 12, 13, 14, 15
+
+    This function will parse this mixed list into an absolute list that can
+    be iterated over by the main plotting function
+
+    :type slice_list: list
+    :param slice_list: list of input values that need to be parsed
+    :rtype: list
+    :return: parsed list that contains only integers and 'surface' (optional)
+    """
+    new_list = []
+
+    for value in slice_list:
+        if value == "surface":
+            # Do this at the end so we can sort the list first
+            include_surface = True
+            continue
+        else:
+            try:
+                new_list.append(int(value))
+            except ValueError:
+                try:
+                    bounds, dx = value.split(",")
+                    min_bound, max_bound = bounds.split("-")
+                    for val in range(int(min_bound), 
+                                     int(max_bound) + int(dx), int(dx)):
+                        new_list.append(val)
+                except Exception as e:
+                    raise ValueError(f"{value} not in expected format: "
+                                     "'surface', float, int or 'a-b,c'")
+
+    # Remove any duplicates from the list
+    new_list = sorted(list(set(new_list)))
+
+    if include_surface:
+        new_list.insert(0, "surface")
+
+    return new_list
+
+
 def depth_slice(vtk, depth):
     """
     Slice a horizontal plane through a volume normal to the Z axis
 
-    :type vtk: 
+    :type vtk:
     :param vtk: opened data file
     :type depth: float
     :param depth: depth at which to slice through the model
@@ -167,7 +215,7 @@ def depth_slice(vtk, depth):
     slice_vtk.SliceType.Origin = origin
 
     # Apply the slice and render the new view
-    renderView = GetActiveViewOrCreate("RenderView")
+    renderView = GetActiveView()
     sliceDisplay = Show(slice_vtk, renderView)
     RenameSource(f"z_{depth}km", slice_vtk)
 
@@ -182,20 +230,20 @@ def cross_section(vtk, normal, origin, name):
     Cut a vertical cross section through a volume, with the plane parallel to
     the Z axis.
 
-    :type vtk: 
+    :type vtk:
     :param vtk: opened data file
     :type normal: list of float
     :param normal: normal vector of the plane
     :type origin: list of float
-    :param origin: origin point for the 
+    :param origin: origin point for the
     """
     slice_vtk = Slice(vtk)
     slice_vtk.SliceType = "Plane"
     slice_vtk.SliceType.Normal = normal
     slice_vtk.SliceType.Origin = origin
-    
+
     # Apply the slice and render the new view
-    renderView = GetActiveViewOrCreate("RenderView")
+    renderView = GetActiveView()
     sliceDisplay = Show(slice_vtk, renderView)
     RenameSource(name, slice_vtk)
 
@@ -210,7 +258,7 @@ def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
     """
     Generate a ruler to be used as a scalebar
     """
-    renderView = GetActiveViewOrCreate("RenderView")
+    renderView = GetActiveView()
 
     ruler = Ruler(registrationName=reg_name)
     ruler.Point1 = point1
@@ -231,7 +279,7 @@ def create_text(s, position, fontsize=None, color=None, bold=False,
     """
     Create and show a text object at a given position
     """
-    renderView = GetActiveViewOrCreate("RenderView")
+    renderView = GetActiveView()
 
     text = Text(registrationName=reg_name)
     text.Text = s
@@ -242,6 +290,39 @@ def create_text(s, position, fontsize=None, color=None, bold=False,
     textDisplay.Color = color or COLOR
 
     return text, textDisplay
+
+
+def create_data_axis_grid_trench(source, min_depth_km=0, max_depth_km=100, 
+                                 dz_km=25):
+    """
+    Create a standard looking axis grid for the trench cross sections which 
+    puts horizontal lines at pre-determined depth levels. Unfornuately I havent
+    found a way to do this for the vertical axis because we are plotting at some
+    angle to the XY plane and Paraview doesnt have an easy way to shift the
+    perspective
+    """
+    renderView = GetActiveView()
+    renderView.CameraParallelProjection = 1
+
+    display = GetDisplayProperties(source, view=renderView)
+    display.DataAxesGrid.GridAxesVisibility = 1
+    display.DataAxesGrid.ShowGrid = 1
+
+    display.DataAxesGrid.XAxisUseCustomLabels = 1
+    display.DataAxesGrid.XAxisLabels = []
+
+    display.DataAxesGrid.YAxisUseCustomLabels = 1
+    display.DataAxesGrid.YAxisLabels = []
+
+    display.DataAxesGrid.ZAxisUseCustomLabels = 1
+
+    # Ensuring that all the depth values are formatted properly before ranging
+    dz_m = -1 * int(abs(dz_km * 1E3))
+    min_depth_m = int(abs(min_depth_km * 1E3))
+    max_depth_m = -1 * int(abs(max_depth_km * 1E3)) + dz_m
+    zrange = range(min_depth_m, max_depth_m, dz_m)
+
+    display.DataAxesGrid.ZAxisLabels = list(zrange)
 
 
 def set_colormap_create_colorbar(vtk, position, orientation, colormap=None,
@@ -283,7 +364,7 @@ def show_colorbar():
     """
     Sometimes colorbar is not set to visible, this function will force it out
     """
-    renderView = GetActiveViewOrCreate("RenderView")
+    renderView = GetActiveView()
     active = GetActiveSource()
     display = GetDisplayProperties(active, view=renderView)
     display.SetScalarBarVisibility(renderView, True)
@@ -295,7 +376,7 @@ def load_forest_state():
     glyphs, a coastline outline, etc. Specific to the Forest inversion which
     contains specific object names
     """
-    renderView = GetActiveViewOrCreate("RenderView")
+    renderView = GetActiveView()
     servermanager.LoadState(
         "/Users/Chow/Documents/academic/vuw/forest/forest.pvsm"
     )
@@ -313,34 +394,33 @@ def load_forest_state():
             vtkDisplay_.PointSize = 1.5
 
 
-def delete_forest_state():
+def reset():
     """
     Remove objects related to the forest paraview state file=
     """
-    for reg_name in ["receivers", "src_epicenter", "coast"]:
-        src = FindSource(reg_name)
-        Delete(src)
+    for x in GetSources().values():
+        Delete(x[0])
+    ResetSession()
 
 
 def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     """
-    Main function for creating and screenshotting depth slices (slice plane 
-    normal/perpendicular to Z axis). Creates a standardized look for the 
+    Main function for creating and screenshotting depth slices (slice plane
+    normal/perpendicular to Z axis). Creates a standardized look for the
     depth slices with scale bar, colorbar and annotations
     """
     # Open the model volume
     vtk = OpenDataFile(fid)
     RenameSource("surface", vtk)
-    Show(vtk)
-    ResetCamera()
-
-    renderView = GetActiveViewOrCreate("RenderView")
+    if "surface" in slices:
+        Show(vtk)
 
     # ANNOTATIONS: Depth slice annotations sit at the bottom-right corner
     text, _ = create_text(s="", position=[0.625, 0.1], reg_name="text1",
                 fontsize=FONTSIZE * 2)
+    # Text showing the file name for easy id of data
     create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                position=[0.55, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
+                position=[0.45, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
 
     # RULER: Create rulers as scalebar, sits under the colorbar, mid left
     ruler_origin = [198000, 5722936, 0]
@@ -352,9 +432,13 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     create_ruler(point1=ruler_origin, point2=ruler_y, label="[Y]",
                  reg_name="ruler2")
 
-    # CAMERA: Move camera a bit closer
-    camera = GetActiveCamera()
-    camera.Dolly(1.2)
+    # CAMERA: Hard set the camera as a top-down view over model, manually set
+    ResetCamera()
+    renderView = GetActiveView()
+    renderView.CameraPosition = [401399., 5567959., 1276057.]
+    renderView.CameraFocalPoint = [401399., 5567959., -197500.0]
+    renderView.CameraViewUp = [0, 1, 0]
+    Render()
 
     vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.249, 0.78],
                                                orientation="Vertical",)
@@ -365,17 +449,16 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
             tag = "map"
             slice_vtk = vtk
 
-            # Hacky method to get data range by selecting surface points
-            v = GetActiveView()
-            source = FindSource("surface")
-            SelectSurfacePoints(Rectangle=[0, 0, v.ViewSize[0], v.ViewSize[1]])
-            extract = ExtractSelection(Input=source)
+            # 'Hacky' method to get data range by selecting surface points
+            SelectSurfacePoints(Rectangle=[0, 0, renderView.ViewSize[0],
+                                           renderView.ViewSize[1]])
+            extract = ExtractSelection(Input=slice_vtk)
             vmin, vmax = extract.PointData.GetArray(0).GetRange(0)
 
             # Get rid of the extraction surface
             Delete(extract)
             del extract
-            SetActiveSource(source)
+            SetActiveSource(slice_vtk)
             ClearSelection()
         else:
             slice_vtk = depth_slice(vtk, float(slice_))
@@ -388,8 +471,11 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
 
         # Make sure that global bounds are set if required
         if preset["constant_bounds"]:
-            vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
-    
+            if isinstance(preset["constant_bounds"], tuple):
+                vmin, vmax = preset["constant_bounds"]
+            else:
+                vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
+
         # Some fields should be centered on 0 despite the actual data bounds
         if preset["center_cmap"]:
             vabsmax = max(abs(vmin), abs(vmax))
@@ -399,7 +485,7 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
         if preset["round_base"]:
             vmin = myround(vmin, preset["round_base"])
             vmax = myround(vmax, preset["round_base"])
-       
+
         # Apply depth specific values
         vsLUT.RescaleTransferFunction(vmin, vmax)
         show_colorbar()
@@ -409,7 +495,6 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
                        ImageResolution=VIEW_SIZE, TransparentBackground=1)
         Hide(slice_vtk, renderView)
 
-
     # CLEAR: Remove any additional objects created during plotting
     for reg_name in ["text1", "text2", "ruler1", "ruler2"]:
         src = FindSource(reg_name)
@@ -418,8 +503,8 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
 
 def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
     """
-    Create cross sections of a volume perpendicular to the Hikurangi trench 
-    based on user-defined origin locations. Mark the origin locations 
+    Create cross sections of a volume perpendicular to the Hikurangi trench
+    based on user-defined origin locations. Mark the origin locations
     on the cross section for reference. Take screenshots
     """
     # Open the model volume
@@ -431,9 +516,9 @@ def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
     # Pre-defined values for uniform look
     normal = [-0.64, -0.76, 0.]  # 40deg to the x-axis, from Donna's 2015 paper
     depth_cutoff_km = 100
-    
-    # Get global min and max of array for colorscale before slicing 
-    renderView = GetActiveViewOrCreate("RenderView")
+
+    # Get global min and max of array for colorscale before slicing
+    renderView = GetActiveView()
     Hide(vtk, renderView)
 
     for i, (name, origin) in enumerate(TRENCH_XSECTIONS.items()):
@@ -450,6 +535,8 @@ def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
         clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
         clip_vtk.ClipType.Normal = [0., 0., -1.]
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
+
+        create_data_axis_grid_trench(clip_vtk)
 
         # Reset the colorbounds to data range
         active = GetActiveSource()
@@ -494,15 +581,21 @@ def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
         # Annotate text to match glyph
         create_text(f"{ab}. {name}", [0.25, 0.65], reg_name="text1")
 
+        # Text showing the file name for easy id of data
+        create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
+                    position=[0.55, 0.65], reg_name="text2",
+                    fontsize=FONTSIZE * 2)
 
         vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.25, 0.3],
                                                    orientation="Horizontal",)
         cbar.TextPosition = "Ticks left/bottom, annotations right/top"
 
-
-        # SET COLORBAR BONDS:
+        # Make sure that global bounds are set if required
         if preset["constant_bounds"]:
-            vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
+            if isinstance(preset["constant_bounds"], tuple):
+                vmin, vmax = preset["constant_bounds"]
+            else:
+                vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
         else:
             vmin, vmax = clip_vtk.PointData.GetArray(0).GetRange(0)
 
@@ -523,16 +616,23 @@ def make_trench_cross_sections(fid, preset, save_path=os.getcwd()):
         display.SetScalarBarVisibility(renderView, True)
 
         # Reset camera view to be normal to the plane. Specific to this plane
-        renderView.CameraPosition = [-249942., 4837978., -57594.]
-        renderView.CameraFocalPoint = [1145158., 6494661., -57594.]
+        # renderView.CameraPosition = [-249942., 4837978., -57594.]
+        # renderView.CameraFocalPoint = [1145158., 6494661., -57594.]
+        # renderView.CameraViewUp = [0, 0, 1]
+
+        renderView.CameraPosition = [-400553., 4689520., -49366.]
+        renderView.CameraFocalPoint = [402390.0, 5595515., -49366.]
+        renderView.CameraParallelScale = 300000.
         renderView.CameraViewUp = [0, 0, 1]
+        Render()
 
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
                        ImageResolution=VIEW_SIZE, TransparentBackground=1)
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
-        for reg_name in ["ruler1", "ruler2", "text1", "point1", "glyph1"]:
+        for reg_name in ["ruler1", "ruler2", "text1", "point1",
+                         "glyph1", "text2"]:
             src = FindSource(reg_name)
             Delete(src)
 
@@ -547,61 +647,85 @@ def make_interface_projections():
 if __name__ == "__main__":
     # Command line arguments to define behavior of script
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", type=str, help="file to plot with paraview")
+    parser.add_argument("files", nargs="+", help="file to plot with paraview")
     parser.add_argument("-o", "--output", type=str, help="output path",
                         default=os.getcwd())
     parser.add_argument("-p", "--preset", type=str, 
                         help="preset colormap and labels given file type")
     parser.add_argument("-f", "--forest", action="store_true", 
                         help="include forest state file", default=False)
-    parser.add_argument("-z", "--zslices", nargs="+", 
-                        help="depths to slice at, 'surface' to include "
-                             "surface projection",
-                        default=["surface", 2, 4, 6, 8, 10, 12, 14, 16, 18, 20,
-                                 25, 30, 35, 40, 45, 50])
+    parser.add_argument("-z", "--default_zslices", action="store_true", 
+                        default=False, 
+                        help="create default depth slices at the surface, "
+                             "2-20km by increments of 2km, and 25-50km by "
+                             "increments of 5km. Can be used in conjunciton "
+                             "with -Z")
+    parser.add_argument("-Z", "--zslices", nargs="+", 
+                        help="manually set depths to slice at, 'surface' equals "
+                             "surface projection. entries can be given as "
+                             "ranges, e.g. 5-10,1 will produce 5,6,7,8,9,10; "
+                             "depths and increments must be given in integers; "
+                             "can be used in conjunction with -z",
+                        default=[])
     parser.add_argument("-t", "--trench", action="store_true", 
                         help="plot pre-defined cross-sections normal to trench",
-                        default=True)
+                        default=False)
+    parser.add_argument("-v", "--verbose", action="store_true", default=False,
+                        help="print output messages during the plotting")
     args = parser.parse_args()
 
+    # Set up the active render view
+    renderView = GetActiveViewOrCreate("RenderView")
+    renderView.ViewSize = VIEW_SIZE
+    SetActiveView(renderView)
 
-    for data_fid in glob(args.file):
+    for data_fid in args.files:
+        if args.verbose:
+            print(f"Plotting file {data_fid}")
+
+        assert(os.path.exists(data_fid)), "{data_fid} not found"
+
         # Pre-define the output directory to save figures
-        if args.forest:
-            save_fid = os.path.splitext(os.path.basename(data_fid))[0]
-            save_path = os.path.join(args.output, save_fid)
-        else:
-            save_path = args.output
+        save_fid = os.path.splitext(os.path.basename(data_fid))[0]
+        save_path = os.path.join(args.output, save_fid)
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        # Presets defined by labels assigned to the file names
+        # Presets defined by labels assigned to the file names or by user input
         if args.preset:
-            preset = args.preset
+            preset_key = args.preset
         else:
-            preset = save_fid.split("_")
-            preset = "_".join(preset[:1] + preset[2:])
-        assert(preset in PRESETS), f"{preset} does not match preset keys"
-        preset = PRESETS[preset]
+            preset_key = save_fid.split("_")
+            preset_key = "_".join(preset_key[:1] + preset_key[2:])
+        assert(preset_key in PRESETS), (f"'{preset_key}' does not match "
+                                        f"available presets {PRESETS.keys()}")
+        if args.verbose:
+            print(f"\tPreset is set to '{preset_key}'")
+        preset = PRESETS[preset_key]
 
-        # Common viewing size so image proportions are correct in screenshots
-        renderView = GetActiveViewOrCreate("RenderView")
-        renderView.ViewSize = VIEW_SIZE
-
-        # Create depth slices
+        # Create depth slices and generate screenshots
+        zslices = []
+        if args.default_zslices:
+            zslices += ["surface", "2-20,2", "25-50,5"]
         if args.zslices:
+            zslices += args.zslices
+
+        if zslices:
             if args.forest:
                 load_forest_state()
-            make_depth_slices(data_fid, args.zslices, preset,
-                              save_path=save_path)
-            ResetSession()
-            if args.forest:
-                delete_forest_state()
 
-        # Create trench normal slices
+            zslices = parse_slice_list(zslices)
+            if args.verbose:
+                print(f"\tGenerating Z slices for {zslices}")
+            make_depth_slices(data_fid, zslices, preset, save_path=save_path)
+            reset()
+
+        # Create trench normal cross sections and generate screenshots
         if args.trench:
+            if args.verbose:
+                print("\tGenerating trench normal cross sections")
             make_trench_cross_sections(data_fid, preset, save_path=save_path)
-            ResetSession()
+            reset()
            
 

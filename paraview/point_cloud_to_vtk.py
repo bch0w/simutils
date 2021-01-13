@@ -4,7 +4,7 @@ Point cloud needs to be defined by X, Y and Z values that have the same length
 """
 import numpy as np
 
-x, y, z = np.loadtxt("williams_hikurangi_interface_utm60_nonan.xyz").T
+x, y, z = np.loadtxt("williams_hikurangi_interface_utm60.xyz").T
 npoints = len(x)
 
 with open("interface.vtk", "w") as f:
