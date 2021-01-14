@@ -142,6 +142,34 @@ for i in range(0, numPoints):
 # Set the new values
 pdo.GetPointData().AddArray(ca)
 
+"""
+CONVERT UNITS
+
+Convert units from absolute to deviation from mean
+"""
+from paraview import vtk
+
+pdi = self.GetInput()
+pdo = self.GetOutput()
+ivals = pdi.GetPointData().GetScalars()
+numPoints = pdi.GetNumberOfPoints()
+newPoints=vtk.vtkPoints()
+ca = vtk.vtkFloatArray()
+ca.SetName(ivals.GetName())
+ca.SetNumberOfComponents(1)
+ca.SetNumberOfTuples(numPoints)
+
+# Copy the values over element by element and convert
+mean_ivals = 0
+for i in range(0, numPoints):
+    mean_ivals += ivals.GetValue(i)
+mean_ivals /= numPoints
+
+for i in range(0, numPoints):
+  ca.SetValue(i, ivals.GetValue(i) - mean_ivals)
+
+# Set the new values
+pdo.GetPointData().AddArray(ca)
 
 """
 Using the Python calculator, you can change the units of your value 
