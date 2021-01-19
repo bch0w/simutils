@@ -5,12 +5,25 @@ Speficially designed for making screenshots of the NZNorth model during the
 Forest inversion
 
 Must be run using PvPython from the CLI, which should be packaged with Paraview
+
+.. rubric::
+    Running this from the command line looks something like this:
+
+    pvpython VTK_FILE.vtk -p model_vs -f -xyt -Z surface 10-50,1 -b 1000,3000
+
+    -p model_vs: use the model_vs preset to define the colorbar
+    -f: use the forest active state to show coastline, src-rcv glyphs
+    -xyt: create default cross sections normal to x-axis, y-axis and trench
+    -Z ... : create depth slices for map view (surface) and for depths of 10 to
+        50 km by steps of 1
+    -b 1000,3000: hard-set the colorbar bounds from 1000 to 3000 m/s
 """
 import os
 import math
 import string
 import argparse
 from glob import glob
+from paraview.vtk.numpy_interface import dataset_adapter
 from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              Hide3DWidgets, Ruler, Show, Text, Render,
                              GetActiveCamera, GetScalarBar,
@@ -21,7 +34,8 @@ from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              GetDisplayProperties, SaveScreenshot,
                              ResetSession, Hide, servermanager, OpenDataFile,
                              ResetCamera, Clip, PointSource, Glyph,
-                             CreateRenderView, SetActiveView, GetSources)
+                             CreateRenderView, SetActiveView, GetSources, Axes,
+                             ColorBy)
 
 
 
@@ -45,12 +59,44 @@ Preset parameters that should stay constant among certain file types
 :center_cmap (bool): Ensure that the middle value of the colormap is 0
 :range_label_format (str): String formatter for the range bounds on colorbar
 :round_base (int): Round range labels to a base value, if None, no rounding
-:constant_bounds (bool or tuple): Keep the colorbar bounds constant for every
-    screenshot. If 'true', uses the min/max values of the entire volume. If 
-    tuple, then tuple must be in the form (min, max).
+:bounds (bool or tuple or list): Can be overwritten using the '-b' arg
+    * True: keep the colorbar bounds constant for every screenshot using the 
+    min/max values of the entire volume. 
+    * False: use whatever default bounds are set by Paraview, 
+    * tuple/list: Manually set the bounds; must be in the form (min, max)
 :num_table_values (int): Number of segmentations in the colorbar
 """
 PRESETS = {
+        "custom_vs":
+            {"cbar_title": "Vs [m/s]",
+             "colormap": "RdYlBu",
+             "invert_cmap": False,
+             "center_cmap": False,
+             "range_label_format": "%.1f",
+             "round_base": 10,
+             "bounds": False,
+             "num_table_values": 21,
+             },
+        "custom_vpvs":
+            {"cbar_title": "Vp/Vs Ratio",
+             "colormap": "Yellow - Gray - Blue",
+             "invert_cmap": False,
+             "center_cmap": False,
+             "range_label_format": "%.2f",
+             "round_base": None,
+             "bounds": (1.55, 2.1),
+             "num_table_values": 28,
+             },
+        "trench_vs":
+            {"cbar_title": "Vs [m/s]",
+             "colormap": "Rainbow Desaturated",
+             "invert_cmap": True,
+             "center_cmap": False,
+             "range_label_format": "%.1f",
+             "round_base": 10,
+             "bounds": [2000, 5500],
+             "num_table_values": 64,
+             },
         "model_rho":
             {"cbar_title": "Density [kg m^-3]",
              "colormap": "Rainbow Desaturated",
@@ -58,7 +104,7 @@ PRESETS = {
              "center_cmap": False,
              "range_label_format": "%.1f",
              "round_base": 10,
-             "constant_bounds": False,
+             "bounds": False,
              "num_table_values": 64,
              },
         "model_vp":
@@ -68,7 +114,7 @@ PRESETS = {
              "center_cmap": False,
              "range_label_format": "%.1f",
              "round_base": 10,
-             "constant_bounds": False,
+             "bounds": False,
              "num_table_values": 64,
              },
         "model_vs":
@@ -78,7 +124,7 @@ PRESETS = {
              "center_cmap": False,
              "range_label_format": "%.1f",
              "round_base": 10,
-             "constant_bounds": False,
+             "bounds": False,
              "num_table_values": 64,
              },
         "gradient_vp_kernel":
@@ -88,7 +134,7 @@ PRESETS = {
              "center_cmap": True,
              "range_label_format": "%.1E",
              "round_base": None,
-             "constant_bounds": True,
+             "bounds": True,
              "num_table_values": 64,
              },
         "gradient_vs_kernel":
@@ -98,7 +144,7 @@ PRESETS = {
              "center_cmap": True,
              "range_label_format": "%.1E",
              "round_base": None,
-             "constant_bounds": True,
+             "bounds": True,
              "num_table_values": 64,
              },
         "update_vp":
@@ -108,7 +154,7 @@ PRESETS = {
              "center_cmap": True,
              "range_label_format": "%.02f",
              "round_base": None,
-             "constant_bounds": True,
+             "bounds": True,
              "num_table_values": 64,
              },
         "update_vs":
@@ -118,7 +164,8 @@ PRESETS = {
              "center_cmap": True,
              "range_label_format": "%.02f",
              "round_base": None,
-             "constant_bounds": True,
+             "bounds": [-.15, .15],
+             # "bounds": True,
              "num_table_values": 64,
              },
         "ratio_poissons":
@@ -128,18 +175,17 @@ PRESETS = {
              "center_cmap": False,
              "range_label_format": "%.1f",
              "round_base": None,
-             "constant_bounds": True,
+             "bounds": True,
              "num_table_values": 64,
              },
         "ratio_vpvs":
             {"cbar_title": "Vp/Vs Ratio",
              "colormap": "Cool to Warm (Extended)",
-             # "colormap": "Rainbow Desaturated",
              "invert_cmap": False,
              "center_cmap": False,
-             "range_label_format": "%.1f",
+             "range_label_format": "%.2f",
              "round_base": None,
-             "constant_bounds": (1.55, 1.9),
+             "bounds": (1.55, 1.9),
              "num_table_values": 28,
              },
         }
@@ -344,6 +390,26 @@ def create_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
     display.DataAxesGrid.ZLabelFontSize = 1
 
 
+def create_axes(origin, reg_name="axes"):
+    """
+    The built-in orientation axes are not moveable, so we create a 3D axes
+    object here that will tell us what plane we are in
+
+    .. note::
+        not currently working, doesnt show any color, too lazy to fix.
+    """
+    renderView = GetActiveView()
+
+    axes = Axes(registrationName=reg_name)
+    axesDisplay = Show(axes, renderView, "GeometryRepresentation")
+    axesDisplay.SetScalarBarVisibility(renderView, False)
+    ColorBy(axesDisplay, ("Points", "Axes"))
+    axesDisplay.LineWidth = 3.
+    axes.Origin = origin
+    axes.ScaleFactor = 10000
+    axes.Symmetric = 1
+
+    return axes
 
 def set_colormap_create_colorbar(vtk, position, orientation, colormap=None,
                                  title=None, fontsize=None, color=None):
@@ -396,9 +462,9 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
     """
     # Set global bounds based on the min and max of the entire model
     # or set based on the given source file
-    if preset["constant_bounds"]:
-        if isinstance(preset["constant_bounds"], tuple):
-            vmin, vmax = preset["constant_bounds"]
+    if preset["bounds"]:
+        if isinstance(preset["bounds"], (tuple, list)):
+            vmin, vmax = preset["bounds"]
         else:
             vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
     else:
@@ -416,6 +482,11 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
 
     # Apply depth specific values
     vsLUT.RescaleTransferFunction(vmin, vmax)
+   
+    # Manually set the values for the colorbar to include bounds and midpoint
+    cbar = GetScalarBar(vsLUT)
+    cbar.UseCustomLabels = 1
+    cbar.CustomLabels = [vmin, (vmax + vmin) / 2, vmax]
 
     return vsLUT
 
@@ -434,6 +505,33 @@ def get_coordinates(src):
         z.append(z_)
 
     return x, y, z
+
+
+def mark_min_max_values(src):
+    """
+    Create a glyph that denotes the position of the minimum and maximum values
+    for a given source (usually a slice). 
+
+    :type src: vtk object
+    :param src: source object to query for min max values
+    """
+    dataPlane = servermanager.Fetch(src)
+    dataPlane = dataset_adapter.WrapDataObject(dataPlane)
+    data_points = list(dataPlane.PointData[0])
+    min_val_idx = data_points.index(min(data_points))
+    max_val_idx = data_points.index(max(data_points))
+
+    for i, idx in enumerate([min_val_idx, max_val_idx]):
+        x, y, z = dataPlane.GetPoint(idx)
+
+        # GLPYH: Create a reference point based on the location of the min/max 
+        point = PointSource(registrationName=f"point_minmax_{i}")
+        point.Center = [x, y, z]
+        glyph = Glyph(Input=point, GlyphType="2D Glyph", 
+                      registrationName=f"glyph_minmax_{i}")
+        glyph.GlyphType.GlyphType = "Cross"
+        glyph.ScaleFactor = 15000
+        Show(glyph, renderView, "GeometryRepresentation")
 
 
 def show_colorbar():
@@ -514,7 +612,7 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     renderView.CameraPosition = [401399., 5567959., 1276057.]
     renderView.CameraFocalPoint = [401399., 5567959., -197500.0]
     renderView.CameraViewUp = [0, 1, 0]
-    renderView.OrientationAxesVisibility = 1
+    # renderView.OrientationAxesVisibility = 1
     Render()
 
     vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.249, 0.78],
@@ -523,7 +621,7 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     # SLICE: Generate slices through the volume at desired depth levels
     for slice_ in slices:
         if slice_ == "surface":
-            tag = "map"
+            tag = "z_0map"
             slice_vtk = vtk
 
             # 'Hacky' method to get data range by selecting surface points
@@ -539,16 +637,22 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
             ClearSelection()
         else:
             slice_vtk = depth_slice(vtk, float(slice_))
-            tag = f"z_{slice_}km"
+            tag = f"z_{slice_:0>2}km"
             rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
 
         text.Text = tag
         show_colorbar()
+        mark_min_max_values(slice_vtk)
 
         # SCREENSHOT: Save screenshot, hide slice and move on
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
                        ImageResolution=VIEW_SIZE, TransparentBackground=1)
         Hide(slice_vtk, renderView)
+        
+        # Delete the min max value points because these change w/ each slice
+        for reg_name in ["glyph_minmax_0", "glyph_minmax_1"]:
+            src = FindSource(reg_name)
+            Delete(src)
 
     # CLEAR: Remove any additional objects created during plotting
     for reg_name in ["text1", "text2", "ruler1", "ruler2"]:
@@ -596,9 +700,11 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
     # Generally assign the horizontal axis based on the chosen normal
     if normal == "x":
         naxis = x
+        parallel = "y"
         nvector = [1., 0., 0.]
     elif normal == "y":
         naxis = y
+        parallel = "x"
         nvector = [0., 1., 0.]
     else:
         raise ValueError("normal must be 'x' or 'y'")
@@ -638,7 +744,7 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
         ruler_v = [min(x), max(y), min(z) + dist_m]
 
         create_ruler(point1=ruler_origin, point2=ruler_h,
-                     label=f"{dist_m / 1E3:.0f}km",
+                     label=f"{dist_m / 1E3:.0f}km [{parallel.upper()}]",
                      reg_name="ruler1")
         create_ruler(point1=ruler_origin, point2=ruler_v, label="[Z]",
                      reg_name="ruler2", font_color=COLOR_TABLE["w"])
@@ -671,7 +777,7 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
             renderView.CameraFocalPoint = [403183., 6971952., -62023.]
             renderView.CameraViewUp = [0.0, 0.0, 1.0]
             renderView.CameraParallelScale = 619381.
-        renderView.OrientationAxesVisibility = 1
+        # renderView.OrientationAxesVisibility = 1
 
         Render()
 
@@ -680,7 +786,7 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
-        for reg_name in ["ruler1", "ruler2", "text1", "text2"]:
+        for reg_name in ["ruler1", "ruler2", "text1", "text2",]:
             src = FindSource(reg_name)
             Delete(src)
 
@@ -701,13 +807,11 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
     RenameSource("surface", vtk)
     Show(vtk)
     ResetCamera()
-
-    # Pre-defined values for uniform look
-    normal = [-0.64, -0.76, 0.]  # 40deg to the x-axis, from Donna's 2015 paper
-
-    # Get global min and max of array for colorscale before slicing
     renderView = GetActiveView()
     Hide(vtk, renderView)
+
+    # This normal vector defines 40deg to the x-axis (40 deg from Donna 2015)
+    normal = [-0.64, -0.76, 0.]
 
     for i, (name, origin) in enumerate(TRENCH_XSECTIONS.items()):
         ab = string.ascii_uppercase[i]  # alphabetize for easier identification
@@ -760,18 +864,20 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
         glyph.ScaleFactor = 10000
         Show(glyph, renderView, "GeometryRepresentation")
 
-        # Annotate text to match glyph
-        create_text(f"{ab}. {name}", [0.25, 0.65], reg_name="text1")
+        # Annotate landmark location text to match glyph position
+        create_text(f"{ab}. {name}", [0.2, 0.30], reg_name="text1",
+                    fontsize=int(FONTSIZE * 1.5))
 
         # Text showing the file name for easy id of data
         create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                    position=[0.55, 0.65], reg_name="text2",
-                    fontsize=FONTSIZE * 2)
+                    position=[0.6, 0.30], reg_name="text2",
+                    fontsize=int(FONTSIZE * 1.5))
 
         # Generate and rescale the colorbar/ colormap
-        vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.25, 0.3],
+        vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.4, 0.325],
                                                    orientation="Horizontal",)
         cbar.TextPosition = "Ticks left/bottom, annotations right/top"
+        # cbar.TextPosition = "Ticks right/top, annotations left/bottom"
         rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
         display = GetDisplayProperties(clip_vtk, view=renderView)
         display.SetScalarBarVisibility(renderView, True)
@@ -781,7 +887,7 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
         renderView.CameraFocalPoint = [402390.0, 5595515., -49366.]
         renderView.CameraParallelScale = 300000.
         renderView.CameraViewUp = [0, 0, 1]
-        renderView.OrientationAxesVisibility = 1
+        # renderView.OrientationAxesVisibility = 1
         Render()
 
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
@@ -828,11 +934,15 @@ if __name__ == "__main__":
                         help="plot pre-defined cross-sections normal to trench",
                         default=False)
     parser.add_argument("-c", "--cutoff_km", type=float, default=100,
-                        help="For any vertical cross sections (Y-axis of figure "
+                        help="For any vertical cross sections (Y-axis figure "
                              "normal to Z axis of volume), define the depth"
                              "cutoff of the screenshot as usually were not "
                              "interested in looking at the entire volume. "
                              "Units of km, positive values only.")
+    parser.add_argument("-b", "--bounds", type=str,
+                        help="Manually set the bounds of the colorbar, "
+                             "overriding the default or preset bound values",
+                        default=None)
     parser.add_argument("-v", "--verbose", action="store_true", default=False,
                         help="print output messages during the plotting")
     args = parser.parse_args()
@@ -866,6 +976,8 @@ if __name__ == "__main__":
         if args.verbose:
             print(f"\tPreset is set to '{preset_key}'")
         preset = PRESETS[preset_key]
+        if args.bounds:
+            preset["bounds"] = [float(_) for _ in args.bounds.split(",")]
 
         # Create depth slices and generate screenshots
         zslices = []
