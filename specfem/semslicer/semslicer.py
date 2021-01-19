@@ -40,6 +40,9 @@ subsequent SPECFEM run.
     max_x        min_y          min_z
     min_x        min_y + dy     min_z
     ...
+    min_x        max_y          min_z
+    min_x        min_y          min_z + dz
+    ...
 
     Hopefully you can figure out the rest from there. Took me three straight 
     weeks to figure out all this stuff, and what a struggle it was...
@@ -146,6 +149,7 @@ class Semslicer:
                 int(reg.tag.split("_")[-1])
                 continue
             except ValueError:
+                # ValueError thrown in normal conditions, i.e. no subregion
                 z_mins.append(z_reg.min())
                 z_maxs.append(z_reg.max())
         
@@ -153,7 +157,7 @@ class Semslicer:
         z_maxs = np.array(z_maxs)       
  
         # Check that there are no gaps in the depths covered by each region
-        assert ((z_maxs[1:] - z_mins[:-1] >= 0)).all(), f"Gaps in depth ranges"
+        # assert ((z_maxs[1:] - z_mins[:-1] >= 0)).all(), f"Gaps in depth ranges"
 
     def make_grids(self, write=True):
         """
@@ -262,20 +266,60 @@ class Semslicer:
                 # in a while, we can just manual check the outputs
                 subprocess.run(["sbatch", script_fid])
 
+    def check_xsemslicer_format(self):
+        """
+        Check output files for Fortran values that replace double entries 
+        that are filled in with a 2* value with the actual values.
+       
+        .. note:: 
+            Should be run by other functions, assumed that self.make_grids() has
+            already been run
+
+        e.g. A column that is meant to be 0., 0., 1., would be written as
+             2*0., 1., ... We want to replace the 2* with two zeros.
+        """
+        self.make_grids(write=False)
+
+        line_fmt = "{0:f}, {1:f}, {2:f}, {3:f}, {4:f}\n"
+
+        for i in range(1, self.nregions):
+            region = getattr(self, f"region_{i}")
+            for j, data_name in enumerate(self.data):
+                edited_lines = 0
+
+                fid = f"{data_name}_{region.grid_tag}"
+                print(fid)
+                with open(fid, "r") as f:
+                    lines = f.readlines()
+                 
+                for k, line in enumerate(lines[:]):
+                    if "*" in line:
+                        edited_lines += 1
+                        new_array = []
+                        for value in line.strip().split(","):
+                            if "*" in value:
+                                instances, value = value.split("*")
+                                for _ in range(int(instances)):
+                                    new_array.append(float(value))
+                            else:
+                                new_array.append(float(value))
+
+                        new_array = line_fmt.format(*new_array)
+                        print(f"\t{line}\n\t{new_array}")
+                        lines[k] = new_array
+
+                if edited_lines:
+                    print(f"{fid} has {edited_lines} edited lines")
+                    with open(fid, "w") as f:
+                        f.writelines(lines)
+
     def write_xyz_files(self):
         """
         Write the header and the XYZ files based on the output values of the
         fortran file. Filenames based on 'model_tomography_bryant.f90'
-
-        ..warning::
-            Sometimes if adjacent values are the same, Fortran will output them
-            formatted together: e.g. 0 0 0 => 3*0
-            This will cause a ValueError in numpy.loadtxt(). Could write a 
-            function to clean the files beforehand, but happens so rarely that
-            manually changing may be enough.
         """
         # Get the grid attributes incase this is run in a separate instance
-        self.make_grids()
+        self.make_grids(write=False)
 
         for i in range(1, self.nregions):
             # These are the required values for the external tomo files
@@ -350,7 +394,7 @@ class Semslicer:
                     f.write(f"{data.rho[k]:.1f} {data.qp[k]:.1f} ")
                     f.write(f"{data.qmu[k]:.1f}\n")
 
-    def combine_subregions(self):
+    def combine_subregions(self, sort=True):
         """
         If a region has very dense grid spacing, the cluster may segfault due to
         the temporary storage of a very large number of points. To work around 
@@ -360,14 +404,20 @@ class Semslicer:
         necessary subregions so that the function write_xyz_files() can be 
         called with the expected behavior.
 
-        ..warning::
+        .. warning::
             This only handles the case where the zmin/zmax values of adjacent
             layers are touching, or not. If the layers overlap, then redundant
             points will be written into the resulting .xyz file.
             To avoid errors, ensure that your subregions touch, or are separated
             by 'dz'
+
+        :type sort: bool
+        :param sort: sort the output files by coordinate. required for SPECFEM
+            to be able to work with the resulting .xyz files. But if the files
+            are quite big then memory errors become a problem and this may have
+            to be done externally
         """
-        self.make_grids() 
+        self.make_grids(write=False) 
 
         # This defines the line format passed to np.savetxt
         xyz_fmt = ["%8.1f", "%10.1f", "%8.1f", "%12.5f", "%12.5f"] 
@@ -434,31 +484,43 @@ class Semslicer:
                                     
                         zmin_last = zmin
                         zmax_last = zmax
+                
+                # Free up memory before moving onto sorting
+                if sort:
+                    del d
 
-                # Sorta hacky: re-read written file and sort depth values in
-                # descending order since they won't have any natural order and
-                # the xyz values need to match when writing into single xyz file
-                # which means reverse sorted by Z then Y then X
-                d = np.genfromtxt(fid_out, delimiter=",", dtype=None,
-                                  names=["x", "y", "z", "v", "d"])
-                d.sort(order=["z", "y", "x"])
+                    # Sorta hacky: re-read written file and sort depth values in
+                    # descending order since they won't have any natural order 
+                    # and the xyz values need to match when writing into single 
+                    # xyz file which means reverse sorted by Z then Y then X
+                    d = np.genfromtxt(fid_out, delimiter=",", dtype=None,
+                                      names=["x", "y", "z", "v", "d"])
+                    d.sort(order=["z", "y", "x"])
 
-                print(f"\t{fid_out}: {len(d)} pts")
-                np.savetxt(fid_out, d, delimiter=",", fmt=xyz_fmt)
+                    print(f"\t{fid_out}: {len(d)} pts")
+                    np.savetxt(fid_out, d, delimiter=",", fmt=xyz_fmt)
                 
 
 if __name__ == "__main__":
     cfg_file = "cfg.yaml"
-    model = "model_0017"
+    model = "birch_m11"
     ss = Semslicer(cfg_file)
 
     if len(sys.argv) > 1:
         if sys.argv[1] == "submit":
+            # Step 1: submit xsemslicer jobs to Maui to interrogate 
             ss.submit_jobs_maui(model)
-        elif sys.argv[1] == "write":
-            ss.write_xyz_files()
+        elif sys.argv[1] == "check":
+            # Step 1a: check that the xsemslicer outputs are formatted properly,
+            # not mandatory but 'combine' and 'write' may fail if not run
+            ss.check_xsemslicer_format()
         elif sys.argv[1] == "combine":
-            ss.combine_subregions()
+            # Step 2 (Optional): if region was split into segments, combine segs
+            ss.combine_subregions(sort=False)
+        elif sys.argv[1] == "write":
+            # Step 3: write individual parameters into SPECFEM tomography files
+            ss.write_xyz_files()
     else:
+        # Define the grid structure that will be used for interrogation
         ss.make_grids(write=False)
            

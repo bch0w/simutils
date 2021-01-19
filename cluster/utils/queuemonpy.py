@@ -5,8 +5,10 @@ to check job status. Designed for the NeSI system Maui.
 """
 import sys
 import time
-import smtplib
+import getpass
 import argparse
+
+import smtplib
 import subprocess
 
 def parse_args():
@@ -17,7 +19,7 @@ def parse_args():
 
     parser.add_argument("jobid", type=str, nargs="?",
                         help="The numerical job identifier, collected as list")
-    parser.add_argument("-p", "--password", required=True, type=str, nargs="?")
+    parser.add_argument("-p", "--password", type=str, nargs="?")
     parser.add_argument("-a", "--account", type=str, nargs=1,
                         default="chowbr", help="Account name on cluster")
     parser.add_argument("-c", "--cluster", type=str, nargs=1,
@@ -45,6 +47,8 @@ class Queuemonpy:
         before finishing initialization.
         """
         self.args = parse_args()
+        if not self.args.password:
+            self.args.password = getpass.getpass()
         if check_login:
             try:
                 if bool(self.args.initial):
