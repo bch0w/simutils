@@ -40,6 +40,9 @@ subsequent SPECFEM run.
     max_x        min_y          min_z
     min_x        min_y + dy     min_z
     ...
+    min_x        max_y          min_z
+    min_x        min_y          min_z + dz
+    ...
 
     Hopefully you can figure out the rest from there. Took me three straight 
     weeks to figure out all this stuff, and what a struggle it was...
@@ -391,7 +394,7 @@ class Semslicer:
                     f.write(f"{data.rho[k]:.1f} {data.qp[k]:.1f} ")
                     f.write(f"{data.qmu[k]:.1f}\n")
 
-    def combine_subregions(self):
+    def combine_subregions(self, sort=True):
         """
         If a region has very dense grid spacing, the cluster may segfault due to
         the temporary storage of a very large number of points. To work around 
@@ -407,6 +410,12 @@ class Semslicer:
             points will be written into the resulting .xyz file.
             To avoid errors, ensure that your subregions touch, or are separated
             by 'dz'
+
+        :type sort: bool
+        :param sort: sort the output files by coordinate. required for SPECFEM
+            to be able to work with the resulting .xyz files. But if the files
+            are quite big then memory errors become a problem and this may have
+            to be done externally
         """
         self.make_grids(write=False) 
 
@@ -475,17 +484,21 @@ class Semslicer:
                                     
                         zmin_last = zmin
                         zmax_last = zmax
+                
+                # Free up memory before moving onto sorting
+                if sort:
+                    del d
 
-                # Sorta hacky: re-read written file and sort depth values in
-                # descending order since they won't have any natural order and
-                # the xyz values need to match when writing into single xyz file
-                # which means reverse sorted by Z then Y then X
-                d = np.genfromtxt(fid_out, delimiter=",", dtype=None,
-                                  names=["x", "y", "z", "v", "d"])
-                d.sort(order=["z", "y", "x"])
+                    # Sorta hacky: re-read written file and sort depth values in
+                    # descending order since they won't have any natural order 
+                    # and the xyz values need to match when writing into single 
+                    # xyz file which means reverse sorted by Z then Y then X
+                    d = np.genfromtxt(fid_out, delimiter=",", dtype=None,
+                                      names=["x", "y", "z", "v", "d"])
+                    d.sort(order=["z", "y", "x"])
 
-                print(f"\t{fid_out}: {len(d)} pts")
-                np.savetxt(fid_out, d, delimiter=",", fmt=xyz_fmt)
+                    print(f"\t{fid_out}: {len(d)} pts")
+                    np.savetxt(fid_out, d, delimiter=",", fmt=xyz_fmt)
                 
 
 if __name__ == "__main__":
@@ -503,7 +516,7 @@ if __name__ == "__main__":
             ss.check_xsemslicer_format()
         elif sys.argv[1] == "combine":
             # Step 2 (Optional): if region was split into segments, combine segs
-            ss.combine_subregions()
+            ss.combine_subregions(sort=False)
         elif sys.argv[1] == "write":
             # Step 3: write individual parameters into SPECFEM tomography files
             ss.write_xyz_files()

@@ -29,3 +29,45 @@ region_2:
   dx: 1.
   dy: 1.
   dz: .25
+region_3:
+  tag: crust_3
+  zmin: -22.
+  zmax: -17.
+  dx: 1.
+  dy: 1.
+  dz: .25
+region_4:
+  tag: crust_4
+  zmin: -27.
+  zmax: -22.
+  dx: 1.
+  dy: 1.
+  dz: .25
+region_5:
+  tag: crust_5
+  zmin: -32.
+  zmax: -27.
+  dx: 1.
+  dy: 1.
+  dz: .25
+region_6:
+  tag: crust_6
+  zmin: -37.
+  zmax: -32.
+  dx: 1.
+  dy: 1.
+  dz: .25
+region_7:
+  tag: crust_7
+  zmin: -42.
+  zmax: -37.
+  dx: 1.
+  dy: 1.
+  dz: .25
+region_8:
+  tag: crust_8
+  zmin: -47.
+  zmax: -42.
+  dx: 1.
+  dy: 1.
+  dz: .25

@@ -24,15 +24,15 @@ region_1:
   dz: .25
 region_2:
   tag: crust
-  zmin: -50.
+  zmin: -47.
   zmax: -7.
   dx: 1.
   dy: 1.
-  dz: .5
+  dz: .25
 region_3:
   tag: mantle
   zmin: -400.
-  zmax: -46.
+  zmax: -44.
   dx: 4.
   dy: 4.
   dz: 4.
