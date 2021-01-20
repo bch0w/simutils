@@ -35,7 +35,7 @@ from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              ResetSession, Hide, servermanager, OpenDataFile,
                              ResetCamera, Clip, PointSource, Glyph,
                              CreateRenderView, SetActiveView, GetSources, Axes,
-                             ColorBy)
+                             ColorBy, PointDatasetInterpolator)
 
 
 
@@ -164,8 +164,8 @@ PRESETS = {
              "center_cmap": True,
              "range_label_format": "%.02f",
              "round_base": None,
-             "bounds": [-.15, .15],
-             # "bounds": True,
+             "bounds": [-1, 1],
+             # "bounds": False,
              "num_table_values": 64,
              },
         "ratio_poissons":
@@ -534,6 +534,55 @@ def mark_min_max_values(src):
         Show(glyph, renderView, "GeometryRepresentation")
 
 
+def ruler_grid_axes_depth_slice(src, tick_spacing_km=50):
+    """
+    Grid axes are a bit finagly because they can be difficult to control.
+    Instead we use rulers to outline the source domain, which allows us to
+    fine tune the tick spacing, as well as which axes we want to plot on
+
+    :param src:
+    :param tick_spacing:
+    :param axes:
+    :return:
+    """
+    tick_spacing_m = tick_spacing_km * 1E3
+    x, y, z = get_coordinates(src)
+
+    # ruler_origin_bot = [min(x), min(y), max(z)]
+    # ruler_origin_top = [min(x), max(y), max(z)]
+
+    # Figure out an acceptable end point that allows us to have even grid
+    # spacings but is as close to the actual volume end point as possible
+    x_end_point = myround(max(x) - min(x), tick_spacing_m) + min(x)
+    while x_end_point > max(x):
+        x_end_point -= tick_spacing_m
+    ruler_x_bot = [x_end_point, min(y), max(z)]
+    ruler_x_top = [x_end_point, max(y), max(z)]
+    tick_num_x = int((x_end_point - min(x)) // tick_spacing_m)
+
+    y_end_point = myround(max(y) - min(y), tick_spacing_m) + min(y)
+    while y_end_point > max(y):
+        y_end_point -= tick_spacing_m
+    ruler_y_lft = [min(x), y_end_point, max(z)]
+    ruler_y_rgt = [max(x), y_end_point, max(z)]
+    tick_num_y = int((y_end_point - min(y)) // tick_spacing_m)
+
+    # Bottom axis
+    create_ruler(point1=ruler_x_bot, point2= [min(x), min(y), max(z)],
+                 label=f"[X] (dx={tick_spacing_km}km)", reg_name="ruler1",
+                 ticknum=tick_num_x)
+    # Bottom axis
+    create_ruler(point1=[min(x), max(y), max(z)], point2=ruler_x_top,
+                 reg_name="ruler2", ticknum=tick_num_x)
+    # Left axis
+    create_ruler(point1=[min(x), min(y), max(z)], point2=ruler_y_lft,
+                 label="[Y]", reg_name="ruler3", ticknum=tick_num_y)
+
+    # Right axis
+    create_ruler(point1=ruler_y_rgt, point2=[max(x), min(y), max(z)],
+                 reg_name="ruler4", ticknum=tick_num_y)
+
+
 def show_colorbar():
     """
     Sometimes colorbar is not set to visible, this function will force it out
@@ -589,22 +638,16 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     if "surface" in slices:
         Show(vtk)
 
-    # ANNOTATIONS: Depth slice annotations sit at the bottom-right corner
+    # Annotate the depth at the bottom-right corner
     text, _ = create_text(s="", position=[0.625, 0.1], reg_name="text1",
                 fontsize=FONTSIZE * 2)
-    # Text showing the file name for easy id of data
+
+    # Annotate the file id at the top-left corner
     create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                position=[0.45, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
+                position=[0.249, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
 
-    # RULER: Create rulers as scalebar, sits under the colorbar, mid left
-    ruler_origin = [198000, 5722936, 0]
-    ruler_x = [298000, 5722936, 0]
-    ruler_y = [198000, 5622936, 0]
-
-    create_ruler(point1=ruler_origin, point2=ruler_x, label="100km [X]",
-                 reg_name="ruler1")
-    create_ruler(point1=ruler_origin, point2=ruler_y, label="[Y]",
-                 reg_name="ruler2")
+    # Create bounding axes with pre-defined tick marks using rulers
+    ruler_grid_axes_depth_slice(vtk)
 
     # CAMERA: Hard set the camera as a top-down view over model, manually set
     ResetCamera()
@@ -612,13 +655,14 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     renderView.CameraPosition = [401399., 5567959., 1276057.]
     renderView.CameraFocalPoint = [401399., 5567959., -197500.0]
     renderView.CameraViewUp = [0, 1, 0]
-    # renderView.OrientationAxesVisibility = 1
     Render()
 
-    vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.249, 0.78],
+    # Sit the colorbar partway down from the top left corner
+    vsLUT, cbar = set_colormap_create_colorbar(vtk, position=[0.249, 0.75],
                                                orientation="Vertical",)
 
-    # SLICE: Generate slices through the volume at desired depth levels
+    # Generate slices through the volume at desired depth levels
+    # Make special precautions if we're looking at surface projections
     for slice_ in slices:
         if slice_ == "surface":
             tag = "z_0map"
@@ -642,19 +686,22 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
 
         text.Text = tag
         show_colorbar()
+
+        # Put some marks on the figure to show where the min/max values are
         mark_min_max_values(slice_vtk)
 
-        # SCREENSHOT: Save screenshot, hide slice and move on
+        # Save screenshot, hide slice and move on, job done
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
                        ImageResolution=VIEW_SIZE, TransparentBackground=1)
         Hide(slice_vtk, renderView)
         
-        # Delete the min max value points because these change w/ each slice
+        # Delete the min max value points because they'll change w/ each slice
         for reg_name in ["glyph_minmax_0", "glyph_minmax_1"]:
             src = FindSource(reg_name)
             Delete(src)
 
-    # CLEAR: Remove any additional objects created during plotting
+    # Remove any additional objects created during plotting that won't be
+    # cleared off with a reset()
     for reg_name in ["text1", "text2", "ruler1", "ruler2"]:
         src = FindSource(reg_name)
         Delete(src)
@@ -786,7 +833,8 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
-        for reg_name in ["ruler1", "ruler2", "text1", "text2",]:
+        for reg_name in ["ruler1", "ruler2", "ruler3", "ruler4",
+                         "text1", "text2"]:
             src = FindSource(reg_name)
             Delete(src)
 
@@ -839,22 +887,33 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
         # we need to determine the corner grid locations of the slice
         x, y, z = get_coordinates(clip_vtk)
 
-        # RULERS: Create rulers for use as scalebars
-        dist_m = 100E3
-        angle_rad = math.atan(normal[0] / normal[1])
         ruler_origin = [min(x), max(y), min(z)]  # bottom left
+
+        # Find the optimal length of the slice to fit in an even spacing o ticks
+        tick_spacing_m = 50E3
+        slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
+        dist_m_h = myround(slice_length_m, tick_spacing_m)
+        while dist_m_h > slice_length_m:
+            dist_m_h -= tick_spacing_m
+        num_ticks_h = int(dist_m_h // tick_spacing_m)
 
         # Horizontal ruler dimensions must be found with the power of geometry!
         # Took me way too long to figure out how to do this properly
-        ruler_h = [min(x) + dist_m * math.cos(angle_rad),
-                   max(y) - dist_m * math.sin(angle_rad),
+        angle_rad = math.atan(normal[0] / normal[1])
+        ruler_h = [min(x) + dist_m_h * math.cos(angle_rad),
+                   max(y) - dist_m_h * math.sin(angle_rad),
                    min(z)]
-        ruler_v = [min(x), max(y), min(z) + dist_m]
+
+        # Keep the vertical scaling constant because it won't change
+        dist_m_v = depth_cutoff_km * 1E3
+        ruler_v = [min(x), max(y), min(z) + dist_m_v]
 
         create_ruler(point1=ruler_origin, point2=ruler_h,
-                     label=f"{dist_m/1E3:.0f}km", reg_name="ruler1")
-        create_ruler(point1=ruler_origin, point2=ruler_v, label="[Z]",
-                     reg_name="ruler2", font_color=COLOR_TABLE["w"])
+                     label=f"{dist_m_h/1E3:.0f}km "
+                           f"(dh={int(tick_spacing_m*1E-3)}km)",
+                     reg_name="ruler1", ticknum=num_ticks_h)
+        create_ruler(point1=ruler_v, point2=ruler_origin, label="[Z]\n(dz=25km)",
+                     reg_name="ruler2")
 
         # GLPYH: Create a reference point based on the landmark location
         point = PointSource(registrationName="point1")
@@ -901,6 +960,54 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
             Delete(src)
 
 
+def make_interface(fid, preset, save_path=os.getcwd()):
+    """
+    Project the model onto the plate interface model from Charles Williams
+    """
+    vtk = OpenDataFile(fid)
+    RenameSource("surface", vtk)
+    renderView = GetActiveView()
+
+    interface = OpenDataFile("/Users/Chow/Documents/academic/vuw/data/"
+                             "carto/interface/interface_utm60.vtk")
+    interpolator = PointDatasetInterpolator(Input=vtk, Source=interface)
+    interpolator.Kernel = "VoronoiKernel"
+    interpolator.Locator = "Static Point Locator"
+    interpolatorDisplay = Show(interpolator, renderView,
+                               "UnstructuredGridRepresentation")
+    # CAMERA: Hard set the camera as a top-down view over model, manually set
+    ResetCamera()
+    renderView = GetActiveView()
+    renderView.CameraPosition = [401399., 5567959., 1276057.]
+    renderView.CameraFocalPoint = [401399., 5567959., -197500.0]
+    renderView.CameraViewUp = [0, 1, 0]
+    Render()
+
+    vsLUT, cbar = set_colormap_create_colorbar(interpolator,
+                                               position=[0.249, 0.78],
+                                               orientation="Vertical",)
+    rescale_colorscale(vsLUT, src=interpolator, vtk=vtk, preset=preset)
+    show_colorbar()
+    mark_min_max_values(interpolator)
+
+
+    # ANNOTATIONS: Depth slice annotations sit at the bottom-right corner
+    text, _ = create_text(s="Interface", position=[0.625, 0.1],
+                          reg_name="text1", fontsize=FONTSIZE * 2)
+
+    # Text showing the file name for easy id of data
+    create_text(s=os.path.splitext(os.path.basename(fid))[0],
+                position=[0.45, 0.95], reg_name="text2",
+                fontsize=FONTSIZE * 2)
+
+
+    # SCREENSHOT: Save screenshot, hide slice and move on
+
+    SaveScreenshot(os.path.join(save_path, f"interface.png"), renderView,
+                   ImageResolution=VIEW_SIZE, TransparentBackground=1)
+    Hide(interpolator, renderView)
+
+
 if __name__ == "__main__":
     # Command line arguments to define behavior of script
     parser = argparse.ArgumentParser()
@@ -932,6 +1039,10 @@ if __name__ == "__main__":
                              "plane normal to the Y-axis.")
     parser.add_argument("-t", "--trench", action="store_true",
                         help="plot pre-defined cross-sections normal to trench",
+                        default=False)
+    parser.add_argument("-i", "--interface", action="store_true",
+                        help="plot projection of model onto plate interface "
+                             "of Charles Williams",
                         default=False)
     parser.add_argument("-c", "--cutoff_km", type=float, default=100,
                         help="For any vertical cross sections (Y-axis figure "
@@ -1025,6 +1136,13 @@ if __name__ == "__main__":
             make_trench_cross_sections(data_fid, preset,
                                        depth_cutoff_km=args.cutoff_km,
                                        save_path=save_path)
+            reset()
+
+        # Create interface projection
+        if args.interface:
+            if args.verbose:
+                print("\tGenerating interface projection")
+            make_interface(data_fid, preset, save_path=save_path)
             reset()
            
 
