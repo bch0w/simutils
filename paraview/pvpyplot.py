@@ -164,7 +164,7 @@ PRESETS = {
              "center_cmap": True,
              "range_label_format": "%.02f",
              "round_base": None,
-             "bounds": [-1, 1],
+             "bounds": [-.15, .15],
              # "bounds": False,
              "num_table_values": 64,
              },
@@ -236,7 +236,7 @@ def parse_slice_list(slice_list):
     include_surface = False
 
     for value in slice_list:
-        if value == "surface":
+        if value in ["surface", "s"]:
             # Do this at the end so we can sort the list first
             include_surface = True
             continue
@@ -285,6 +285,8 @@ def depth_slice(vtk, depth):
     Show(slice_vtk, renderView)
     RenameSource(f"z_{depth}km", slice_vtk)
     Hide3DWidgets(proxy=slice_vtk)
+
+    return slice_vtk
 
 
 def cross_section(vtk, normal, origin, name):
@@ -637,13 +639,14 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
     return vsLUT
 
 
-def show_colorbar():
+def show_colorbar(src=None):
     """
     Sometimes colorbar is not set to visible, this function will make it visible
     """
     renderView = GetActiveView()
-    active = GetActiveSource()
-    display = GetDisplayProperties(active, view=renderView)
+    if src is None:
+        src = GetActiveSource()
+    display = GetDisplayProperties(src, view=renderView)
     display.SetScalarBarVisibility(renderView, True)
 
 
@@ -732,7 +735,7 @@ def plot_events():
     srcs = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
                          "vtk_files/srcs_d.vtk")
     RenameSource("srcs", srcs)
-    glyph = Glyph(registrationName="src_glyph", Input=srcs,
+    glyph = Glyph(registrationName="srcs_g", Input=srcs,
                   GlyphType="2D Glyph")
     glyph.ScaleArray = ["POINTS", "No scale array"]
     glyph.ScaleFactor = 10000.
@@ -752,13 +755,12 @@ def plot_stations():
     """
     Plot FOREST inversion station locations (VTK file) as 2D diamonds normal
     to the Z axis
-    :return:
     """
     renderView = GetActiveView()
     rcvs = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
                          "vtk_files/rcvs.vtk")
     RenameSource("rcvs", rcvs)
-    glyph = Glyph(registrationName="rcv_glyph", Input=rcvs,
+    glyph = Glyph(registrationName="rcvs_g", Input=rcvs,
                   GlyphType="2D Glyph")
     glyph.ScaleArray = ["POINTS", "No scale array"]
     glyph.ScaleFactor = 10000.
@@ -785,12 +787,12 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
         Show(vtk)
 
     # Annotate the depth at the bottom-right corner
-    text, _ = create_text(s="", position=[0.625, 0.1], reg_name="text1",
+    text, _ = create_text(s="", position=[0.65, 0.05], reg_name="text1",
                           fontsize=FONTSIZE * 2)
 
     # Annotate the file id at the top-left corner
     create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                position=[0.249, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
+                position=[0.249, 0.9], reg_name="text2", fontsize=FONTSIZE * 2)
 
     # Create bounding axes with pre-defined tick marks using rulers
     create_ruler_grid_axes_depth_slice(vtk)
@@ -798,20 +800,27 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     # CAMERA: Hard set the camera as a top-down view over model, manually set
     ResetCamera()
     renderView = GetActiveView()
-    renderView.CameraPosition = [401399., 5567959., 1276057.]
-    renderView.CameraFocalPoint = [401399., 5567959., -197500.0]
+    renderView.InteractionMode = "2D"
+    renderView.CameraPosition = [403648., 5595153., 1721019.]
+    renderView.CameraFocalPoint = [403648., 5595153., 2300.0]
+    renderView.CameraParallelScale = 326545.
     renderView.CameraViewUp = [0, 1, 0]
     Render()
 
+    # This is good for a 3D projection but that's trash for viewing 2D planes
+    # renderView.CameraPosition = [401399., 5567959., 1276057.]
+    # renderView.CameraFocalPoint = [401399., 5567959., -197500.0]
+
+
     # Sit the colorbar partway down from the top left corner
-    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.249, 0.75],
+    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.25, 0.7],
                                         orientation="Vertical",)
 
     # Generate slices through the volume at desired depth levels
     # Make special precautions if we're looking at surface projections
     for slice_ in slices:
         if slice_ == "surface":
-            tag = "z_0map"
+            tag = "z_00map"
             slice_vtk = vtk
 
             # 'Hacky' method to get data range by selecting surface points
@@ -827,13 +836,12 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
             ClearSelection()
         else:
             slice_vtk = depth_slice(vtk, float(slice_))
+            create_minmax_glyphs(slice_vtk)
             tag = f"z_{slice_:0>2}km"
             rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
 
         text.Text = tag
-        show_colorbar()
-
-        # Put some marks on the figure to show where the min/max values are
+        show_colorbar(slice_vtk)
         create_minmax_glyphs(slice_vtk)
 
         # Save screenshot, hide slice and move on, job done
@@ -843,7 +851,6 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
         
         # Delete the min max value points because they'll change w/ each slice
         delete_temp_objects(glyph=True)
-
 
 def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
                        save_path=os.getcwd()):
@@ -873,6 +880,7 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
     Show(vtk)
     ResetCamera()
     renderView = GetActiveView()
+    renderView.InteractionMode = "2D"
     Hide(vtk, renderView)
 
     # In order to set the camera, annotations, etc. in a general fashion,
@@ -943,16 +951,16 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
 
         # Annotate distance
         create_text(f"{normal}={(axis_dist-min(naxis))*1E-3:.2f}km",
-                    position=[0.2, 0.3], reg_name="text1",
+                    position=[0.2, 0.25], reg_name="text1",
                     fontsize=int(FONTSIZE * 1.5))
 
         # Text showing the file name for easy id of data
         create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                    position=[0.6, 0.3], reg_name="text2",
+                    position=[0.6, 0.25], reg_name="text2",
                     fontsize=int(FONTSIZE * 1.5))
 
         # Generate and rescale the colorbar/ colormap
-        vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.325],
+        vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.275],
                                             orientation="Horizontal", )
         cbar.TextPosition = "Ticks left/bottom, annotations right/top"
         rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
@@ -960,16 +968,15 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
         display.SetScalarBarVisibility(renderView, True)
 
         # Reset camera view to be normal to the plane. Specific to this plane
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
         if normal == "x":
-            renderView.CameraPosition = [-796319., 5599778., -75011.]
-            renderView.CameraFocalPoint = [1347584., 5599778., -75011.]
-            renderView.CameraViewUp = [0.0, 0.0, 1.0]
-            renderView.CameraParallelScale = 554883.
+            renderView.CameraPosition = [-1100117., 5629267., -39303.]
+            renderView.CameraFocalPoint = [402390.0, 5629267., -39303.]
+            renderView.CameraParallelScale = 274961.
         elif normal == "y":
-            renderView.CameraPosition = [403183., 4578846., -62023.]
-            renderView.CameraFocalPoint = [403183., 6971952., -62023.]
-            renderView.CameraViewUp = [0.0, 0.0, 1.0]
-            renderView.CameraParallelScale = 619381.
+            renderView.CameraPosition = [378617., 4093007., -47332.]
+            renderView.CameraFocalPoint = [378617., 5595515.0, -47332.]
+            renderView.CameraParallelScale = 205602.
         Render()
 
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
@@ -997,6 +1004,7 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
     Show(vtk)
     ResetCamera()
     renderView = GetActiveView()
+    renderView.InteractionMode = "2D"
     Hide(vtk, renderView)
 
     for i, (name, origin) in enumerate(TRENCH_XSECTIONS.items()):
@@ -1120,6 +1128,7 @@ def make_interface(fid, preset, save_path=os.getcwd()):
     vtk = OpenDataFile(fid)
     RenameSource("surface", vtk)
     renderView = GetActiveView()
+    renderView.InteractionMode = "3D"
 
     # Here we open a file I generated which is simply a VTK file that defines
     # an XYZ surface with the PointData being the Z values.
@@ -1148,7 +1157,7 @@ def make_interface(fid, preset, save_path=os.getcwd()):
     vsLUT, cbar = set_colormap_colorbar(interpolator, position=[0.249, 0.75],
                                         orientation="Vertical",)
     rescale_colorscale(vsLUT, src=interpolator, vtk=vtk, preset=preset)
-    show_colorbar()
+    show_colorbar(interpolator)
     create_minmax_glyphs(interpolator, glyph_type="Sphere", scale_factor=20000)
 
     # Annotate the bottom-right corner to explain this is the interface
@@ -1157,13 +1166,31 @@ def make_interface(fid, preset, save_path=os.getcwd()):
 
     # Annotate the file ID so we know what we're plotting
     create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                position=[0.249, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
+                position=[0.25, 0.95], reg_name="text2", fontsize=FONTSIZE * 2)
 
 
     # Save screenshot, hide the surface and move on
     SaveScreenshot(os.path.join(save_path, f"interface.png"), renderView,
                    ImageResolution=VIEW_SIZE, TransparentBackground=1)
     Hide(interpolator, renderView)
+
+
+def make_preplot(args):
+    """
+    Convenience function to plot extras such as coastline, srcs, rcvs
+    """
+    if args.coastline or args.extras:
+        if args.verbose:
+            print(f"\t\tPlotting coastline")
+        plot_coastline()
+    if args.events or args.extras:
+        if args.verbose:
+            print(f"\t\tPlotting event glyphs")
+        plot_events()
+    if args.stations or args.extras:
+        if args.verbose:
+            print(f"\t\tPlotting station glyphs")
+        plot_stations()
 
 
 if __name__ == "__main__":
@@ -1206,6 +1233,13 @@ if __name__ == "__main__":
                         help="plot events as glyphs", default=False)
     parser.add_argument("-s", "--stations", action="store_true",
                         help="plot stations as glyphs", default=False)
+    parser.add_argument("-E", "--extras", action="store_true",
+                        help="shorthand to plot coastline, src glyphs and "
+                             "rcv glyphs, same as '-ces'",
+                        default=False,)
+    parser.add_argument("-A", "--all", action="store_true", default=False,
+                        help="shorthand to make all default slices, "
+                             "same as '-xyzit'")
     parser.add_argument("-d", "--depth_cutoff_km", type=float, default=100,
                         help="For any vertical cross sections (Y-axis figure "
                              "normal to Z axis of volume), define the depth"
@@ -1223,6 +1257,7 @@ if __name__ == "__main__":
     # Set up the active render view
     renderView = GetActiveViewOrCreate("RenderView")
     renderView.ViewSize = VIEW_SIZE
+    renderView.InteractionMode = "2D"
     SetActiveView(renderView)
 
     for data_fid in args.files:
@@ -1257,25 +1292,16 @@ if __name__ == "__main__":
             preset["bounds"] = [float(_) for _ in args.bounds.split(",")]
 
         # ======================================================================
-        # PREPLOTTING
-        # ======================================================================
-        if args.coastline:
-            plot_coastline()
-        if args.events:
-            plot_events()
-        if args.stations:
-            plot_stations()
-
-        # ======================================================================
         # DEPTH SLICES
         # ======================================================================
         zslices = []
-        if args.default_zslices:
+        if args.default_zslices or args.all:
             zslices += ["surface", "2-20,2", "25-50,5"]
         if args.zslices:
             zslices += args.zslices
 
         if zslices:
+            make_preplot(args)
             zslices = parse_slice_list(zslices)
             if args.verbose:
                 print(f"\tGenerating Z slices for {zslices}")
@@ -1285,7 +1311,7 @@ if __name__ == "__main__":
         # ======================================================================
         # X-NORMAL CROSS SECTIONS
         # ======================================================================
-        if args.xslices:
+        if args.xslices or args.all:
             # Do not go for 0 or 100 % because you might end up off the model
             xslices = list(range(5, 100, 10))
             if args.verbose:
@@ -1298,7 +1324,7 @@ if __name__ == "__main__":
         # ======================================================================
         # Y-NORMAL CROSS SECTIONS
         # ======================================================================
-        if args.yslices:
+        if args.yslices or args.all:
             # Possible to manually set the y-slice list here
             yslices = list(range(5, 100, 10))
             if args.verbose:
@@ -1311,7 +1337,7 @@ if __name__ == "__main__":
         # ======================================================================
         # TRENCH NORMAL CROSS SECTIONS
         # ======================================================================
-        if args.trench:
+        if args.trench or args.all:
             if args.verbose:
                 print("\tGenerating trench normal cross sections")
             make_trench_cross_sections(data_fid, preset,
@@ -1322,9 +1348,10 @@ if __name__ == "__main__":
         # ======================================================================
         # PROJECTION ONTO INTERFACE
         # ======================================================================
-        if args.interface:
+        if args.interface or args.all:
             if args.verbose:
                 print("\tGenerating interface projection")
+            make_preplot(args)
             make_interface(data_fid, preset, save_path=save_path)
             reset()
            
