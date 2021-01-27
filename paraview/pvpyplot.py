@@ -47,153 +47,12 @@ COLOR_TABLE = {"k": [0., 0., 0.], "w": [1., 1., 1.], "r": [1., 0., 0.],
 # General fontsize and color for standard objects, e.g. text, rulers
 FONTSIZE = 15
 COLOR = COLOR_TABLE["k"]
+
 # Size of the output screenshots
 VIEW_SIZE = [1037, 813]
 
-"""
-Preset parameters that should stay constant among certain file types
-
-:cbar_title (str): Label for the colorbar
-:colormap (str): Colormap to define LUT
-:invert_cmap (bool): Invert the original bounds of the colormap
-:center_cmap (bool): Ensure that the middle value of the colormap is 0
-:range_label_format (str): String formatter for the range bounds on colorbar
-:round_base (int): Round range labels to a base value, if None, no rounding
-:bounds (bool or tuple or list): Can be overwritten using the '-b' arg
-    * True: keep the colorbar bounds constant for every screenshot using the 
-    min/max values of the entire volume. 
-    * False: use whatever default bounds are set by Paraview, 
-    * tuple/list: Manually set the bounds; must be in the form (min, max)
-:num_table_values (int): Number of segmentations in the colorbar
-"""
-PRESETS = {
-        "custom_vs":
-            {"cbar_title": "Vs [m/s]",
-             "colormap": "RdYlBu",
-             "invert_cmap": False,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": False,
-             "num_table_values": 21,
-             },
-        "custom_vpvs":
-            {"cbar_title": "Vp/Vs Ratio",
-             "colormap": "Yellow - Gray - Blue",
-             "invert_cmap": False,
-             "center_cmap": False,
-             "range_label_format": "%.2f",
-             "round_base": None,
-             "bounds": (1.55, 2.1),
-             "num_table_values": 28,
-             },
-        "trench_vs":
-            {"cbar_title": "Vs [m/s]",
-             "colormap": "Rainbow Desaturated",
-             "invert_cmap": True,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": [2000, 5500],
-             "num_table_values": 64,
-             },
-        "model_rho":
-            {"cbar_title": "Density [kg m^-3]",
-             "colormap": "Rainbow Desaturated",
-             "invert_cmap": True,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": False,
-             "num_table_values": 64,
-             },
-        "model_vp":
-            {"cbar_title": "Vp [m/s]",
-             "colormap": "Rainbow Desaturated",
-             "invert_cmap": True,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": False,
-             "num_table_values": 64,
-             },
-        "model_vs":
-            {"cbar_title": "Vs [m/s]",
-             "colormap": "Rainbow Desaturated",
-             "invert_cmap": True,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": False,
-             "num_table_values": 64,
-             },
-        "gradient_vp_kernel":
-            {"cbar_title": "Vp Gradient [m^-2 s^2]",
-             "colormap": "Cool to Warm (Extended)",
-             "invert_cmap": True,
-             "center_cmap": True,
-             "range_label_format": "%.1E",
-             "round_base": None,
-             "bounds": True,
-             "num_table_values": 64,
-             },
-        "gradient_vs_kernel":
-            {"cbar_title": "Vs Gradient [m^-2 s^2]",
-             "colormap": "Cool to Warm (Extended)",
-             "invert_cmap": True,
-             "center_cmap": True,
-             "range_label_format": "%.1E",
-             "round_base": None,
-             "bounds": True,
-             "num_table_values": 64,
-             },
-        "update_vp":
-            {"cbar_title": "Vp Net Update [ln(m/m00)]",
-             "colormap": "Blue Orange (divergent)",
-             "invert_cmap": True,
-             "center_cmap": True,
-             "range_label_format": "%.02f",
-             "round_base": None,
-             "bounds": True,
-             "num_table_values": 64,
-             },
-        "update_vs":
-            {"cbar_title": "Vs Net Update [ln(m/m00)]",
-             "colormap": "Blue Orange (divergent)",
-             "invert_cmap": True,
-             "center_cmap": True,
-             "range_label_format": "%.02f",
-             "round_base": None,
-             "bounds": [-.15, .15],
-             # "bounds": False,
-             "num_table_values": 64,
-             },
-        "ratio_poissons":
-            {"cbar_title": "Poisson's Ratio",
-             "colormap": "Blue - Green - Orange",
-             "invert_cmap": False,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": None,
-             "bounds": True,
-             "num_table_values": 64,
-             },
-        "ratio_vpvs":
-            {"cbar_title": "Vp/Vs Ratio",
-             "colormap": "Cool to Warm (Extended)",
-             "invert_cmap": False,
-             "center_cmap": False,
-             "range_label_format": "%.2f",
-             "round_base": None,
-             "bounds": (1.55, 1.9),
-             "num_table_values": 28,
-             },
-        }
-
-
 # Pre-defined trench parallel cross sections w/ origins based on landmark
 # locations in UTM -60. Trench normal is defined as 40deg from the X-axis
-# This normal vector defines 40deg to the x-axis (40 deg from Donna 2015)
 TRENCH_NORMAL = [-0.64, -0.76, 0.]
 TRENCH_XSECTIONS = {"Wellington": [314007., 5426403., 0.,],
                     "Flatpoint": [413092., 5433559., 0.,],
@@ -206,6 +65,121 @@ TRENCH_XSECTIONS = {"Wellington": [314007., 5426403., 0.,],
                     "Mahia": [575567., 5665558., 0.,],
                     "Gisborne": [588984., 5720001., 0.,],
                     }
+
+
+class Preset(dict):
+    """
+    A more accesible dict object for storing preset values for defining
+    colormaps, and the associated colorbars for different model types
+    """
+    def __init__(self, title="", cmap="Jet", invert=False, center=False, 
+                 format="%.2f", round=10, bounds=False, nlabel=3, nvalues=28,
+                 above_range=False, below_range=False):
+        """
+        :title (str): Label for the colorbar
+        :cmap (str): Colormap to define LUT
+        :invert (bool): Invert the original bounds of the colormap
+        :center (bool): Ensure that the middle value of the colormap is 0
+        :format (str): String formatter for the range bounds on colorbar
+        :round (int): Round range labels to a base value, if None, no rounding
+        :bounds (bool or tuple or list): Can be overwritten using the '-b' arg
+            * True: keep the colorbar bounds constant for every screenshot using 
+                the min/max values of the entire volume.
+            * False: use whatever default bounds are set by Paraview,
+            * tuple/list: Manually set the bounds; must be in the form (min, max)
+        :nlabel (int): Number of labels on the colorbar. Minimum is 2 to include
+            min and max values
+        :nvalues (int): Number of segmentations in the colorbar
+        :above_range (list or None): Use above range color
+        :below_range (list or None): Use below range color
+        """
+        self.title = title
+        self.cmap = cmap
+        self.invert = invert
+        self.center = center
+        self.format = format
+        self.round = round
+        self.bounds = bounds
+        self.nlabel = nlabel
+        self.nvalues = nvalues
+        self.above_range = above_range
+        self.below_range = below_range
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __getattr__(self, key):
+        return self[key]
+
+
+PRESETS = {
+    "custom_vs": Preset(
+        title="Vs [m/s]", cmap="RdYlBu", invert=False, center=False,
+        format="%.1f", round=10, bounds=False, nlabel=3, nvalues=21
+    ),
+    "donna_vpvs": Preset(
+        title="Vp/Vs Ratio", cmap="Cool to Warm (Extended)", invert=False,
+        center=False, format="%.2f", round=None, bounds=[1.55, 1.9], nlabel=4,
+        nvalues=14
+    ),
+    "trench_vs": Preset(
+        title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
+        format="%.1f", round=10, bounds=[2000,5500], nlabel=3, nvalues=64
+    ),
+    "model_rho": Preset(
+        title="Density [kg m^-3]", cmap="Rainbow Desaturated", invert=True,
+        center=False, format="%.1f", round=10, bounds=False, nlabel=3,
+        nvalues=64
+    ),
+    "model_vp": Preset(
+        title="Vp [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
+        format="%.1f", round=10, bounds=False, nlabel=3, nvalues=64
+    ),
+    "model_vs": Preset(
+        title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
+        format="%.1f", round=10, bounds=False, nlabel=3, nvalues=64
+    ),
+    "gradient_vp_kernel": Preset(
+        title="Vp Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
+        invert=True, center=True, format="%.1E", round=None, bounds=True,
+        nlabel=3, nvalues=64
+    ),
+    "gradient_vs_kernel": Preset(
+        title="Vs Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
+        invert=True, center=True, format="%.1E", round=None, bounds=[-1E-6,1E-6],
+        nlabel=3, nvalues=64
+    ),
+    "update_vp": Preset(
+        title="Vp Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, format="%.02f", round=None, bounds=[-.15,.15],
+        nlabel=3, nvalues=64
+    ),
+    "update_vs": Preset(
+        title="Vs Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, format="%.02f", round=None, bounds=True,
+        nlabel=3, nvalues=64
+    ),
+    "update_vpvs": Preset(
+        title="Vp/Vs Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, format="%.02f", round=None,
+        bounds=[-.15, .15], nlabel=3, nvalues=64
+    ),
+    "ratio_poissons": Preset(
+        title="Poisson's Ratio", cmap="Blue - Green - Orange", invert=False,
+        center=False, format="%.1f", round=None, bounds=True, nlabel=3,
+        nvalues=64
+    ),
+    "ratio_vpvs": Preset(
+        title="Vp/Vs Ratio", cmap="Green-Blue Asymmetric Divergent (62Blbc)",
+        invert=True, center=False, format="%.2f", round=None,
+        bounds=[1.55, 2.1], nlabel=4, nvalues=28
+    ),
+    "modulus_shear": Preset(
+        title="Shear Modulus [GPa]", cmap="Inferno (matplotlib)",
+        invert=True, center=False, format="%.0f", round=None,
+        bounds=[10, 40], nlabel=3, nvalues=10, above_range=[.78, .78, .78],
+    ),
+}
 
 
 def myround(x, base):
@@ -316,7 +290,7 @@ def cross_section(vtk, normal, origin, name):
 
 
 def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
-                 font_color=None, reg_name="ruler"):
+                 font_color=None, justification="Left", reg_name="ruler"):
     """
     Generate a ruler to be used as a scalebar
 
@@ -349,6 +323,7 @@ def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
     rulerDisplay.AxisColor = axis_color or COLOR
     rulerDisplay.Color = font_color or COLOR
     rulerDisplay.FontSize = FONTSIZE
+    rulerDisplay.Justification = justification
 
     Hide3DWidgets(proxy=ruler)
 
@@ -429,29 +404,23 @@ def create_ruler_grid_axes_depth_slice(src, tick_spacing_km=50, top=True,
     ruler_y_rgt = [max(x), y_end_point, max(z)]
     tick_num_y = int((y_end_point - min(y)) // tick_spacing_m)
 
-    reg_names = []
     if bottom:
         create_ruler(point1=ruler_x_bot, point2= [min(x), min(y), max(z)],
                      label=f"[X] (dx={tick_spacing_km}km)",
                      reg_name="ruler_bottom", ticknum=tick_num_x)
-        reg_names.append("ruler_bottom")
 
     if top:
         create_ruler(point1=[min(x), max(y), max(z)], point2=ruler_x_top,
                      reg_name="ruler_top", ticknum=tick_num_x)
-        reg_names.append("ruler_top")
 
     if left:
         create_ruler(point1=[min(x), min(y), max(z)], point2=ruler_y_lft,
                      label=f"[Y]\n(dy={tick_spacing_km}km)",
                      reg_name="ruler_left", ticknum=tick_num_y)
-        reg_names.append("ruler_left")
     if right:
         create_ruler(point1=ruler_y_rgt, point2=[max(x), min(y), max(z)],
                      reg_name="ruler_right", ticknum=tick_num_y)
-        reg_names.append("ruler_right")
 
-    return reg_names
 
 
 def create_minmax_glyphs(src, glyph_type="2D Glyph", glyph_type_2d="Cross",
@@ -568,21 +537,24 @@ def set_colormap_colorbar(vtk, position, orientation, colormap=None,
     # Change the colormap to the desired preset value
     quantity = vtk.PointData.GetArray(0).Name  # e.g. model_init_vp
     vsLUT = GetColorTransferFunction(quantity)
-    vsLUT.ApplyPreset(colormap or preset["colormap"], True)
+    vsLUT.ApplyPreset(colormap or preset.cmap, True)
     vsLUT.UseAboveRangeColor = 0
     vsLUT.UseBelowRangeColor = 0
-    vsLUT.NumberOfTableValues = preset["num_table_values"]
-    if preset["invert_cmap"]:
+    vsLUT.NumberOfTableValues = preset.nvalues
+    if preset.invert:
         vsLUT.InvertTransferFunction()
 
     # Create the colorbar and set a common look
     cbar = GetScalarBar(vsLUT)
-    cbar.Title = title or preset["cbar_title"]
+    cbar.Title = title or preset.title
     cbar.ComponentTitle = ""
     cbar.AutoOrient = 0
     cbar.Orientation = orientation
     cbar.Position = position
-    cbar.RangeLabelFormat = preset["range_label_format"]
+    cbar.RangeLabelFormat = preset.format
+    cbar.AutomaticLabelFormat = 0
+    cbar.LabelFormat = preset.format
+
     cbar.AddRangeLabels = 1
     cbar.ScalarBarThickness = 35
     cbar.ScalarBarLength = 0.15
@@ -610,32 +582,49 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
     """
     # Set global bounds based on the min and max of the entire model
     # or set based on the given source file
-    if preset["bounds"]:
-        if isinstance(preset["bounds"], (tuple, list)):
-            vmin, vmax = preset["bounds"]
+    if preset.bounds:
+        if isinstance(preset.bounds, (tuple, list)):
+            vmin, vmax = preset.bounds
         else:
             vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
     else:
         vmin, vmax = src.PointData.GetArray(0).GetRange(0)
 
     # Some fields should be centered on 0 despite the actual data bounds
-    if preset["center_cmap"]:
+    if preset.center:
         vabsmax = max(abs(vmin), abs(vmax))
         vmin, vmax = -1 * vabsmax, vabsmax
 
     # If desired, round the colobar bounds to some base value
-    if preset["round_base"]:
-        vmin = myround(vmin, preset["round_base"])
-        vmax = myround(vmax, preset["round_base"])
+    if preset.round:
+        vmin = myround(vmin, preset.round)
+        vmax = myround(vmax, preset.round)
 
     # Apply depth specific values
     vsLUT.RescaleTransferFunction(vmin, vmax)
+
+    # Set above and below color range on the colorbar
+    if preset.above_range:
+        vsLUT.UseAboveRangeColor = 1
+        vsLUT.AboveRangeColor = preset.above_range
+    if preset.below_range:
+        vsLUT.UseBelowRangeColor = 1
+        vsLUT.BelowRangeColor = preset.below_range
+
    
-    # Manually set the values for the colorbar to include bounds and midpoint
+    # Manually set the values for the colorbar to always include min and max
     cbar = GetScalarBar(vsLUT)
     cbar.UseCustomLabels = 1
-    cbar.CustomLabels = [vmin, (vmax + vmin) / 2, vmax]
+    custom_labels = [vmin, vmax]
 
+    # Make sure that labels are set at equal division points between min and max
+    divisions = preset.nlabel - 1
+    dv = (vmax - vmin) / divisions
+    for i in range(1, divisions):
+        custom_labels.insert(-1, vmin + dv * i)
+
+    cbar.CustomLabels = custom_labels
+    
     return vsLUT
 
 
@@ -667,19 +656,24 @@ def reset():
     ResetSession()
 
 
-def delete_temp_objects(ruler=False, point=False, glyph=False, text=False):
+def delete_temp_objects(reg_names=None):
     """
     Delete objects that are made specifically for each screenshot, e.g. points,
     glyphs, rulers, text
 
     :type reg_names: list
-    :param reg_names: names of registered objects that need to be deleted
+    :param reg_names: names of registered objects that need to be deleted,
+        can be parts of names such as 'ruler', 'point', 'glyph' etc.
     """
+    if reg_names is None:
+        return
+
     for src in [_[0] for _ in GetSources().keys()]:
-        if (ruler and "ruler" in src) or (point and "point" in src) or \
-            (glyph and "glyph" in src) or (text and "text" in src):
-            src = FindSource(src)
-            Delete(src)
+        for name in reg_names:
+            if name in src:
+                src = FindSource(src)
+                Delete(src)
+                break
 
 
 def get_coordinates(src):
@@ -774,6 +768,32 @@ def plot_stations():
     glyphDisplay.Opacity = 1.
 
 
+def plot_active_faults(point_size=1.25, color=None):
+    """
+    Plot North Island active faults from an existing .VTK file
+
+    :type point_size: float
+    :param float_size: size of the points representing the coastline
+    :type color: str
+    :param color: color of the coastline, defaults to COLOR
+    """
+    if color is None:
+        color = COLOR_TABLE["w"]
+
+    renderView = GetActiveView()
+    faults = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
+                         "vtk_files/faults.vtk")
+    RenameSource("faults", faults)
+    Show(faults, renderView)
+    faultDisplay = GetDisplayProperties(faults, view=renderView)
+    faultDisplay.SetScalarBarVisibility(renderView, False)
+    faultDisplay.PointSize = point_size
+    faultDisplay.Opacity = 0.6
+    faultDisplay.AmbientColor = color or COLOR
+    faultDisplay.DiffuseColor = color or COLOR
+    ColorBy(faultDisplay, None)
+
+
 def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     """
     Main function for creating and screenshotting depth slices (slice plane
@@ -820,8 +840,9 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     # Make special precautions if we're looking at surface projections
     for slice_ in slices:
         if slice_ == "surface":
-            tag = "z_00map"
+            tag = "z_00surf"
             slice_vtk = vtk
+            text.Text = slice_
 
             # 'Hacky' method to get data range by selecting surface points
             SelectSurfacePoints(Rectangle=[0, 0, renderView.ViewSize[0],
@@ -838,9 +859,9 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
             slice_vtk = depth_slice(vtk, float(slice_))
             create_minmax_glyphs(slice_vtk)
             tag = f"z_{slice_:0>2}km"
+            text.Text = tag
             rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
 
-        text.Text = tag
         show_colorbar(slice_vtk)
         create_minmax_glyphs(slice_vtk)
 
@@ -850,7 +871,7 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
         Hide(slice_vtk, renderView)
         
         # Delete the min max value points because they'll change w/ each slice
-        delete_temp_objects(glyph=True)
+        delete_temp_objects(reg_names=["glyph", "point"])
 
 def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
                        save_path=os.getcwd()):
@@ -984,7 +1005,7 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
-        delete_temp_objects(ruler=True, text=True)
+        delete_temp_objects(reg_names=["ruler", "text"])
 
 
 
@@ -1065,7 +1086,7 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
                      reg_name="ruler1", ticknum=num_ticks_h)
 
         create_ruler(point1=ruler_v, point2=ruler_origin,
-                     label="[Z]\n(dz=25km)", reg_name="ruler2")
+                     label="[Z]\n(dz=25km)", reg_name="ruler2",)
 
         # Create a reference point based on the landmark location
         point = PointSource(registrationName="point1")
@@ -1104,7 +1125,7 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
-        delete_temp_objects(ruler=True, glyph=True, point=True, text=True)
+        delete_temp_objects(reg_names=["ruler", "glyph", "point", "text"])
 
 
 def make_interface(fid, preset, save_path=os.getcwd()):
@@ -1191,6 +1212,10 @@ def make_preplot(args):
         if args.verbose:
             print(f"\t\tPlotting station glyphs")
         plot_stations()
+    if args.faults or args.extras:
+        if args.verbose:
+            print(f"\t\tPlotting active fault traces")
+        plot_active_faults()
 
 
 if __name__ == "__main__":
@@ -1233,6 +1258,9 @@ if __name__ == "__main__":
                         help="plot events as glyphs", default=False)
     parser.add_argument("-s", "--stations", action="store_true",
                         help="plot stations as glyphs", default=False)
+    parser.add_argument("-f", "--faults", action="store_true",
+                        help="plot north island active faults on surface proj "
+                        "only", default=False)
     parser.add_argument("-E", "--extras", action="store_true",
                         help="shorthand to plot coastline, src glyphs and "
                              "rcv glyphs, same as '-ces'",
@@ -1289,7 +1317,7 @@ if __name__ == "__main__":
             print(f"\tPreset is set to '{preset_key}'")
         preset = PRESETS[preset_key]
         if args.bounds:
-            preset["bounds"] = [float(_) for _ in args.bounds.split(",")]
+            preset.bounds = [float(_) for _ in args.bounds.split(",")]
 
         # ======================================================================
         # DEPTH SLICES
