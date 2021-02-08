@@ -5,7 +5,7 @@ Point cloud needs to be defined by X, Y and Z values that have the same length
 import sys
 import numpy as np
 
-x, y, z = np.loadtxt(sys.argv[1]).T
+x, y, z = np.loadtxt(sys.argv[1], skiprows=1, delimiter=',').T
 npoints = len(x)
 
 with open(sys.argv[2], "w") as f:
