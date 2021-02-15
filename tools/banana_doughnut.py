@@ -2,6 +2,8 @@
 Short utility script to generate an adjoint source from a cut SPECFEM 
 ASCII seismogram for use in generating 'banana-doughnut' style sensitivity
 kernels using SPECFEM's adjoint simulation
+
+Calculate half duration using a scaling for moment magnitude
 """
 import sys
 from glob import glob
@@ -43,7 +45,7 @@ def plot(tr, fp):
              label=f"Adjoint Source")
     plt.xlabel("time [s]")
     plt.ylabel("amplitude")
-    plt.savefig(f"{tr.get_id()}_phase.png")
+    plt.savefig(f"{tr.get_id()}_phase.png", figsize=(20,8), dpi=200)
     plt.close()
     
 
@@ -51,10 +53,10 @@ def plot(tr, fp):
 if __name__ == "__main__":
     # ====================================
     # DEFINE PARAMETERS HERE
-    tmin = 5
+    tmin = 4
     tmax = 30
-    windows = {"Z": [100, 125],}
-    half_duration = 1.74
+    windows = {"Z": [200, 220],}
+    half_duration = .7
     # =====================================
 
     if len(sys.argv) < 1:
