@@ -23,6 +23,7 @@ import os
 import math
 import string
 import argparse
+from glob import glob
 from paraview.vtk.numpy_interface import dataset_adapter
 from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              Hide3DWidgets, Ruler, Show, Text, Render,
@@ -35,7 +36,8 @@ from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              ResetSession, Hide, servermanager, OpenDataFile,
                              ResetCamera, Clip, PointSource, Glyph,
                              CreateRenderView, SetActiveView, GetSources, Axes,
-                             ColorBy, PointDatasetInterpolator)
+                             ColorBy, PointDatasetInterpolator,
+                             GetOpacityTransferFunction, ImportPresets, Contour)
 
 
 
@@ -47,165 +49,172 @@ COLOR_TABLE = {"k": [0., 0., 0.], "w": [1., 1., 1.], "r": [1., 0., 0.],
 # General fontsize and color for standard objects, e.g. text, rulers
 FONTSIZE = 15
 COLOR = COLOR_TABLE["k"]
+
 # Size of the output screenshots
 VIEW_SIZE = [1037, 813]
 
-"""
-Preset parameters that should stay constant among certain file types
-
-:cbar_title (str): Label for the colorbar
-:colormap (str): Colormap to define LUT
-:invert_cmap (bool): Invert the original bounds of the colormap
-:center_cmap (bool): Ensure that the middle value of the colormap is 0
-:range_label_format (str): String formatter for the range bounds on colorbar
-:round_base (int): Round range labels to a base value, if None, no rounding
-:bounds (bool or tuple or list): Can be overwritten using the '-b' arg
-    * True: keep the colorbar bounds constant for every screenshot using the 
-    min/max values of the entire volume. 
-    * False: use whatever default bounds are set by Paraview, 
-    * tuple/list: Manually set the bounds; must be in the form (min, max)
-:num_table_values (int): Number of segmentations in the colorbar
-"""
-PRESETS = {
-        "custom_vs":
-            {"cbar_title": "Vs [m/s]",
-             "colormap": "RdYlBu",
-             "invert_cmap": False,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": False,
-             "num_table_values": 21,
-             },
-        "custom_vpvs":
-            {"cbar_title": "Vp/Vs Ratio",
-             "colormap": "Yellow - Gray - Blue",
-             "invert_cmap": False,
-             "center_cmap": False,
-             "range_label_format": "%.2f",
-             "round_base": None,
-             "bounds": (1.55, 2.1),
-             "num_table_values": 28,
-             },
-        "trench_vs":
-            {"cbar_title": "Vs [m/s]",
-             "colormap": "Rainbow Desaturated",
-             "invert_cmap": True,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": [2000, 5500],
-             "num_table_values": 64,
-             },
-        "model_rho":
-            {"cbar_title": "Density [kg m^-3]",
-             "colormap": "Rainbow Desaturated",
-             "invert_cmap": True,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": False,
-             "num_table_values": 64,
-             },
-        "model_vp":
-            {"cbar_title": "Vp [m/s]",
-             "colormap": "Rainbow Desaturated",
-             "invert_cmap": True,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": False,
-             "num_table_values": 64,
-             },
-        "model_vs":
-            {"cbar_title": "Vs [m/s]",
-             "colormap": "Rainbow Desaturated",
-             "invert_cmap": True,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": 10,
-             "bounds": False,
-             "num_table_values": 64,
-             },
-        "gradient_vp_kernel":
-            {"cbar_title": "Vp Gradient [m^-2 s^2]",
-             "colormap": "Cool to Warm (Extended)",
-             "invert_cmap": True,
-             "center_cmap": True,
-             "range_label_format": "%.1E",
-             "round_base": None,
-             "bounds": True,
-             "num_table_values": 64,
-             },
-        "gradient_vs_kernel":
-            {"cbar_title": "Vs Gradient [m^-2 s^2]",
-             "colormap": "Cool to Warm (Extended)",
-             "invert_cmap": True,
-             "center_cmap": True,
-             "range_label_format": "%.1E",
-             "round_base": None,
-             "bounds": True,
-             "num_table_values": 64,
-             },
-        "update_vp":
-            {"cbar_title": "Vp Net Update [ln(m/m00)]",
-             "colormap": "Blue Orange (divergent)",
-             "invert_cmap": True,
-             "center_cmap": True,
-             "range_label_format": "%.02f",
-             "round_base": None,
-             "bounds": True,
-             "num_table_values": 64,
-             },
-        "update_vs":
-            {"cbar_title": "Vs Net Update [ln(m/m00)]",
-             "colormap": "Blue Orange (divergent)",
-             "invert_cmap": True,
-             "center_cmap": True,
-             "range_label_format": "%.02f",
-             "round_base": None,
-             "bounds": [-.15, .15],
-             # "bounds": False,
-             "num_table_values": 64,
-             },
-        "ratio_poissons":
-            {"cbar_title": "Poisson's Ratio",
-             "colormap": "Blue - Green - Orange",
-             "invert_cmap": False,
-             "center_cmap": False,
-             "range_label_format": "%.1f",
-             "round_base": None,
-             "bounds": True,
-             "num_table_values": 64,
-             },
-        "ratio_vpvs":
-            {"cbar_title": "Vp/Vs Ratio",
-             "colormap": "Cool to Warm (Extended)",
-             "invert_cmap": False,
-             "center_cmap": False,
-             "range_label_format": "%.2f",
-             "round_base": None,
-             "bounds": (1.55, 1.9),
-             "num_table_values": 28,
-             },
-        }
-
-
 # Pre-defined trench parallel cross sections w/ origins based on landmark
 # locations in UTM -60. Trench normal is defined as 40deg from the X-axis
-# This normal vector defines 40deg to the x-axis (40 deg from Donna 2015)
+# Trench parallel tries to closely resemble Fig. 5 of Reyners (2017)
 TRENCH_NORMAL = [-0.64, -0.76, 0.]
-TRENCH_XSECTIONS = {"Wellington": [314007., 5426403., 0.,],
-                    "Flatpoint": [413092., 5433559., 0.,],
-                    "Castlepoint": [434724., 5471821., 0.,],
-                    "Akitio": [436980., 5511241., 0.],
-                    "Porangahau": [467051., 5538717., 0.,],
-                    "Elsthorpe": [484394., 5581561., 0.,],
-                    "Napier": [489374., 5626518., 0.,],
-                    "Mohaka": [507922., 5670909. ,0.,],
-                    "Mahia": [575567., 5665558., 0.,],
-                    "Gisborne": [588984., 5720001., 0.,],
-                    }
+TRENCH_PARALLEL = [-0.7, 0.7, 0.]
+TRENCH_POINTS = {"Kaikoura": [226749., 5300535., 0.],
+                 "Wellington": [314007., 5426403., 0.,],
+                 "Flatpoint": [413092., 5433559., 0.,],
+                 "Castlepoint": [434724., 5471821., 0.,],
+                 "Akitio": [436980., 5511241., 0.],
+                 "Porangahau": [467051., 5538717., 0.,],
+                 "Elsthorpe": [484394., 5581561., 0.,],
+                 "Napier": [489374., 5626518., 0.,],
+                 "Mohaka": [507922., 5670909. ,0.,],
+                 "Mahia": [575567., 5665558., 0.,],
+                 "Gisborne": [588984., 5720001., 0.,]
+                 }
+
+# Pre-defined geographical landmarks for easier reference when plotting
+LANDMARKS = {""}
+
+
+class Preset(dict):
+    """
+    A more accesible dict object for storing preset values for defining
+    colormaps, and the associated colorbars for different model types
+    """
+    def __init__(self, title="", cmap="Jet", invert=False, center=False, 
+                 format="%.2f", round=10, bounds=False, nlabel=3, nvalues=28,
+                 above_range=False, below_range=False, isosurfaces=None,
+                 cdx=None):
+        """
+        :title (str): Label for the colorbar
+        :cmap (str): Colormap to define LUT
+        :invert (bool): Invert the original bounds of the colormap
+        :center (bool): Ensure that the middle value of the colormap is 0
+        :format (str): String formatter for the range bounds on colorbar
+        :round (int): Round range labels to a base value, if None, no rounding
+        :bounds (bool or tuple or list): Can be overwritten using the '-b' arg
+            * True: keep the colorbar bounds constant for every screenshot using 
+                the min/max values of the entire volume.
+            * False: use whatever default bounds are set by Paraview,
+            * tuple/list: Manually set the bounds; must be in the form (min, max)
+        :nlabel (int): Number of labels on the colorbar. Minimum is 2 to include
+            min and max values
+        :nvalues (int): Number of segmentations in the colorbar
+        :above_range (list or None): Use above range color
+        :below_range (list or None): Use below range color
+        :isosurfaces (list of float): If contour lines are turned on, define the
+            values which are contoured
+        :cdx (int): If no isosurfaces are provided, cdx (contour dx) determines
+            the spacing between isosurfaces. e.g. for a Vs model, a useful value
+            would be 500, meaning isolines are separated by 500 m/s
+        """
+        self.title = title
+        self.cmap = cmap
+        self.invert = invert
+        self.center = center
+        self.format = format
+        self.round = round
+        self.bounds = bounds
+        self.nlabel = nlabel
+        self.nvalues = nvalues
+        self.above_range = above_range
+        self.below_range = below_range
+        self.isosurfaces = isosurfaces
+        self.cdx = cdx
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __getattr__(self, key):
+        return self[key]
+
+
+PRESETS = {
+    "custom_vs": Preset(
+        title="Vs [m/s]", cmap="RdYlBu", invert=False, center=False,
+        format="%.1f", round=10, bounds=False, nlabel=3, nvalues=21, cdx=500,
+    ),
+    "donna_vpvs": Preset(
+        title="Vp/Vs Ratio", cmap="Cool to Warm (Extended)", invert=False,
+        center=False, format="%.2f", round=None, bounds=[1.55, 1.9], nlabel=4,
+        nvalues=14, isosurfaces=[1.5, 1.75, 2., 2.25]
+    ),
+    "trench_vs": Preset(
+        title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
+        format="%.1f", round=10, bounds=[1750, 5750], nlabel=4, nvalues=64,
+        cdx=500, above_range=False #COLOR_TABLE["gray"],
+    ),
+    "trench_vp": Preset(
+        title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
+        format="%.1f", round=10, bounds=[3500, 9250], nlabel=4, nvalues=64,
+        cdx=500, above_range=False # COLOR_TABLE["gray"],
+    ),
+    "model_rho": Preset(
+        title="Density [kg m^-3]", cmap="Rainbow Desaturated", invert=True,
+        center=False, format="%.1f", round=10, bounds=False, nlabel=3,
+        nvalues=64
+    ),
+    "model_vp": Preset(
+        title="Vp [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
+        format="%.1f", round=10, bounds=False, nlabel=3, nvalues=64, cdx=500,
+    ),
+    "model_vs": Preset(
+        title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
+        format="%.1f", round=10, bounds=False, nlabel=5, nvalues=33, cdx=500,
+    ),
+    "gradient_vp_kernel": Preset(
+        title="Vp Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
+        invert=True, center=True, format="%.1E", round=None, bounds=True,
+        nlabel=3, nvalues=64
+    ),
+    "gradient_vs_kernel": Preset(
+        title="Vs Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
+        invert=True, center=True, format="%.1E", round=None, bounds=True,
+        nlabel=3, nvalues=64
+    ),
+    "update_vp": Preset(
+        title="Vp Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, format="%.02f", round=None, bounds=[-.15,.15],
+        nlabel=3, nvalues=64,
+    ),
+    "update_vs": Preset(
+        title="Vs Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, format="%.02f", round=None, bounds=[-.2,.2],
+        nlabel=3, nvalues=64,
+    ),
+    "update_vpvs": Preset(
+        title="Vp/Vs Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, format="%.02f", round=None,
+        bounds=True, nlabel=3, nvalues=64,
+    ),
+    "update_poissons": Preset(
+        title="Poisson's Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, format="%.02f", round=None,
+        bounds=[-.5, .5], nlabel=3, nvalues=64,
+    ),
+    "update_shear": Preset(
+        title="Shear Modulus Update [ln(m/m00)]", 
+        cmap="Blue Orange (divergent)",
+        invert=True, center=True, format="%.02f", round=None,
+        bounds=[-.5, .5], nlabel=3, nvalues=64,
+    ),
+    "ratio_poissons": Preset(
+        title="Poisson's Ratio", cmap="Blue - Green - Orange", invert=False,
+        center=False, format="%.1f", round=None, bounds=[0.1, 0.4], nlabel=3,
+        nvalues=64, isosurfaces=[0.1, 0.2, 0.3, 0.4]
+    ),
+    "ratio_vpvs": Preset(
+        title="Vp/Vs Ratio", cmap="Green-Blue Asymmetric Divergent (62Blbc)",
+        invert=True, center=False, format="%.2f", round=None,
+        bounds=[1.55, 2.1], nlabel=4, nvalues=28,
+        isosurfaces=[1.5, 1.6, 1.7, 1.8, 1.9, 2., 2.1, 2.2]
+    ),
+    "modulus_shear": Preset(
+        title="Shear Modulus [GPa]", cmap="Inferno (matplotlib)",
+        invert=True, center=False, format="%.0f", round=None,
+        bounds=[10, 40], nlabel=3, nvalues=10, above_range=[.78, .78, .78],
+        cdx=10,
+    ),
+}
 
 
 def myround(x, base):
@@ -213,6 +222,26 @@ def myround(x, base):
     Round values to the nearest base
     """
     return int(base * round(float(x) / base))
+
+
+def project_point_trench_normal(point):
+    """
+    Project a point onto the trench normal which is defined by:
+    normal = [-.7, .7., 0]
+    origin = [455763., 5547040., 0.]
+    or in math terms: -.7x + .7y + 0z = 3563893
+
+    .. note::
+        Assuming the plane normal is parallel to the Z-axis so that the Z point
+        remains unchanged.
+    """
+    D = 3563893
+    x, y, z = point
+    t = (D + .7 * (x - y)) / (2 * .7 **2)
+    x0 = x - .7 * t
+    y0 = y + .7 * t
+
+    return [x0, y0, z]
 
 
 def parse_slice_list(slice_list):
@@ -289,6 +318,57 @@ def depth_slice(vtk, depth):
     return slice_vtk
 
 
+def contour_lines(vtk, preset, color=None, reg_name="contour"):
+    """
+    Set countour lines for the given data file
+
+    :type vtk:
+    :param vtk: opened data file
+    :type preset: dict
+    :param preset: the preset choices for how to deal with the colorscale/ map
+    :type dx: int
+    :param dx: separation for contour lines
+    :type color: list of float
+    :param color: RGB color for contour lines
+    :type reg_name: str
+    :param reg_name: name to assign to the source object
+    """
+    # Contour lines require one of these presets to function
+    if (preset.isosurfaces is None) and (preset.cdx is None):
+        return
+
+    renderView = GetActiveView()
+    contour = Contour(registrationName=reg_name, Input=vtk)
+
+    # Use server manager to determine min and max values of the source
+    if preset.isosurfaces is None:
+        dataPlane = servermanager.Fetch(vtk)
+        dataPlane = dataset_adapter.WrapDataObject(dataPlane)
+        data_points = list(dataPlane.PointData[0])
+        min_point = myround(min(data_points), preset.cdx)
+        while min_point > min(data_points):
+            min_point -= preset.cdx
+        max_point = myround(max(data_points), preset.cdx)
+        while max_point < max(data_points):
+            max_point += preset.cdx
+        isosurfaces = list(range(min_point, max_point, preset.cdx))
+        contour.Isosurfaces = isosurfaces
+    else:
+        contour.Isosurfaces = preset.isosurfaces
+
+    # Turn off colorbar and make the contour lines a solid color
+    contourDisplay = Show(contour, renderView, "GeometryRepresentation")
+    contourDisplay.LineWidth = 1.
+    # Work-around to avoid RuntimeError thrown by ColorBy() with arg 'None'
+    contourDisplay.ColorArrayName = ["POINTS", ""]
+    ColorBy(contourDisplay, None)
+
+    if color is None:
+        color = COLOR_TABLE["w"]
+    contourDisplay.AmbientColor = color
+    contourDisplay.DiffuseColor = color
+
+
 def cross_section(vtk, normal, origin, name):
     """
     Cut a vertical cross section through a volume, with the plane parallel to
@@ -316,7 +396,7 @@ def cross_section(vtk, normal, origin, name):
 
 
 def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
-                 font_color=None, reg_name="ruler"):
+                 font_color=None, justification="Left", reg_name="ruler"):
     """
     Generate a ruler to be used as a scalebar
 
@@ -349,6 +429,7 @@ def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
     rulerDisplay.AxisColor = axis_color or COLOR
     rulerDisplay.Color = font_color or COLOR
     rulerDisplay.FontSize = FONTSIZE
+    rulerDisplay.Justification = justification
 
     Hide3DWidgets(proxy=ruler)
 
@@ -387,6 +468,22 @@ def create_text(s, position, fontsize=None, color=None, bold=False,
     textDisplay.Color = color or COLOR
 
     return text, reg_name
+
+
+def create_cone_glyph(origin, reg_name_point="point", reg_name_glyph="glyph"):
+    """
+    Create a 3D cone glyph used to denote points at the surface
+    :param origin:
+    :param reg_name:
+    :return:
+    """
+    point = PointSource(registrationName=reg_name_point)
+    point.Center = origin
+    glyph = Glyph(Input=point, GlyphType="Cone",
+                  registrationName=reg_name_glyph)
+    glyph.GlyphType.Direction = [0., 0., -1.]
+    glyph.ScaleFactor = 10000
+    Show(glyph, renderView, "GeometryRepresentation")
 
 
 def create_ruler_grid_axes_depth_slice(src, tick_spacing_km=50, top=True,
@@ -429,29 +526,23 @@ def create_ruler_grid_axes_depth_slice(src, tick_spacing_km=50, top=True,
     ruler_y_rgt = [max(x), y_end_point, max(z)]
     tick_num_y = int((y_end_point - min(y)) // tick_spacing_m)
 
-    reg_names = []
     if bottom:
         create_ruler(point1=ruler_x_bot, point2= [min(x), min(y), max(z)],
                      label=f"[X] (dx={tick_spacing_km}km)",
                      reg_name="ruler_bottom", ticknum=tick_num_x)
-        reg_names.append("ruler_bottom")
 
     if top:
         create_ruler(point1=[min(x), max(y), max(z)], point2=ruler_x_top,
                      reg_name="ruler_top", ticknum=tick_num_x)
-        reg_names.append("ruler_top")
 
     if left:
         create_ruler(point1=[min(x), min(y), max(z)], point2=ruler_y_lft,
                      label=f"[Y]\n(dy={tick_spacing_km}km)",
                      reg_name="ruler_left", ticknum=tick_num_y)
-        reg_names.append("ruler_left")
     if right:
         create_ruler(point1=ruler_y_rgt, point2=[max(x), min(y), max(z)],
                      reg_name="ruler_right", ticknum=tick_num_y)
-        reg_names.append("ruler_right")
 
-    return reg_names
 
 
 def create_minmax_glyphs(src, glyph_type="2D Glyph", glyph_type_2d="Cross",
@@ -497,7 +588,7 @@ def create_minmax_glyphs(src, glyph_type="2D Glyph", glyph_type_2d="Cross",
 
 
 def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
-                                dz_km=25, camera_parallel=False):
+                                dz_km=25, camera_parallel=False, scale=1):
     """
     Create a standard looking axis grid for the trench cross sections which
     puts horizontal lines at pre-determined depths across the entire slice.
@@ -520,6 +611,11 @@ def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
     renderView = GetActiveView()
     renderView.CameraParallelProjection = int(camera_parallel)
 
+    # Allow for scaling if the Z-axis is exagerrated
+    min_depth_km *= scale
+    max_depth_km *= scale
+    dz_km *= scale
+
     display = GetDisplayProperties(source, view=renderView)
     display.DataAxesGrid.GridAxesVisibility = 1
     display.DataAxesGrid.ShowGrid = 1
@@ -531,6 +627,9 @@ def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
     display.DataAxesGrid.YAxisLabels = []
 
     display.DataAxesGrid.ZAxisUseCustomLabels = 1
+
+    display.Scale = [1., .1, scale]
+    display.DataAxesGrid.Scale = [1., 1., scale]
 
     # Ensuring that all the depth values are formatted properly before ranging
     dz_m = -1 * int(abs(dz_km * 1E3))
@@ -565,24 +664,32 @@ def set_colormap_colorbar(vtk, position, orientation, colormap=None,
     :type color: str
     :param color: color of the title, defaults to COLOR
     """
+    # # Import any external colormaps that may be defined by XML files
+    # for fid in glob("/Users/Chow/Documents/subduction/packages/simutils/"
+    #                    "paraview/lut_presets/*.xml"):
+    #     ImportPresets(fid)
+
     # Change the colormap to the desired preset value
     quantity = vtk.PointData.GetArray(0).Name  # e.g. model_init_vp
     vsLUT = GetColorTransferFunction(quantity)
-    vsLUT.ApplyPreset(colormap or preset["colormap"], True)
+    vsLUT.ApplyPreset(colormap or preset.cmap, True)
     vsLUT.UseAboveRangeColor = 0
     vsLUT.UseBelowRangeColor = 0
-    vsLUT.NumberOfTableValues = preset["num_table_values"]
-    if preset["invert_cmap"]:
+    vsLUT.NumberOfTableValues = preset.nvalues
+    if preset.invert:
         vsLUT.InvertTransferFunction()
 
     # Create the colorbar and set a common look
     cbar = GetScalarBar(vsLUT)
-    cbar.Title = title or preset["cbar_title"]
+    cbar.Title = title or preset.title
     cbar.ComponentTitle = ""
     cbar.AutoOrient = 0
     cbar.Orientation = orientation
     cbar.Position = position
-    cbar.RangeLabelFormat = preset["range_label_format"]
+    cbar.RangeLabelFormat = preset.format
+    cbar.AutomaticLabelFormat = 0
+    cbar.LabelFormat = preset.format
+
     cbar.AddRangeLabels = 1
     cbar.ScalarBarThickness = 35
     cbar.ScalarBarLength = 0.15
@@ -610,32 +717,49 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
     """
     # Set global bounds based on the min and max of the entire model
     # or set based on the given source file
-    if preset["bounds"]:
-        if isinstance(preset["bounds"], (tuple, list)):
-            vmin, vmax = preset["bounds"]
+    if preset.bounds:
+        if isinstance(preset.bounds, (tuple, list)):
+            vmin, vmax = preset.bounds
         else:
             vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
     else:
         vmin, vmax = src.PointData.GetArray(0).GetRange(0)
 
     # Some fields should be centered on 0 despite the actual data bounds
-    if preset["center_cmap"]:
+    if preset.center:
         vabsmax = max(abs(vmin), abs(vmax))
         vmin, vmax = -1 * vabsmax, vabsmax
 
     # If desired, round the colobar bounds to some base value
-    if preset["round_base"]:
-        vmin = myround(vmin, preset["round_base"])
-        vmax = myround(vmax, preset["round_base"])
+    if preset.round:
+        vmin = myround(vmin, preset.round)
+        vmax = myround(vmax, preset.round)
 
     # Apply depth specific values
     vsLUT.RescaleTransferFunction(vmin, vmax)
+
+    # Set above and below color range on the colorbar
+    if preset.above_range:
+        vsLUT.UseAboveRangeColor = 1
+        vsLUT.AboveRangeColor = preset.above_range
+    if preset.below_range:
+        vsLUT.UseBelowRangeColor = 1
+        vsLUT.BelowRangeColor = preset.below_range
+
    
-    # Manually set the values for the colorbar to include bounds and midpoint
+    # Manually set the values for the colorbar to always include min and max
     cbar = GetScalarBar(vsLUT)
     cbar.UseCustomLabels = 1
-    cbar.CustomLabels = [vmin, (vmax + vmin) / 2, vmax]
+    custom_labels = [vmin, vmax]
 
+    # Make sure that labels are set at equal division points between min and max
+    divisions = preset.nlabel - 1
+    dv = (vmax - vmin) / divisions
+    for i in range(1, divisions):
+        custom_labels.insert(-1, vmin + dv * i)
+
+    cbar.CustomLabels = custom_labels
+    
     return vsLUT
 
 
@@ -667,19 +791,24 @@ def reset():
     ResetSession()
 
 
-def delete_temp_objects(ruler=False, point=False, glyph=False, text=False):
+def delete_temp_objects(reg_names=None):
     """
     Delete objects that are made specifically for each screenshot, e.g. points,
     glyphs, rulers, text
 
     :type reg_names: list
-    :param reg_names: names of registered objects that need to be deleted
+    :param reg_names: names of registered objects that need to be deleted,
+        can be parts of names such as 'ruler', 'point', 'glyph' etc.
     """
+    if reg_names is None:
+        return
+
     for src in [_[0] for _ in GetSources().keys()]:
-        if (ruler and "ruler" in src) or (point and "point" in src) or \
-            (glyph and "glyph" in src) or (text and "text" in src):
-            src = FindSource(src)
-            Delete(src)
+        for name in reg_names:
+            if name in src:
+                src = FindSource(src)
+                Delete(src)
+                break
 
 
 def get_coordinates(src):
@@ -702,10 +831,14 @@ def get_coordinates(src):
     return x, y, z
 
 
-def plot_coastline(point_size=2., color=None):
+def plot_point_cloud(fid, reg_name, point_size=2., color=None, opacity=1.):
     """
-    Plot a coastline file from an existing .VTK file
+    Plot a point cloud from an existing .VTK file, used for, e.g., coastlines
+    shape outlines, rift zones etc.
 
+    :type fid: str
+    :param fid: file identifier of the .vtk file that should be used for
+        point cloud plotting
     :type point_size: float
     :param float_size: size of the points representing the coastline
     :type color: str
@@ -714,16 +847,16 @@ def plot_coastline(point_size=2., color=None):
     if color is None:
         color = COLOR_TABLE["k"]
     renderView = GetActiveView()
-    coast = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
-                         "vtk_files/coast.vtk")
-    RenameSource("coast", coast)
-    Show(coast, renderView)
-    coastDisplay = GetDisplayProperties(coast, view=renderView)
-    coastDisplay.SetScalarBarVisibility(renderView, False)
-    coastDisplay.PointSize = point_size
-    coastDisplay.AmbientColor = color or COLOR
-    coastDisplay.DiffuseColor = color or COLOR
-    ColorBy(coastDisplay, None)
+    point_cloud = OpenDataFile(fid)
+    RenameSource(reg_name, point_cloud)
+    Show(point_cloud, renderView)
+    pcDisplay = GetDisplayProperties(point_cloud, view=renderView)
+    pcDisplay.SetScalarBarVisibility(renderView, False)
+    pcDisplay.PointSize = point_size
+    pcDisplay.Opacity = opacity
+    pcDisplay.AmbientColor = color or COLOR
+    pcDisplay.DiffuseColor = color or COLOR
+    ColorBy(pcDisplay, None)
 
 
 def plot_events():
@@ -774,7 +907,29 @@ def plot_stations():
     glyphDisplay.Opacity = 1.
 
 
-def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
+def plot_sse_slip_patches():
+    """
+    Plot the slip patches for slow slip events provided by Laura Wallace,
+    converted into VTK files for convenience
+    """
+    renderView = GetActiveView()
+    sse = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
+                      "vtk_files/sse.vtk")
+    RenameSource("sse", sse)
+    Show(sse, renderView)
+    csLUT = GetColorTransferFunction("cumulative_slip")
+    csLUT.ApplyPreset("BrOrYl", True)
+    csLUT.RescaleTransferFunction(50., 450.)
+    csLUT.EnableOpacityMapping = 1  # lower values have higher opacity
+    csPWF = GetOpacityTransferFunction("cumulative_slip")
+    csPWF.UseLogScale = 1
+    vtkDisplay = GetDisplayProperties(sse, view=renderView)
+    vtkDisplay.SetScalarBarVisibility(renderView, False)
+    vtkDisplay.Opacity = .75
+
+
+def make_depth_slices(fid, slices, preset, contour=False,
+                      save_path=os.getcwd()):
     """
     Main function for creating and screenshotting depth slices (slice plane
     normal/perpendicular to Z axis). Creates a standardized look for the
@@ -820,8 +975,9 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     # Make special precautions if we're looking at surface projections
     for slice_ in slices:
         if slice_ == "surface":
-            tag = "z_00map"
+            tag = "z_00surf"
             slice_vtk = vtk
+            text.Text = slice_
 
             # 'Hacky' method to get data range by selecting surface points
             SelectSurfacePoints(Rectangle=[0, 0, renderView.ViewSize[0],
@@ -838,11 +994,14 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
             slice_vtk = depth_slice(vtk, float(slice_))
             create_minmax_glyphs(slice_vtk)
             tag = f"z_{slice_:0>2}km"
+            text.Text = tag
             rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
+            if contour:
+                contour_lines(slice_vtk, preset)
 
-        text.Text = tag
         show_colorbar(slice_vtk)
         create_minmax_glyphs(slice_vtk)
+
 
         # Save screenshot, hide slice and move on, job done
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
@@ -850,10 +1009,11 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
         Hide(slice_vtk, renderView)
         
         # Delete the min max value points because they'll change w/ each slice
-        delete_temp_objects(glyph=True)
+        delete_temp_objects(reg_names=["glyph", "point", "contour"])
 
-def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
-                       save_path=os.getcwd()):
+
+def make_cross_sections(fid, percentages, normal, preset, contour=False,
+                        depth_cutoff_km=100, save_path=os.getcwd()):
     """
     Create cross sections normal to the X or Y axes, create screenshots
 
@@ -967,6 +1127,9 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
         display = GetDisplayProperties(clip_vtk, view=renderView)
         display.SetScalarBarVisibility(renderView, True)
 
+        if contour:
+            contour_lines(clip_vtk, preset)
+
         # Reset camera view to be normal to the plane. Specific to this plane
         renderView.CameraViewUp = [0.0, 0.0, 1.0]
         if normal == "x":
@@ -984,12 +1147,11 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100,
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
-        delete_temp_objects(ruler=True, text=True)
+        delete_temp_objects(reg_names=["ruler", "text", "contour"])
 
 
-
-def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
-                               save_path=os.getcwd()):
+def make_trench_normal(fid, preset, depth_cutoff_km=100., scale=6.,
+                       contour=False, save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench
     based on user-defined origin locations. Mark the origin locations
@@ -998,6 +1160,8 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
     :type depth_cutoff_km: float
     :param depth_cutoff_km: define where the bottom edge of the cross section
         will be. defaults to 100km depth
+    :type scale_z: float
+    :param scale_z: scale the Z-axis to exagerrate features
     """
     vtk = OpenDataFile(fid)
     RenameSource("surface", vtk)
@@ -1007,7 +1171,7 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
     renderView.InteractionMode = "2D"
     Hide(vtk, renderView)
 
-    for i, (name, origin) in enumerate(TRENCH_XSECTIONS.items()):
+    for i, (name, origin) in enumerate(TRENCH_POINTS.items()):
         # Alphabetize the cross sections for easier identification
         ab = string.ascii_uppercase[i]
         tag = f"t_{ab.lower()}_{name.lower()}"
@@ -1025,7 +1189,7 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
         # Put markers for depth values
-        set_xsection_data_axis_grid(clip_vtk, camera_parallel=True)
+        set_xsection_data_axis_grid(clip_vtk, camera_parallel=True, scale=scale)
 
         # Reset the colorbounds to data range
         active = GetActiveSource()
@@ -1065,15 +1229,10 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
                      reg_name="ruler1", ticknum=num_ticks_h)
 
         create_ruler(point1=ruler_v, point2=ruler_origin,
-                     label="[Z]\n(dz=25km)", reg_name="ruler2")
+                     label="[Z]\n(dz=25km)", reg_name="ruler2",)
 
         # Create a reference point based on the landmark location
-        point = PointSource(registrationName="point1")
-        point.Center = origin
-        glyph = Glyph(Input=point, GlyphType="Cone", registrationName="glyph1")
-        glyph.GlyphType.Direction = [0., 0., -1.]
-        glyph.ScaleFactor = 10000
-        Show(glyph, renderView, "GeometryRepresentation")
+        create_cone_glyph(origin)
 
         # Annotate landmark location text to match glyph position
         create_text(f"{ab}. {name}", [0.2, 0.30], reg_name="text1",
@@ -1092,6 +1251,9 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
         display = GetDisplayProperties(clip_vtk, view=renderView)
         display.SetScalarBarVisibility(renderView, True)
 
+        if contour:
+            contour_lines(clip_vtk, preset)
+
         # Reset camera view to be normal to the plane. Specific to this plane
         renderView.CameraPosition = [-400553., 4689520., -49366.]
         renderView.CameraFocalPoint = [402390.0, 5595515., -49366.]
@@ -1104,10 +1266,140 @@ def make_trench_cross_sections(fid, preset, depth_cutoff_km=100.,
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
-        delete_temp_objects(ruler=True, glyph=True, point=True, text=True)
+        delete_temp_objects(reg_names=["ruler", "glyph", "point", "text",
+                                       "contour"])
 
 
-def make_interface(fid, preset, save_path=os.getcwd()):
+def make_trench_parallel(fid, preset, depth_cutoff_km=100., contour=False,
+                         save_path=os.getcwd()):
+    """
+    Create cross sections of a volume perpendicular to the Hikurangi trench
+    based on user-defined origin locations. Mark the origin locations
+    on the cross section for reference. Take screenshots
+
+    :type depth_cutoff_km: float
+    :param depth_cutoff_km: define where the bottom edge of the cross section
+        will be. defaults to 100km depth
+    """
+    vtk = OpenDataFile(fid)
+    RenameSource("surface", vtk)
+    Show(vtk)
+    ResetCamera()
+    renderView = GetActiveView()
+    renderView.InteractionMode = "2D"
+    Hide(vtk, renderView)
+
+    origin = [455763., 5547040., 0.]
+    tag = f"t_parallel"
+
+    # Slice across the given cross section plane
+    slice_vtk = cross_section(vtk=vtk, normal=TRENCH_PARALLEL,
+                              origin=origin, name="parallel")
+    Hide(slice_vtk, renderView)
+
+    # Cut off depths below a certain range as we are not interested in deep
+    clip_vtk = Clip(slice_vtk)
+    clip_vtk.ClipType = "Plane"
+    clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
+    clip_vtk.ClipType.Normal = [0., 0., -1.]
+    Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
+
+    # Put markers for depth values
+    set_xsection_data_axis_grid(clip_vtk, camera_parallel=True)
+
+    # Reset the colorbounds to data range
+    active = GetActiveSource()
+    display = GetDisplayProperties(active, view=renderView)
+    display.RescaleTransferFunctionToDataRange(False, True)
+
+    # In order to set the camera, annotations, etc. in a general fashion,
+    # we need to determine the corner grid locations of the slice
+    x, y, z = get_coordinates(clip_vtk)
+    ruler_origin = [min(x), min(y), min(z)]  # bottom left
+
+    # Find the optimal length of the slice to fit an even spacing of ticks
+    tick_spacing_m = 50E3
+    slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
+    dist_m_h = myround(slice_length_m, tick_spacing_m)
+    # Sometimes the round overestimates so we just go back until its not
+    while dist_m_h > slice_length_m:
+        dist_m_h -= tick_spacing_m
+    num_ticks_h = int(dist_m_h // tick_spacing_m)
+
+    # Horizontal ruler dimensions must be found with the power of trig.
+    # (it took me way too long to figure out how to do this properly, oh
+    #  highschool trig...)
+    angle_rad = math.atan(TRENCH_PARALLEL[0] / TRENCH_PARALLEL[1])
+    ruler_h = [min(x) + dist_m_h * math.cos(angle_rad),
+               min(y) - dist_m_h * math.sin(angle_rad),
+               min(z)]
+
+    # Keep the vertical scaling constant because it won't change
+    dist_m_v = depth_cutoff_km * 1E3
+    ruler_v = [min(x), min(y), min(z) + dist_m_v]
+
+    # Generate appropriate rulers that act as the X and Y axes in this plane
+    create_ruler(point1=ruler_origin, point2=ruler_h,
+                 label=f"{dist_m_h/1E3:.0f}km " 
+                       f"(dh={int(tick_spacing_m*1E-3)}km)",
+                 reg_name="ruler1", ticknum=num_ticks_h)
+
+    create_ruler(point1=ruler_v, point2=ruler_origin,
+                 label="[Z]\n(dz=25km)", reg_name="ruler2",)
+
+    # Annotate landmark location text to match glyph position
+    create_text(f"Trench Parallel", [0.2, 0.30], reg_name="text1",
+                fontsize=int(FONTSIZE * 1.5))
+
+    # Text showing the file name for easy id of data
+    create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
+                position=[0.6, 0.30], reg_name="text2",
+                fontsize=int(FONTSIZE * 1.5))
+
+    # Make Glyphs for each of the landmarks
+    for name, x in zip(["Kaikoura", "Wellington", "Porangahau", "Napier",
+                        "Mahia"], [0.15, 0.31, 0.525, .65, .775]):
+        origin = TRENCH_POINTS[name]
+        create_cone_glyph(origin)
+        create_text(s=name, position=[x, .6], fontsize=FONTSIZE)
+
+    # Generate and rescale the colorbar/ colormap
+    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.325],
+                                        orientation="Horizontal",)
+    cbar.TextPosition = "Ticks left/bottom, annotations right/top"
+    rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
+    display = GetDisplayProperties(clip_vtk, view=renderView)
+    display.SetScalarBarVisibility(renderView, True)
+
+    if contour:
+        contour_lines(clip_vtk, preset)
+
+    # Reset camera view to be normal to the plane. Specific to this plane
+    renderView.CameraPosition = [1437897., 4476535., -52266.]
+    renderView.CameraFocalPoint = [361523., 5552909., -52266.]
+    renderView.CameraParallelScale = 325507.
+    renderView.CameraViewUp = [0, 0, 1]
+    Render()
+
+    SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
+                   ImageResolution=VIEW_SIZE, TransparentBackground=1)
+
+    # Clean up for next plot
+    Hide(clip_vtk, renderView)
+    delete_temp_objects(reg_names=["ruler", "glyph", "point", "text",
+                                   "contour"])
+
+
+def make_tvz_xsection():
+    """
+    Make a slice through the TVZ from Ruapehu through White Island
+    :return:
+    """
+    origin = [376534.0, 5650985.0, 0.0]
+    normal = [-0.196517, 0.139469, 0.0]
+    pass
+
+def make_interface(fid, preset, contour=False, save_path=os.getcwd()):
     """
     Project the volume  onto an arbitrarily defined 3D surface. In this case the
     surface defines the plate interface model from Charles Williams (2013).
@@ -1160,6 +1452,7 @@ def make_interface(fid, preset, save_path=os.getcwd()):
     show_colorbar(interpolator)
     create_minmax_glyphs(interpolator, glyph_type="Sphere", scale_factor=20000)
 
+
     # Annotate the bottom-right corner to explain this is the interface
     text, _ = create_text(s="Interface", position=[0.625, 0.1],
                           reg_name="text1", fontsize=FONTSIZE * 2)
@@ -1179,18 +1472,35 @@ def make_preplot(args):
     """
     Convenience function to plot extras such as coastline, srcs, rcvs
     """
-    if args.coastline or args.extras:
+    util_dir = "/Users/Chow/Documents/academic/vuw/forest/utils/vtk_files/"
+    if args.outline or args.extras:
         if args.verbose:
             print(f"\t\tPlotting coastline")
-        plot_coastline()
-    if args.events or args.extras:
+        plot_point_cloud(fid=os.path.join(util_dir, "coast.vtk"),
+                         reg_name="coast")
+        if args.verbose:
+            print(f"\t\tPlotting Lake Taupo outline")
+        plot_point_cloud(fid=os.path.join(util_dir, "taupo.vtk"),
+                         reg_name="taupo",)
+    if args.sources or args.extras:
         if args.verbose:
             print(f"\t\tPlotting event glyphs")
         plot_events()
-    if args.stations or args.extras:
+    if args.receivers or args.extras:
         if args.verbose:
-            print(f"\t\tPlotting station glyphs")
+            print(f"\t\tPlotting receiver glyphs")
         plot_stations()
+    if args.faults or args.extras:
+        if args.verbose:
+            print(f"\t\tPlotting active fault traces")
+        plot_point_cloud(fid=os.path.join(util_dir, "faults.vtk"),
+                         reg_name="faults", point_size=1.25, opacity=0.6,
+                         color=COLOR_TABLE["w"])
+    if args.slowslip or args.extras:
+        if args.verbose:
+            print(f"\t\tPlotting SSE slip patches")
+        plot_sse_slip_patches()
+
 
 
 if __name__ == "__main__":
@@ -1227,20 +1537,29 @@ if __name__ == "__main__":
                         help="plot projection of model onto plate interface "
                              "of Charles Williams",
                         default=False)
-    parser.add_argument("-c", "--coastline", action="store_true",
-                        help="plot the coastline", default=False)
-    parser.add_argument("-e", "--events", action="store_true",
+    parser.add_argument("-c", "--contour", action="store_true",
+                        help="generate contour lines ontop of the slices",
+                        default=False)
+    parser.add_argument("-l", "--outline", action="store_true",
+                        help="plot the coastline and shoreline of lake Taupo",
+                        default=False)
+    parser.add_argument("-s", "--sources", action="store_true",
                         help="plot events as glyphs", default=False)
-    parser.add_argument("-s", "--stations", action="store_true",
+    parser.add_argument("-r", "--receivers", action="store_true",
                         help="plot stations as glyphs", default=False)
+    parser.add_argument("-f", "--faults", action="store_true",
+                        help="plot north island active faults on surface proj "
+                        "only", default=False)
+    parser.add_argument("-e", "--slowslip", action="store_true",
+                        help="plot slow slip slip event slip patches", 
+                        default=False)
     parser.add_argument("-E", "--extras", action="store_true",
-                        help="shorthand to plot coastline, src glyphs and "
-                             "rcv glyphs, same as '-ces'",
+                        help="shorthand to plot all extras like coast, glyphs'",
                         default=False,)
     parser.add_argument("-A", "--all", action="store_true", default=False,
                         help="shorthand to make all default slices, "
                              "same as '-xyzit'")
-    parser.add_argument("-d", "--depth_cutoff_km", type=float, default=100,
+    parser.add_argument("-d", "--depth_cutoff_km", type=float, default=50,
                         help="For any vertical cross sections (Y-axis figure "
                              "normal to Z axis of volume), define the depth"
                              "cutoff of the screenshot as usually were not "
@@ -1289,14 +1608,14 @@ if __name__ == "__main__":
             print(f"\tPreset is set to '{preset_key}'")
         preset = PRESETS[preset_key]
         if args.bounds:
-            preset["bounds"] = [float(_) for _ in args.bounds.split(",")]
+            preset.bounds = [float(_) for _ in args.bounds.split(",")]
 
         # ======================================================================
         # DEPTH SLICES
         # ======================================================================
         zslices = []
         if args.default_zslices or args.all:
-            zslices += ["surface", "2-20,2", "25-50,5"]
+            zslices += ["surface", "2-20,2", "25-50,5", "60-100,20"]
         if args.zslices:
             zslices += args.zslices
 
@@ -1305,7 +1624,8 @@ if __name__ == "__main__":
             zslices = parse_slice_list(zslices)
             if args.verbose:
                 print(f"\tGenerating Z slices for {zslices}")
-            make_depth_slices(data_fid, zslices, preset, save_path=save_path)
+            make_depth_slices(data_fid, zslices, contour=args.contour,
+                              preset=preset, save_path=save_path)
             reset()
 
         # ======================================================================
@@ -1316,7 +1636,8 @@ if __name__ == "__main__":
             xslices = list(range(5, 100, 10))
             if args.verbose:
                 print(f"\tGenerating X-normal slices for {xslices}")
-            make_cross_sections(data_fid, xslices, normal="x", preset=preset,
+            make_cross_sections(data_fid, xslices, contour=args.contour,
+                                normal="x", preset=preset,
                                 depth_cutoff_km=args.depth_cutoff_km,
                                 save_path=save_path)
             reset()
@@ -1330,6 +1651,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print(f"\tGenerating Y-normal slices for {yslices}")
             make_cross_sections(data_fid, yslices, normal="y", preset=preset,
+                                contour=args.contour,
                                 depth_cutoff_km=args.depth_cutoff_km,
                                 save_path=save_path)
             reset()
@@ -1340,9 +1662,14 @@ if __name__ == "__main__":
         if args.trench or args.all:
             if args.verbose:
                 print("\tGenerating trench normal cross sections")
-            make_trench_cross_sections(data_fid, preset,
-                                       depth_cutoff_km=args.depth_cutoff_km,
-                                       save_path=save_path)
+            make_trench_normal(data_fid, preset, contour=args.contour,
+                               depth_cutoff_km=args.depth_cutoff_km,
+                               save_path=save_path)
+            if args.verbose:
+                print("\tGenerating trench parallel cross section")
+            make_trench_parallel(data_fid, preset, contour=args.contour,
+                                 depth_cutoff_km=args.depth_cutoff_km,
+                                 save_path=save_path)
             reset()
 
         # ======================================================================
@@ -1352,7 +1679,8 @@ if __name__ == "__main__":
             if args.verbose:
                 print("\tGenerating interface projection")
             make_preplot(args)
-            make_interface(data_fid, preset, save_path=save_path)
+            make_interface(data_fid, preset, contour=args.contour,
+                           save_path=save_path)
             reset()
            
 

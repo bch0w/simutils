@@ -197,7 +197,7 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
             rho_file = glob.glob("*rho*.vtk")[0]
             for vs_fid in sorted(vs_files):
                 model_number = vs_fid.split("_")[1]
-                fid_out_ = f"mu_{model_number}.vtk"
+                fid_out_ = f"modulus_{model_number}_shear.vtk"
                 model_a.append(vs_fid)
                 model_b.append(rho_file)
                 fid_out.append(fid_out_)

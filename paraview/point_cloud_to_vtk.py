@@ -2,12 +2,13 @@
 Convert an XYZ point cloud into something renderable by paraview
 Point cloud needs to be defined by X, Y and Z values that have the same length
 """
+import sys
 import numpy as np
 
-x, y, z = np.loadtxt("williams_hikurangi_interface_utm60.xyz").T
+x, y, z = np.loadtxt(sys.argv[1], skiprows=1, delimiter=',').T
 npoints = len(x)
 
-with open("interface.vtk", "w") as f:
+with open(sys.argv[2], "w") as f:
     # Write header
     f.write("# vtk DataFile Version 2.0\n"
             "loop\n"
