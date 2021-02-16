@@ -68,8 +68,9 @@ def xyz_reader(xyz_fid, save=True):
 
 
 def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
-                     perturbation=0.02, mode="apply", apply_to=None,
-                     taper_signal=None, no_incompletes=True, plot_fid=None,
+                     perturbation=0.02, mode="apply", apply_to=None, 
+                     invert=False, zero_values=None, taper_signal=None, 
+                     no_incompletes=True, plot_fid=None, invert=False, 
                      **kwargs):
     """
     Read in the data from an XYZ tomography file and create a checkerboard
@@ -94,9 +95,18 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
         model to generate a perturbed 'target' velocity model
         'extract' - extract the given perturbations leaving the intermediate
             spaces as 0's to create a point spread function checkerboard
+        'return' - simply return the value of the perturbation [0, 1] without
+            any reference to the input model
     :type apply_to: list of str
     :param apply_to: define which parameters to apply the checkerboard to.
         acceptable values: vp, vs, rho, qp, qs. By default, vp, vs.
+    :type invert: bool
+    :param invert: if True, start the checkering on a negative perturbation 
+        rather than positive. Defaults to False
+    :type zero_values: list of float
+    :param zero_values: Allow choosing what the base values of the perturbation
+        are. Default zero but SPECFEM doesnt like zero velocity so you can
+        choose any value
     :type taper_signal: scipy.signal.function
     :param taper_signal: scipy signal to taper checkers by
     :type no_incompletes: bool  
@@ -109,6 +119,8 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
     apply_dict = {"vp": 3, "vs": 4, "rho": 5, "qp": 6, "qs": 7}
     if not apply_to:
         apply_to = ["vp", "vs"]
+    if not zero_values:
+        zero_values = np.zeros(len(apply_to))
 
     if not spacing_y:
         spacing_y = spacing_x
@@ -124,6 +136,8 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
     # Initialize starting values
     checker_overlay = np.zeros(len(data))
     x = 1
+    if invert:
+        x *= -1
 
     print(xyz_fid)
     # Loop through the x-axis, setting left and right boundaries
@@ -175,8 +189,9 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                             x_window[np.where(x_checker == data[ind, 0])[0]] *
                             y_window[np.where(y_checker == data[ind, 1])[0]]
                     )
-                except ValueError:
-
+                except ValueError as e:
+                    print(e)
+                    import ipdb;ipdb.set_trace()
 
             # Flip the sign of the y-axis checker
             y *= -1
@@ -235,13 +250,15 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
         # Top down view only plots if surface is included
         z_ind = np.where(data[:, 2] ==  data[:, 2].max())[0]
         if z_ind.any():
+            z_val = data[:, 2].max()
             plt.scatter(x=data[z_ind, 0], y=data[z_ind, 1],
                         c=checker_overlay[z_ind], s=0.1)
             plt.xlabel("UTM-60 EASTING (m)")
             plt.ylabel("UTM-60 NORTHING (m)")
             plt.title(f"{xyz_fid}\n +/- {perturbation} perturbation\n"
                       f"{taper_signal.__name__} taper\n"
-                      f"xy spacing; {spacing_x}m by {spacing_y}m")
+                      f"xy spacing; {spacing_x}m by {spacing_y}m\n"
+                      f"z={z_val}")
 
             # plot coastline if possible
             coastline_fid = "./nz_resf_coast_mod_utm60H_xyz.npy"
@@ -257,7 +274,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                             s=1.)
             plt.gca().ticklabel_format(style='sci', axis='both')
             plt.gca().set_aspect(1)
-            plt.savefig("{}.png".format(plot_fid))
+            plt.savefig("{}.png".format(plot_fid), dpi=80)
             plt.close()
         
     # Side on view for checkers with depth
@@ -269,28 +286,38 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
         y_ind = np.where(data[:, 1] == y_checker_max)[0]
 
         # Plot the side view of a cut where the first maximum row occurs
-        plt.scatter(x=data[y_ind, 0], y= data[y_ind, 2],
+        plt.scatter(x=data[y_ind, 0], y=data[y_ind, 2],
                     c=checker_overlay[y_ind], s=2)
         plt.xlabel("UTM-60 EASTING(m)")
         plt.ylabel("DEPTH (m)")
         z_space = checker_z["spacing"]
         plt.title(f"{xyz_fid}\n +/- {perturbation} perturbation\n"
                   f"{taper_signal.__name__} taper\n"
-                  f"z spacing; {z_space}m")
+                  f"z spacing; {z_space}m"
+                  f"y={y_checker_max}")
         plt.gca().ticklabel_format(style='sci', axis='both')
-        plt.savefig("{}_depth.png".format(plot_fid), dpi=100)
+        plt.savefig("{}_depth.png".format(plot_fid), dpi=80)
         plt.close()
 
     # Apply the peturbations, only to Vp and Vs values, not to rho or Q
     data_out = np.copy(data)
     checker_overlay *= perturbation
-    for val in apply_to:
-        i = apply_dict[val]
+    for i, val in enumerate(apply_to):
+        idx = apply_dict[val]
         if mode == "apply":
-            offset = data_out[:, i]
+            # Apply the perturbation to the given velocity model values
+            offset = data_out[:, idx]
+            perturb = checker_overlay * data_out[:, idx]
         elif mode == "extract":
-            offset = 0
-        data_out[:, i] = offset + (checker_overlay * data_out[:, i])
+            # Extract the perturbed value of the given velocity model
+            offset = zero_values[i]
+            perturb = checker_overlay * data_out[:, idx]
+        elif mode == "return":
+            # Return the amplitude of the perturbation
+            offset = zero_values[i]
+            perturb = checker_overlay
+
+        data_out[:, idx] = offset + perturb
 
     return checker_overlay, data_out
 
@@ -312,7 +339,7 @@ def parse_data_to_header(data):
         "spacing_y": abs(y_values[1] - y_values[0]),
         "spacing_z": abs(z_values[1] - z_values[0]),
         "nx": len(x_values), "ny": len(y_values), "nz": len(z_values),
-        "vp_min": data[:, 4].min(), "vp_max": data[:, 3].max(),
+        "vp_min": data[:, 3].min(), "vp_max": data[:, 3].max(),
         "vs_min": data[:, 4].min(), "vs_max": data[:, 4].max(),
         "rho_min": data[:, 5].min(), "rho_max": data[:, 5].max(),
     }
@@ -352,18 +379,21 @@ if __name__ == "__main__":
     # =========================== Parameter set ================================
     fid_template="tomography_model_{}.xyz"
     taper_signal=signal.gaussian
-    spacing_x=47E3
-    spacing_y=48E3
+    spacing_x = 47E3
+    spacing_y = 48E3
     dict_z = {
         "shallow": {"origin": 3E3, "spacing": 5E3, "std": 500},
-        "crust": {"origin": 7E3, "spacing": 5E3, "std": 500 },
-        "mantle": {"origin": 47E3, "spacing": 5E3, "std": 500 }
+        "crust": {"origin": 6E3, "spacing": 10E3, "std": 1000 },
+        "mantle": {"origin": 25E3, "spacing": 50E3, "std": 10E3}
     }
-    perturbation=0.05
-    std=5E3
-    mode="extract"
-    no_incompletes=False
-    sections = ["mantle"]
+    perturbation = 1
+    std = 5E3
+    apply_to = ["vp", "vs"]
+    zero_values = [3000, 1500]
+    mode = "return"
+    no_incompletes = False
+    sections = ["mantle"] #["crust", "shallow", "mantle"]
+    inverts = [False, True, [
     # =========================== Parameter set ================================
 
     # Create checkers with varying levels of perturbation
@@ -380,11 +410,16 @@ if __name__ == "__main__":
         checker_z = dict_z[section]
 
         # Create the checkerboard data
+        if section == "mantle":
+            spacing_x = 48E3
+            spacing_y = 48E3
+
         overlay, checkerboard_data = checkerboardiphy(
             xyz_fid=fid,  plot_fid=fid_out, spacing_x=spacing_x,
-            spacing_y=spacing_y, checker_z=checker_z,
-            perturbation=perturbation, taper_signal=taper_signal,
-            no_incompletes=no_incompletes, mode=mode, std=std
+            spacing_y=spacing_y, checker_z=checker_z, zero_values=zero_values,
+            apply_to=apply_to, perturbation=perturbation, 
+            taper_signal=taper_signal, no_incompletes=no_incompletes, mode=mode, 
+            std=std
         )
         checkerboard_header = parse_data_to_header(checkerboard_data)
 
