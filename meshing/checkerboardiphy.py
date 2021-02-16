@@ -176,7 +176,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                             y_window[np.where(y_checker == data[ind, 1])[0]]
                     )
                 except ValueError:
-                    import ipdb;ipdb.set_trace()
+
 
             # Flip the sign of the y-axis checker
             y *= -1
@@ -352,8 +352,8 @@ if __name__ == "__main__":
     # =========================== Parameter set ================================
     fid_template="tomography_model_{}.xyz"
     taper_signal=signal.gaussian
-    spacing_x = 48E3
-    spacing_y = None#48E3
+    spacing_x=47E3
+    spacing_y=48E3
     dict_z = {
         "shallow": {"origin": 3E3, "spacing": 5E3, "std": 500},
         "crust": {"origin": 7E3, "spacing": 5E3, "std": 500 },

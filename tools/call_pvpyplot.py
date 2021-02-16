@@ -7,9 +7,11 @@ from glob import glob
 from subprocess import call
 
 # COMMANDS
-def tile(fids, out, ncol, nrow):
+def tile(fids, out, ncol, nrow, null=False):
     for fid in fids:
         assert(os.path.exists(fid)), f"{fid} does not exist for tile"
+    if null:
+        fids.insert(null, "null:")
     call([f"montage -tile {ncol}x{nrow} {' '.join(fids)} -geometry +0+0 {out}"],
          shell=True)
 
@@ -34,9 +36,9 @@ TZ = 1  # Tile Z slice images using Imagemagick
 TT = 0  # Tile Trench images using Imagemagick
 TI = 0  # Tile Interface images using Imagemagick
 # MODELS
-VS = 0    # S-Wave Velocity
+VS = 1    # S-Wave Velocity
 VP = 0    # P-Wave Velocity
-PS = 1    # Vp/Vs Ratio
+PS = 0    # Vp/Vs Ratio
 PO = 0    # Poisson's Ratio
 MU = 0    # Shear Modulus
 UP = 0    # Net Model Update
@@ -44,9 +46,13 @@ UP = 0    # Net Model Update
 T = 0     # Trench
 X = 0     # X Slices
 Y = 0     # Y Slices
-Z = 0     # Z Slices
-M = 1     # Manual Z slices for Vp and Vs
+Z = 1     # Z Slices
+M = 0     # Manual Z slices for Vp and Vs
 I = 0     # Interface
+F = 1     # Add active faults
+S = 0     # Add source epicenter locations
+R = 0     # Add receiver locations
+C = 0     # Add contour lines to figures
 # ==============================================================================
 
 s_flags = ""
@@ -56,36 +62,42 @@ if X:
     s_flags += "x"
 if Y:
     s_flags += "y"
-if Z:
-    s_flags += "z"
 if I:
     s_flags += "i"
+if C:
+    s_flags += "c"
+if S:
+    s_flags += "s"
+if R:
+    s_flags += "r"
+if F:
+    s_flags += "f"
 if s_flags:
     s_flags = f"-{s_flags}"
+if Z:
+    s_flags += " -Z s"
 
 # DEPTH SLICES
 basepath = "/Users/Chow/Documents/academic/vuw/forest/figures/model_comparisons"
 scratch = os.path.join(basepath, "scratch")
-
-# import ipdb; ipdb.set_trace()
-# from IPython import embed; embed()
 
 os.chdir(basepath)
 for dir_ in ["initial_model", "current_model"]:
     if not MK:
         continue
     os.chdir(dir_)
+    print(f"{dir_.replace('_', ' ')}")
 
     # Vp Model
     if VP:
         fid = os.path.abspath(glob("model_????_vp.vtk")[0])
         assert(fid and os.path.exists(fid)), f"{dir_} model vs does not exist"
-        flags = f"-o {scratch} -lc"
+        flags = f"-o {scratch} -l"
         
         print("making Vp figures")
         callpv(f"{fid} {flags} {s_flags}")
         if T: 
-            callpv(f"{fid} {flags} -t -p trench_vp")
+            callpv(f"{fid} {flags} -tc -p trench_vp")
 
         # Manually set colorbounds for depths
         if M:
@@ -103,28 +115,37 @@ for dir_ in ["initial_model", "current_model"]:
     if VS:
         fid = os.path.abspath(glob("model_????_vs.vtk")[0])
         assert(fid and os.path.exists(fid)), f"{dir_} model vs does not exist"
-        flags = f"-o {scratch} -lc"
+        flags = f"-o {scratch} -l"
 
         print("making Vs figures")
         callpv(f"{fid} {flags} {s_flags}")
         if T: 
-            callpv(f"{fid} {flags} -t -p trench_vs")
+            callpv(f"{fid} {flags} -tc -p trench_vs")
 
         # Manually set colorbounds for depths
         if M:
-            callpv(f"{fid} {flags} -Z s -b 1000,3000")
-            callpv(f"{fid} {flags} -Z 1-5,1 -b 1500,3500")
-            callpv(f"{fid} {flags} -Z 6-10,1 -b 1750,4000")
-            callpv(f"{fid} {flags} -Z 11-15,1 -b 2250,4000")
-            callpv(f"{fid} {flags} -Z 16-20,1 -b 2750,4250")
-            callpv(f"{fid} {flags} -Z 21-25,1 -b 3000,4500")
-            callpv(f"{fid} {flags} -Z 26-30,1 -b 3250,4750")
-            callpv(f"{fid} {flags} -Z 31-40,1 -b 3250,5000")
-            callpv(f"{fid} {flags} -Z 41-50,1 -b 3750,5000")
+            callpv(f"{fid} {flags} -Z s -b 1000,3100")
+            callpv(f"{fid} {flags} -Z 5 -b 1600,3850")
+            callpv(f"{fid} {flags} -Z 10 -b 2000,3900")
+            callpv(f"{fid} {flags} -Z 15 -b 2500,4000")
+            callpv(f"{fid} {flags} -Z 20 -b 3000,4500")
+            callpv(f"{fid} {flags} -Z 25 -b 3200,4500")
+            callpv(f"{fid} {flags} -Z 30 -b 3200,4850")
+            callpv(f"{fid} {flags} -Z 35 -b 3500,5000")
+            callpv(f"{fid} {flags} -Z 40 -b 3750,5000")
+            callpv(f"{fid} {flags} -Z 45 50 -b 4000,5000")
+            
+            # Old values, out of bounds slightly
+            # callpv(f"{fid} {flags} -Z s -b 1000,3000")
+            # callpv(f"{fid} {flags} -Z 1-5,1 -b 1500,3500")
+            # callpv(f"{fid} {flags} -Z 6-10,1 -b 1750,4000")
+            # callpv(f"{fid} {flags} -Z 11-15,1 -b 2250,4000")
+            # callpv(f"{fid} {flags} -Z 16-20,1 -b 2750,4250")
+            # callpv(f"{fid} {flags} -Z 21-25,1 -b 3000,4500")
+            # callpv(f"{fid} {flags} -Z 26-30,1 -b 3250,4750")
+            # callpv(f"{fid} {flags} -Z 31-40,1 -b 3250,5000")
+            # callpv(f"{fid} {flags} -Z 41-50,1 -b 3750,5000")
 
-        # Custom set
-        # callpv(f"{fid} {flags} -Z s -b 1000,3000")
-        # callpv(f"{fid} {flags} -Z 1-5,1 -b 1500,3500")
 
     # Vp/Vs Ratio
     if PS:
@@ -132,10 +153,9 @@ for dir_ in ["initial_model", "current_model"]:
         assert(fid and os.path.exists(fid)), f"{dir_} ratio vpvs does not exist"
 
         print("making Vp/Vs figures")
-        flags = f"-o {scratch} -lc"
+        flags = f"-o {scratch} -l"
         if M:
-            callpv(f"{fid} {flags} -s -Z s 1-5,1")
-            # callpv(f"{fid} {flags} -Z 6-50,1")
+            callpv(f"{fid} {flags} -Z s 5-50,5")
         if s_flags:
             callpv(f"{fid} {flags} {s_flags}")
 
@@ -161,8 +181,7 @@ if MK and UP:
         print(f"making {fid.split('.')[0]} figures")
         callpv(f"{fid} -o {scratch} -l {s_flags}")
         if M:
-            callpv(f"{fid} -o {scratch} -Z s 1-5,1 -l")
-            callpv(f"{fid} -o {scratch} -Z 6-50,1 -l")
+            callpv(f"{fid} -o {scratch} -Z s 5-50,5 -l")
 
 # Remove whitespace from all figures
 if WS:
@@ -177,14 +196,22 @@ if WS:
 
 # I-Tile images
 if TI:
+    i_tile_dir = os.path.join(scratch, "i_tiles")
+    if not os.path.exists(i_tile_dir):
+        os.mkdir(i_tile_dir)
     os.chdir(scratch)
     print("making interface tiles")
-    tile_dirs = ["model_init_vs", "model_0011_vs", "update_0011_vs",
-                 "ratio_init_vpvs", "ratio_0011_vpvs", "update_0011_vpvs",
-                 "ratio_init_poissons", "ratio_0011_poissons", "update_0011_poissons",
-                 "modulus_init_shear", "modulus_0011_shear", "update_0011_shear"]
-    tile_files = [os.path.join(_, "interface.png") for _ in tile_dirs]
-    tile(tile_files, out="tile_interface.png", ncol=3, nrow=4)
+    tile_dirs_list = [
+            ["model_init_vs", "model_0011_vs", "update_0011_vs"],
+            ["ratio_init_vpvs", "ratio_0011_vpvs", "update_0011_vpvs"],
+            ["ratio_init_poissons", "ratio_0011_poissons", "update_0011_poissons"],
+            ["modulus_init_shear", "modulus_0011_shear", "update_0011_shear"]
+            ]
+    for tile_dirs in tile_dirs_list:
+        tile_files = [os.path.join(_, "interface.png") for _ in tile_dirs]
+        name = tile_dirs[0].replace("init_", "")
+        tile(tile_files, out=os.path.join(i_tile_dir, f"tile_{name}.png"), 
+             ncol=3, nrow=1)
 
 # T-Tile images
 if TT:
@@ -194,16 +221,15 @@ if TT:
     os.chdir(scratch)
 
     print("making trench tiles")
-    tile_dirs = ["model_init_vs", "ratio_init_vpvs",
-                 "model_0011_vs", "ratio_0011_vpvs", 
-                 "update_0011_vs", "update_0011_vpvs"]
+    # tile_dirs = ["model_init_vs", "model_0011_vs", "update_0011_vs"]
+    tile_dirs = ["ratio_init_vpvs", "ratio_0011_vpvs", "update_0011_vpvs"]
     os.chdir(tile_dirs[0])
     t_files = sorted(glob("t_*.png"))
     os.chdir("..")
     for tf in t_files:
         tile_files = [os.path.join(_, tf) for _ in tile_dirs]
         tile(tile_files, out=os.path.join(t_tile_dir, f"tile_{tf}"),
-             ncol=2, nrow=3)
+             ncol=2, nrow=2, null=4)
 
 # Z-Tile images
 if TZ:
@@ -213,16 +239,18 @@ if TZ:
     os.chdir(scratch)
     
     print("making z-slice tiles")
-    tile_dirs = ["model_init_vs", "model_0011_vs", "update_0011_vs",
-                 "ratio_init_vpvs", "ratio_0011_vpvs", "update_0011_vpvs",
-                 "model_init_vp", "model_0011_vp", "update_0011_vp",]
+    tile_dirs = ["model_init_vs", "model_0011_vs", "update_0011_vs"]
+    # tile_dirs = ["ratio_init_vpvs", "ratio_0011_vpvs", "update_0011_vpvs"]
+    # tile_dirs = ["model_init_vs", "model_0011_vs", "update_0011_vs",
+    #              "ratio_init_vpvs", "ratio_0011_vpvs", "update_0011_vpvs",
+    #              "model_init_vp", "model_0011_vp", "update_0011_vp",]
     os.chdir(tile_dirs[0])
     z_files = sorted(glob("z_*.png"))
     os.chdir("..")
     for zf in z_files:
         tile_files = [os.path.join(_, zf) for _ in tile_dirs]
         tile(tile_files, out=os.path.join(z_tile_dir, f"tile_{zf}"),
-             ncol=3, nrow=3)
+             ncol=3, nrow=1)
 
 
 

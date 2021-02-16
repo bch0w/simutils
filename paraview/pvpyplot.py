@@ -81,7 +81,7 @@ class Preset(dict):
     colormaps, and the associated colorbars for different model types
     """
     def __init__(self, title="", cmap="Jet", invert=False, center=False, 
-                 format="%.2f", round=10, bounds=False, nlabel=3, nvalues=28,
+                 fmt="%.2f", rnd=10, bounds=False, nlabel=3, nvalues=28,
                  above_range=False, below_range=False, isosurfaces=None,
                  cdx=None):
         """
@@ -89,8 +89,8 @@ class Preset(dict):
         :cmap (str): Colormap to define LUT
         :invert (bool): Invert the original bounds of the colormap
         :center (bool): Ensure that the middle value of the colormap is 0
-        :format (str): String formatter for the range bounds on colorbar
-        :round (int): Round range labels to a base value, if None, no rounding
+        :fmt (str): String formatter for the range bounds on colorbar
+        :rnd (int): Round range labels to a base value, if None, no rounding
         :bounds (bool or tuple or list): Can be overwritten using the '-b' arg
             * True: keep the colorbar bounds constant for every screenshot using 
                 the min/max values of the entire volume.
@@ -111,8 +111,8 @@ class Preset(dict):
         self.cmap = cmap
         self.invert = invert
         self.center = center
-        self.format = format
-        self.round = round
+        self.fmt = fmt
+        self.rnd = rnd
         self.bounds = bounds
         self.nlabel = nlabel
         self.nvalues = nvalues
@@ -129,88 +129,94 @@ class Preset(dict):
 
 
 PRESETS = {
-    "custom_vs": Preset(
-        title="Vs [m/s]", cmap="RdYlBu", invert=False, center=False,
-        format="%.1f", round=10, bounds=False, nlabel=3, nvalues=21, cdx=500,
+    "resolution": Preset(
+        title="PSF Volume [m^3 s^2]", cmap="Black, Blue and White", invert=True,
+        center=False, fmt="%.2E", rnd=None, bounds=[0, 1E-4], nlabel=3,
+        nvalues=21, isosurfaces=[1E-5 * _ for _ in list(range(1,9))]
+    ),
+    "kernel_vs": Preset(
+        title="Vs Kernel [m^-2 s^2]", cmap="Cool to Warm (Extended)", 
+        invert=False, center=True, fmt="%.2E", rnd=None, bounds=False, 
+        nlabel=3, nvalues=64,
     ),
     "donna_vpvs": Preset(
         title="Vp/Vs Ratio", cmap="Cool to Warm (Extended)", invert=False,
-        center=False, format="%.2f", round=None, bounds=[1.55, 1.9], nlabel=4,
+        center=False, fmt="%.2f", rnd=None, bounds=[1.55, 1.9], nlabel=4,
         nvalues=14, isosurfaces=[1.5, 1.75, 2., 2.25]
     ),
     "trench_vs": Preset(
         title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
-        format="%.1f", round=10, bounds=[1750, 5750], nlabel=4, nvalues=64,
+        fmt="%.1f", rnd=10, bounds=[1750, 5500], nlabel=4, nvalues=64,
         cdx=500, above_range=False #COLOR_TABLE["gray"],
     ),
     "trench_vp": Preset(
         title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
-        format="%.1f", round=10, bounds=[3500, 9250], nlabel=4, nvalues=64,
+        fmt="%.1f", rnd=10, bounds=[3500, 9250], nlabel=4, nvalues=64,
         cdx=500, above_range=False # COLOR_TABLE["gray"],
     ),
     "model_rho": Preset(
         title="Density [kg m^-3]", cmap="Rainbow Desaturated", invert=True,
-        center=False, format="%.1f", round=10, bounds=False, nlabel=3,
+        center=False, fmt="%.1f", rnd=10, bounds=False, nlabel=3,
         nvalues=64
     ),
     "model_vp": Preset(
         title="Vp [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
-        format="%.1f", round=10, bounds=False, nlabel=3, nvalues=64, cdx=500,
+        fmt="%.1f", rnd=10, bounds=False, nlabel=3, nvalues=64, cdx=500,
     ),
     "model_vs": Preset(
         title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
-        format="%.1f", round=10, bounds=False, nlabel=5, nvalues=33, cdx=500,
+        fmt="%.1f", rnd=10, bounds=False, nlabel=5, nvalues=33, cdx=500,
     ),
     "gradient_vp_kernel": Preset(
         title="Vp Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
-        invert=True, center=True, format="%.1E", round=None, bounds=True,
+        invert=True, center=True, fmt="%.1E", rnd=None, bounds=True,
         nlabel=3, nvalues=64
     ),
     "gradient_vs_kernel": Preset(
         title="Vs Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
-        invert=True, center=True, format="%.1E", round=None, bounds=True,
+        invert=True, center=True, fmt="%.1E", rnd=None, bounds=True,
         nlabel=3, nvalues=64
     ),
     "update_vp": Preset(
         title="Vp Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
-        invert=True, center=True, format="%.02f", round=None, bounds=[-.15,.15],
+        invert=True, center=True, fmt="%.02f", rnd=None, bounds=[-.15,.15],
         nlabel=3, nvalues=64,
     ),
     "update_vs": Preset(
         title="Vs Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
-        invert=True, center=True, format="%.02f", round=None, bounds=[-.2,.2],
+        invert=True, center=True, fmt="%.02f", rnd=None, bounds=[-.2,.2],
         nlabel=3, nvalues=64,
     ),
     "update_vpvs": Preset(
         title="Vp/Vs Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
-        invert=True, center=True, format="%.02f", round=None,
+        invert=True, center=True, fmt="%.02f", rnd=None,
         bounds=True, nlabel=3, nvalues=64,
     ),
     "update_poissons": Preset(
         title="Poisson's Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
-        invert=True, center=True, format="%.02f", round=None,
+        invert=True, center=True, fmt="%.02f", rnd=None,
         bounds=[-.5, .5], nlabel=3, nvalues=64,
     ),
     "update_shear": Preset(
         title="Shear Modulus Update [ln(m/m00)]", 
         cmap="Blue Orange (divergent)",
-        invert=True, center=True, format="%.02f", round=None,
+        invert=True, center=True, fmt="%.02f", rnd=None,
         bounds=[-.5, .5], nlabel=3, nvalues=64,
     ),
     "ratio_poissons": Preset(
         title="Poisson's Ratio", cmap="Blue - Green - Orange", invert=False,
-        center=False, format="%.1f", round=None, bounds=[0.1, 0.4], nlabel=3,
+        center=False, fmt="%.1f", rnd=None, bounds=[0.1, 0.4], nlabel=3,
         nvalues=64, isosurfaces=[0.1, 0.2, 0.3, 0.4]
     ),
     "ratio_vpvs": Preset(
         title="Vp/Vs Ratio", cmap="Green-Blue Asymmetric Divergent (62Blbc)",
-        invert=True, center=False, format="%.2f", round=None,
+        invert=True, center=False, fmt="%.2f", rnd=None,
         bounds=[1.55, 2.1], nlabel=4, nvalues=28,
         isosurfaces=[1.5, 1.6, 1.7, 1.8, 1.9, 2., 2.1, 2.2]
     ),
     "modulus_shear": Preset(
         title="Shear Modulus [GPa]", cmap="Inferno (matplotlib)",
-        invert=True, center=False, format="%.0f", round=None,
+        invert=True, center=False, fmt="%.0f", rnd=None,
         bounds=[10, 40], nlabel=3, nvalues=10, above_range=[.78, .78, .78],
         cdx=10,
     ),
@@ -318,7 +324,7 @@ def depth_slice(vtk, depth):
     return slice_vtk
 
 
-def contour_lines(vtk, preset, color=None, reg_name="contour"):
+def contour_lines(vtk, preset, scale=1., color=None, reg_name="contour"):
     """
     Set countour lines for the given data file
 
@@ -361,6 +367,7 @@ def contour_lines(vtk, preset, color=None, reg_name="contour"):
     contourDisplay.LineWidth = 1.
     # Work-around to avoid RuntimeError thrown by ColorBy() with arg 'None'
     contourDisplay.ColorArrayName = ["POINTS", ""]
+    contourDisplay.Scale = [1., 1., scale]
     ColorBy(contourDisplay, None)
 
     if color is None:
@@ -396,7 +403,8 @@ def cross_section(vtk, normal, origin, name):
 
 
 def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
-                 font_color=None, justification="Left", reg_name="ruler"):
+                 font_color=None, justification="Left", reg_name="ruler",
+                 line_width=2.):
     """
     Generate a ruler to be used as a scalebar
 
@@ -429,6 +437,7 @@ def create_ruler(point1, point2, label="", ticknum=5, axis_color=None,
     rulerDisplay.AxisColor = axis_color or COLOR
     rulerDisplay.Color = font_color or COLOR
     rulerDisplay.FontSize = FONTSIZE
+    rulerDisplay.AxisLineWidth = line_width
     rulerDisplay.Justification = justification
 
     Hide3DWidgets(proxy=ruler)
@@ -628,7 +637,7 @@ def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
 
     display.DataAxesGrid.ZAxisUseCustomLabels = 1
 
-    display.Scale = [1., .1, scale]
+    display.Scale = [1., 1., scale]
     display.DataAxesGrid.Scale = [1., 1., scale]
 
     # Ensuring that all the depth values are formatted properly before ranging
@@ -686,9 +695,9 @@ def set_colormap_colorbar(vtk, position, orientation, colormap=None,
     cbar.AutoOrient = 0
     cbar.Orientation = orientation
     cbar.Position = position
-    cbar.RangeLabelFormat = preset.format
+    cbar.RangeLabelFormat = preset.fmt
     cbar.AutomaticLabelFormat = 0
-    cbar.LabelFormat = preset.format
+    cbar.LabelFormat = preset.fmt
 
     cbar.AddRangeLabels = 1
     cbar.ScalarBarThickness = 35
@@ -715,15 +724,20 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
     :type preset: dict
     :param preset: the preset choices for how to deal with the colorscale/ map
     """
-    # Set global bounds based on the min and max of the entire model
-    # or set based on the given source file
-    if preset.bounds:
-        if isinstance(preset.bounds, (tuple, list)):
-            vmin, vmax = preset.bounds
-        else:
-            vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
+    # Set either global (vtk) or local (src) bounds
+    if preset.bounds == True:
+        vmin, vmax = vtk.PointData.GetArray(0).GetRange(0)
     else:
         vmin, vmax = src.PointData.GetArray(0).GetRange(0)
+
+    # Allow user to override global points with preset.bounds
+    if preset.bounds:
+        if isinstance(preset.bounds, (tuple, list)):
+            # Allows user to only set one bound using e.g. [0, None]
+            if preset.bounds[0] is not None:
+                vmin = preset.bounds[0]
+            if preset.bounds[1] is not None:
+                vmax = preset.bounds[1]
 
     # Some fields should be centered on 0 despite the actual data bounds
     if preset.center:
@@ -731,9 +745,9 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
         vmin, vmax = -1 * vabsmax, vabsmax
 
     # If desired, round the colobar bounds to some base value
-    if preset.round:
-        vmin = myround(vmin, preset.round)
-        vmax = myround(vmax, preset.round)
+    if preset.rnd:
+        vmin = myround(vmin, preset.rnd)
+        vmax = myround(vmax, preset.rnd)
 
     # Apply depth specific values
     vsLUT.RescaleTransferFunction(vmin, vmax)
@@ -928,6 +942,42 @@ def plot_sse_slip_patches():
     vtkDisplay.Opacity = .75
 
 
+def plot_srvtk(fid, src_depth=3E3):
+    """
+    For plotting sensitivity kernels, where only one source and one receiver
+    are necessary, it's assumed that these files are produced by xspecfem3d,
+    that there are only two points in the file, and that the first point is
+    the source, the second the receiver
+    """
+    renderView = GetActiveView()
+    lines = open(fid, "r").readlines()
+    src = [float(_) for _ in lines[5].strip().split()]
+    if src_depth is not None:
+        src[-1] = src_depth
+    rcv = [float(_) for _ in lines[6].strip().split()]
+
+    # Glyph the source as a green sphere
+    pointSource = PointSource(registrationName="PointSource1")
+    pointSource.Center = src
+    glyph = Glyph(registrationName="Glyph1", Input=pointSource)
+    glyph.ScaleFactor = 12000
+    glyph.GlyphType = "Sphere"
+    glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
+    glyphDisplay.AmbientColor = COLOR_TABLE["g"]
+    glyphDisplay.DiffuseColor = COLOR_TABLE["g"]
+
+    # Glyph the receiver as a white box
+    pointSource = PointSource(registrationName="PointSource2")
+    pointSource.Center = rcv
+    glyph = Glyph(registrationName="Glyph2", Input=pointSource)
+    glyph.ScaleFactor = 12000
+    glyph.GlyphType = "Box"
+    glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
+    glyphDisplay.AmbientColor = COLOR_TABLE["w"]
+    glyphDisplay.DiffuseColor = COLOR_TABLE["w"]
+    glyphDisplay.SetRepresentationType('Surface With Edges')
+
+
 def make_depth_slices(fid, slices, preset, contour=False,
                       save_path=os.getcwd()):
     """
@@ -1076,7 +1126,9 @@ def make_cross_sections(fid, percentages, normal, preset, contour=False,
         clip_vtk.ClipType.Normal = [0., 0., -1.]
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
-        set_xsection_data_axis_grid(clip_vtk, camera_parallel=False)
+        set_xsection_data_axis_grid(clip_vtk, camera_parallel=False,
+                                    min_depth_km=0.,
+                                    max_depth_km=depth_cutoff_km)
 
         # Reset the colorbounds to data range
         active = GetActiveSource()
@@ -1150,7 +1202,7 @@ def make_cross_sections(fid, percentages, normal, preset, contour=False,
         delete_temp_objects(reg_names=["ruler", "text", "contour"])
 
 
-def make_trench_normal(fid, preset, depth_cutoff_km=100., scale=6.,
+def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
                        contour=False, save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench
@@ -1188,9 +1240,6 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., scale=6.,
         clip_vtk.ClipType.Normal = [0., 0., -1.]
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
-        # Put markers for depth values
-        set_xsection_data_axis_grid(clip_vtk, camera_parallel=True, scale=scale)
-
         # Reset the colorbounds to data range
         active = GetActiveSource()
         display = GetDisplayProperties(active, view=renderView)
@@ -1199,10 +1248,12 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., scale=6.,
         # In order to set the camera, annotations, etc. in a general fashion,
         # we need to determine the corner grid locations of the slice
         x, y, z = get_coordinates(clip_vtk)
-        ruler_origin = [min(x), max(y), min(z)]  # bottom left
+
+        # Create a ruler for axis grid scale
+        ruler_origin = [min(x), max(y), min(z) * scale]  # bottom left
 
         # Find the optimal length of the slice to fit an even spacing of ticks
-        tick_spacing_m = 50E3
+        tick_spacing_m = 50 * 1E3
         slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
         dist_m_h = myround(slice_length_m, tick_spacing_m)
         # Sometimes the round overestimates so we just go back until its not
@@ -1216,35 +1267,63 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., scale=6.,
         angle_rad = math.atan(TRENCH_NORMAL[0] / TRENCH_NORMAL[1])
         ruler_h = [min(x) + dist_m_h * math.cos(angle_rad),
                    max(y) - dist_m_h * math.sin(angle_rad),
-                   min(z)]
+                   min(z) * scale]
 
         # Keep the vertical scaling constant because it won't change
         dist_m_v = depth_cutoff_km * 1E3
         ruler_v = [min(x), max(y), min(z) + dist_m_v]
 
+        # Grid lines to show depth values only
+        set_xsection_data_axis_grid(clip_vtk, camera_parallel=False,
+                                    dz_km=dz_km,
+                                    min_depth_km= min(z) + dist_m_v,
+                                    max_depth_km=depth_cutoff_km,
+                                    scale=scale)
+
+        # Create rulers at each Z tick mark for easier reference
+        # zvals = list(range(int(min(z)), int(min(z) + dist_m_v), int(dz_km*1E3)))
+        # for i, val in enumerate(zvals):
+        #     point1 = [min(x), max(y), val * scale]
+        #     point2 = [min(x) + dist_m_h * math.cos(angle_rad),
+        #               max(y) - dist_m_h * math.sin(angle_rad),
+        #               val * scale]
+        #     if i == 0:
+        #         line_width = 2.
+        #         label = f"{dist_m_h/1E3:.0f}km " \
+        #                 f"(dh={int(tick_spacing_m*1E-3)}km)"
+        #     else:
+        #         label = None
+        #         line_width = 1.
+        #     create_ruler(point1=point1, point2=point2, label=label,
+        #                  reg_name="ruler0", ticknum=num_ticks_h,
+        #                  line_width=line_width)
+
         # Generate appropriate rulers that act as the X and Y axes in this plane
         create_ruler(point1=ruler_origin, point2=ruler_h,
-                     label=f"{dist_m_h/1E3:.0f}km " 
+                     label=f"{dist_m_h/1E3:.0f}km "
                            f"(dh={int(tick_spacing_m*1E-3)}km)",
-                     reg_name="ruler1", ticknum=num_ticks_h)
+                     reg_name="ruler0", ticknum=num_ticks_h)
 
-        create_ruler(point1=ruler_v, point2=ruler_origin,
-                     label="[Z]\n(dz=25km)", reg_name="ruler2",)
+        create_ruler(point1=ruler_v, point2=ruler_origin, ticknum=6,
+                     label=f"Z={depth_cutoff_km}km\n"
+                           f"1:{int(scale)} scale\n"
+                           f"(dz={int(dz_km)}km)",
+                     reg_name="ruler2", )
 
         # Create a reference point based on the landmark location
         create_cone_glyph(origin)
 
         # Annotate landmark location text to match glyph position
-        create_text(f"{ab}. {name}", [0.2, 0.30], reg_name="text1",
+        create_text(f"{ab}. {name}", [0.2, 0.2], reg_name="text1",
                     fontsize=int(FONTSIZE * 1.5))
 
         # Text showing the file name for easy id of data
         create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                    position=[0.6, 0.30], reg_name="text2",
+                    position=[0.6, 0.2], reg_name="text2",
                     fontsize=int(FONTSIZE * 1.5))
 
         # Generate and rescale the colorbar/ colormap
-        vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.325],
+        vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.175],
                                             orientation="Horizontal",)
         cbar.TextPosition = "Ticks left/bottom, annotations right/top"
         rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
@@ -1252,13 +1331,13 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., scale=6.,
         display.SetScalarBarVisibility(renderView, True)
 
         if contour:
-            contour_lines(clip_vtk, preset)
+            contour_lines(clip_vtk, preset, scale=scale)
 
         # Reset camera view to be normal to the plane. Specific to this plane
-        renderView.CameraPosition = [-400553., 4689520., -49366.]
-        renderView.CameraFocalPoint = [402390.0, 5595515., -49366.]
-        renderView.CameraParallelScale = 300000.
-        renderView.CameraViewUp = [0, 0, 1]
+        renderView.CameraPosition = [-544676., 4552966., -79504.]
+        renderView.CameraFocalPoint = [258266., 5458961., -79504.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
+        renderView.CameraParallelScale = 375000.0
         Render()
 
         SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
@@ -1270,8 +1349,8 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., scale=6.,
                                        "contour"])
 
 
-def make_trench_parallel(fid, preset, depth_cutoff_km=100., contour=False,
-                         save_path=os.getcwd()):
+def make_trench_parallel(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
+                         contour=False, save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench
     based on user-defined origin locations. Mark the origin locations
@@ -1304,9 +1383,6 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., contour=False,
     clip_vtk.ClipType.Normal = [0., 0., -1.]
     Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
-    # Put markers for depth values
-    set_xsection_data_axis_grid(clip_vtk, camera_parallel=True)
-
     # Reset the colorbounds to data range
     active = GetActiveSource()
     display = GetDisplayProperties(active, view=renderView)
@@ -1315,7 +1391,7 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., contour=False,
     # In order to set the camera, annotations, etc. in a general fashion,
     # we need to determine the corner grid locations of the slice
     x, y, z = get_coordinates(clip_vtk)
-    ruler_origin = [min(x), min(y), min(z)]  # bottom left
+    ruler_origin = [min(x), min(y), min(z) * scale]  # bottom left
 
     # Find the optimal length of the slice to fit an even spacing of ticks
     tick_spacing_m = 50E3
@@ -1332,11 +1408,16 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., contour=False,
     angle_rad = math.atan(TRENCH_PARALLEL[0] / TRENCH_PARALLEL[1])
     ruler_h = [min(x) + dist_m_h * math.cos(angle_rad),
                min(y) - dist_m_h * math.sin(angle_rad),
-               min(z)]
+               min(z) * scale]
 
     # Keep the vertical scaling constant because it won't change
     dist_m_v = depth_cutoff_km * 1E3
     ruler_v = [min(x), min(y), min(z) + dist_m_v]
+
+    # Put grid lines segments to match the ruler depth values
+    set_xsection_data_axis_grid(clip_vtk, camera_parallel=True, dz_km=dz_km,
+                                min_depth_km=min(z) + dist_m_v,
+                                max_depth_km=depth_cutoff_km, scale=scale)
 
     # Generate appropriate rulers that act as the X and Y axes in this plane
     create_ruler(point1=ruler_origin, point2=ruler_h,
@@ -1344,16 +1425,19 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., contour=False,
                        f"(dh={int(tick_spacing_m*1E-3)}km)",
                  reg_name="ruler1", ticknum=num_ticks_h)
 
-    create_ruler(point1=ruler_v, point2=ruler_origin,
-                 label="[Z]\n(dz=25km)", reg_name="ruler2",)
+    create_ruler(point1=ruler_v, point2=ruler_origin, ticknum=6,
+                 label=f"Z={depth_cutoff_km}km\n"
+                       f"1:{int(scale)} scale\n"
+                       f"(dz={int(dz_km)}km)",
+                 reg_name="ruler2", )
 
     # Annotate landmark location text to match glyph position
-    create_text(f"Trench Parallel", [0.2, 0.30], reg_name="text1",
+    create_text(f"Trench Parallel", [0.2, 0.235], reg_name="text1",
                 fontsize=int(FONTSIZE * 1.5))
 
     # Text showing the file name for easy id of data
     create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                position=[0.6, 0.30], reg_name="text2",
+                position=[0.6, 0.235], reg_name="text2",
                 fontsize=int(FONTSIZE * 1.5))
 
     # Make Glyphs for each of the landmarks
@@ -1361,10 +1445,10 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., contour=False,
                         "Mahia"], [0.15, 0.31, 0.525, .65, .775]):
         origin = TRENCH_POINTS[name]
         create_cone_glyph(origin)
-        create_text(s=name, position=[x, .6], fontsize=FONTSIZE)
+        create_text(s=name, position=[x, .725], fontsize=FONTSIZE)
 
     # Generate and rescale the colorbar/ colormap
-    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.325],
+    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.225],
                                         orientation="Horizontal",)
     cbar.TextPosition = "Ticks left/bottom, annotations right/top"
     rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
@@ -1372,13 +1456,13 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., contour=False,
     display.SetScalarBarVisibility(renderView, True)
 
     if contour:
-        contour_lines(clip_vtk, preset)
+        contour_lines(clip_vtk, preset, scale=scale)
 
     # Reset camera view to be normal to the plane. Specific to this plane
-    renderView.CameraPosition = [1437897., 4476535., -52266.]
-    renderView.CameraFocalPoint = [361523., 5552909., -52266.]
-    renderView.CameraParallelScale = 325507.
-    renderView.CameraViewUp = [0, 0, 1]
+    renderView.CameraPosition = [1422985., 4461623., -139631.]
+    renderView.CameraFocalPoint = [346611., 5537997., -139631.]
+    renderView.CameraViewUp = [0.0, 0.0, 1.0]
+    renderView.CameraParallelScale = 325507.0
     Render()
 
     SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
@@ -1500,7 +1584,8 @@ def make_preplot(args):
         if args.verbose:
             print(f"\t\tPlotting SSE slip patches")
         plot_sse_slip_patches()
-
+    if args.srvtk:
+        plot_srvtk(fid=args.srvtk)
 
 
 if __name__ == "__main__":
@@ -1547,6 +1632,8 @@ if __name__ == "__main__":
                         help="plot events as glyphs", default=False)
     parser.add_argument("-r", "--receivers", action="store_true",
                         help="plot stations as glyphs", default=False)
+    parser.add_argument("-S", "--srvtk", type=str, default=None,
+                        help="plot an sr.vtk file for sensitivity kernels",)
     parser.add_argument("-f", "--faults", action="store_true",
                         help="plot north island active faults on surface proj "
                         "only", default=False)
