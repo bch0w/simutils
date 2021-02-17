@@ -70,8 +70,7 @@ def xyz_reader(xyz_fid, save=True):
 def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                      perturbation=0.02, mode="apply", apply_to=None, 
                      invert=False, zero_values=None, taper_signal=None, 
-                     no_incompletes=True, plot_fid=None, invert=False, 
-                     **kwargs):
+                     no_incompletes=True, **kwargs):
     """
     Read in the data from an XYZ tomography file and create a checkerboard
     overlay which has +/- {perturbation} checkers overlain on the tomography
@@ -109,8 +108,12 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
         choose any value
     :type taper_signal: scipy.signal.function
     :param taper_signal: scipy signal to taper checkers by
-    :type no_incompletes: bool  
+    :type no_incompletes: dict of bool
     :param no_incompletes: if True, only create a checker if it doesnt cut off
+        at the domain boundaries. If False, will create incomplete checkers.
+        Needs to be a dictionary with the keys as each orthogonal direction,
+        to allow for incompletes in some directions and not others;
+        e.g. {'x': True, 'y': False, 'z': False}
     :type plot_fid: bool
     :param plot_fid: plot the overlay for confirmation
     :return:
@@ -143,12 +146,15 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
     # Loop through the x-axis, setting left and right boundaries
     for x_left in np.arange(header["orig_x"], header["end_x"], spacing_x):
         y = 1
-        print(f"x_left: {x_left:.3E}/{header['end_x']:.3E}\t{x:+d}")
+        print(f"x_left: {x_left:.3E}/{header['end_x']:.3E}\t{x:+d}", end=" ")
         x_right = x_left + spacing_x
-        
-        # Do not create incomplete checkers
-        if no_incompletes and (x_right > header["end_x"]):
+
+        # Option to not create incomplete checkers
+        if no_incompletes["x"] and (x_right > header["end_x"]):
+            print("outside range")
             continue
+        else:
+            print("")
 
         # Create the tapered checker for a given checker defined by bounds
         x_checker = np.arange(x_left, x_right, header["spacing_x"])
@@ -158,12 +164,16 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
 
         # Loop through the y-axis, setting lower and upper boundaries
         for y_bot in np.arange(header["orig_y"], header["end_y"], spacing_y):
-            print(f"\ty_bot: {y_bot:.3E}/{header['end_y']:.3E}\t{y:+d}")
+            print(f"\ty_bot: {y_bot:.3E}/{header['end_y']:.3E}\t{y:+d}",
+                  end=" ")
             y_top = y_bot + spacing_y
 
-            # Do not create incomplete checkers
-            if no_incompletes and (y_top > header["end_y"]):
+            # Option to not create incomplete checkers
+            if no_incompletes["y"] and (y_top > header["end_y"]):
+                print("outside range")
                 continue
+            else:
+                print("")
 
             # Create the tapered checker for the given checker defined by bounds
             y_checker = np.arange(y_bot, y_top, header["spacing_y"])
@@ -199,19 +209,44 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
         x *= -1
 
     # Checker in the vertical direction.
-    # We pre-set the depth checkers based on "origin" and "spacing" to avoid any
-    # conflicts with overlapping tomography files. Anything above "origin" will
-    # be positive checker, this should be okay if topography << spacing
+    # We pre-set the depth checkers based on "origin" and "spacing" to manually
+    # avoid any conflicts with overlapping tomography files.
     if checker_z:
         print("\nDepth Layers")
         z = 1
+
+        # First we set all values above the chosen 'origin' to be 0 so that
+        # they won't interfere with tomo files that define checkers above
+        if header["end_z"] > checker_z["origin"]:
+            print(f"zeroing out values above {checker_z['origin']}")
+            checker_indices = np.where((data[:, 2] <= header["end_z"]) &
+                                       (data[:, 2] > checker_z["origin"])
+                                       )
+            checker_overlay[checker_indices] = 0
+
+        # Then we taper each section, defined by 'spacing', until we hit the
+        # bottom of the tomo file
         for z_top in np.arange(checker_z["origin"], header["orig_z"], 
                                -1 * checker_z["spacing"]):
             z_bottom = z_top - checker_z["spacing"]
-            # Case for values above the origin, include w/ first checker
-            if header["end_z"] > checker_z["origin"] and \
-                                        z_top == checker_z["origin"]:
-                z_top = header["end_z"]
+            print(f"\t{z_top:.3E} to {z_bottom:.3E}\t{z:+d}", end=" ")
+
+            # At the last complete checker before the bottom of the tomo file,
+            # we have the option to not create an incomplete checker.
+            # If we don't want incomplete checkers, then we zero out all values
+            # below this point otherwise we will retain vertical columns between
+            # the last spacing point and the bottom of the tomo file.
+            # If we do want incomplete checkers, then the taper will take care
+            # of the vertical column
+            if no_incompletes["z"] and (z_bottom < header["orig_z"]):
+                print("outside range, setting 0")
+                checker_indices = np.where((data[:, 2] >= header["orig_z"]) &
+                                           (data[:, 2] <= z_top)
+                                           )
+                checker_overlay[checker_indices] = 0
+                continue
+            else:
+                print("")
 
             # Create the tapered checker for the vertical direction,
             # sample it fine so that we naturally interpolate to deal with the 
@@ -224,8 +259,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                 kwargs["std"] = checker_z["std"] / header["spacing_z"]
             z_window = taper_signal(len(z_checker), **kwargs)
 
-            print(f"\t{z_top:.3E} to {z_bottom:.3E}\t{z:+d}")
-            
+
             # Determine where to apply the checker based on depth values
             checker_indices = np.where(
                 (data[:, 2] <= z_top) & (data[:, 2] > z_bottom))
@@ -234,72 +268,12 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                                                 z_checker == data[ind, 2])[0]])
             z *= -1
 
-        # Case for values below the bottom, fill in the rest same as above
-        if z_bottom > header["orig_z"]:
-            z *= -1
-            checker_indices = np.where(
-                (data[:, 2] <= z_bottom) & (data[:, 2] > header["orig_z"]))
-            print(f"z_top: {z_bottom:.3E} to {header['orig_z']:.3E}\t{z:+d}")
-            for ind in checker_indices[0]:
-                checker_overlay[ind] *= (z * z_window[np.where(
-                                                z_checker == data[ind, 2])[0]])
+        # Finally get rid of any values at the bottom incase they were missed
+        if no_incompletes["z"]:
+            checker_indices = np.where(data[:, 2] == z_bottom)
+            checker_overlay[checker_indices] = 0
 
-    # Generate a quick plot to show a representation of the checkerboard
-    if plot_fid is not None:
-        print("Plot top down view")
-        # Top down view only plots if surface is included
-        z_ind = np.where(data[:, 2] ==  data[:, 2].max())[0]
-        if z_ind.any():
-            z_val = data[:, 2].max()
-            plt.scatter(x=data[z_ind, 0], y=data[z_ind, 1],
-                        c=checker_overlay[z_ind], s=0.1)
-            plt.xlabel("UTM-60 EASTING (m)")
-            plt.ylabel("UTM-60 NORTHING (m)")
-            plt.title(f"{xyz_fid}\n +/- {perturbation} perturbation\n"
-                      f"{taper_signal.__name__} taper\n"
-                      f"xy spacing; {spacing_x}m by {spacing_y}m\n"
-                      f"z={z_val}")
-
-            # plot coastline if possible
-            coastline_fid = "./nz_resf_coast_mod_utm60H_xyz.npy"
-            if os.path.exists(coastline_fid):
-                coastline = np.load(coastline_fid)
-                coastline = coastline[
-                        np.where((coastline[:, 0] > header["orig_x"]) &
-                                 (coastline[:, 0] < header["end_x"]) & 
-                                 (coastline[:, 1] > header["orig_y"]) &
-                                 (coastline[:, 1] < header["end_y"])
-                                 )[0]]
-                plt.scatter(coastline[:, 0], coastline[:, 1], c='k', marker='.',
-                            s=1.)
-            plt.gca().ticklabel_format(style='sci', axis='both')
-            plt.gca().set_aspect(1)
-            plt.savefig("{}.png".format(plot_fid), dpi=80)
-            plt.close()
-        
-    # Side on view for checkers with depth
-    if checker_z:
-        print("Plot side-on view")
-        # Determine where the maximum of the first set of checkers occurs
-        checker_max = np.where(checker_overlay == checker_overlay.max())[0]
-        y_checker_max = data[checker_max, 1].min()
-        y_ind = np.where(data[:, 1] == y_checker_max)[0]
-
-        # Plot the side view of a cut where the first maximum row occurs
-        plt.scatter(x=data[y_ind, 0], y=data[y_ind, 2],
-                    c=checker_overlay[y_ind], s=2)
-        plt.xlabel("UTM-60 EASTING(m)")
-        plt.ylabel("DEPTH (m)")
-        z_space = checker_z["spacing"]
-        plt.title(f"{xyz_fid}\n +/- {perturbation} perturbation\n"
-                  f"{taper_signal.__name__} taper\n"
-                  f"z spacing; {z_space}m"
-                  f"y={y_checker_max}")
-        plt.gca().ticklabel_format(style='sci', axis='both')
-        plt.savefig("{}_depth.png".format(plot_fid), dpi=80)
-        plt.close()
-
-    # Apply the peturbations, only to Vp and Vs values, not to rho or Q
+    # Apply the peturbations to desired parameters
     data_out = np.copy(data)
     checker_overlay *= perturbation
     for i, val in enumerate(apply_to):
@@ -320,6 +294,90 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
         data_out[:, idx] = offset + perturb
 
     return checker_overlay, data_out
+
+
+def plot_top_down(data, header, fid, checkers, apply_to=None):
+    """
+    Plot a top down view of the returned data created by checkerboardiphy
+    :return:
+    """
+    apply_dict = {"vp": 3, "vs": 4, "rho": 5, "qp": 6, "qs": 7}
+    if not apply_to:
+        apply_to = ["vp", "vs"]
+
+    # Plot each depth layer for each changed parameter
+    for val in apply_to:
+        idx = apply_dict[val]
+
+        # Use the checker data to figure out what x, y value slices through
+        # the central maximum of the checkers
+        checker_max = np.where(checkers == checkers.max())[0]
+        z_max = data[checker_max, 2].max()
+        z_idx = np.where(data[:, 2] == z_max)
+        c = data[z_idx, idx]
+
+        plt.scatter(x=data[z_idx, 0], y=data[z_idx, 1], c=c, s=0.1)
+        plt.xlabel("UTM-60 EASTING (m)")
+        plt.ylabel("UTM-60 NORTHING (m)")
+        plt.title(f"{fid}, z={z_max:.0f}km, v={val}")
+
+        # plot coastline if possible
+        coastline_fid = "./nz_resf_coast_mod_utm60H_xyz.npy"
+        if os.path.exists(coastline_fid):
+            coastline = np.load(coastline_fid)
+            coastline = coastline[
+                np.where((coastline[:, 0] > header["orig_x"]) &
+                         (coastline[:, 0] < header["end_x"]) &
+                         (coastline[:, 1] > header["orig_y"]) &
+                         (coastline[:, 1] < header["end_y"])
+                         )[0]]
+            plt.scatter(coastline[:, 0], coastline[:, 1], c='k', marker='.',
+                        s=1.)
+
+        plt.gca().ticklabel_format(style='sci', axis='both')
+        plt.gca().set_aspect(1)
+        plt.savefig(f"{fid}_{abs(z_max)}_{val}.png", dpi=80)
+        plt.close()
+
+
+def plot_side_on(data, fid, checkers, apply_to=None):
+    """
+    Plot a side on view of the returned data created by checkerboardiphy
+    :return:
+    """
+    apply_dict = {"vp": 3, "vs": 4, "rho": 5, "qp": 6, "qs": 7}
+    if not apply_to:
+        apply_to = ["vp", "vs"]
+
+    # Determine where the maximum of the first set of checkers occurs
+    # Switching between x and y values
+    for i in [0, 1]:
+        name = ["x", "y"][i]
+        for val in apply_to:
+            idx = apply_dict[val]  # parameter to plot, e.g. 'vp'
+
+            # Use the checker data to figure out what x, y value slices through
+            # the central maximum of the checkers
+            checker_max = np.where(checkers == checkers.max())[0]
+            # For a fixed value on one axis we need a plane in the opposite axis
+            # e.g. a fixed value of Y=0 requires a plot in XZ
+            opp_idx = abs(i - 1)
+            opp_axis = data[checker_max, opp_idx]
+            oa_name = ["x", "y"][opp_idx]
+            oa_val = opp_axis.min()
+            oa_idx = np.where(data[:, opp_idx] == oa_val)[0]
+
+            # Plot the side view of a cut where the first maximum row occurs
+            plt.scatter(x=data[oa_idx, i], y=data[oa_idx, 2],
+                        c=data[oa_idx, idx], s=2)
+
+            plt.xlabel(f"UTM60S {name.upper()} (m)")
+            plt.ylabel("DEPTH (m)")
+            plt.title(f"{fid}, {oa_name.upper()}={oa_val}, {val}")
+            plt.gca().ticklabel_format(style='sci', axis='both')
+            plt.savefig(f"{fid}_{oa_name}{oa_val}_{val}_depth.png",
+                        dpi=80)
+            plt.close()
 
 
 def parse_data_to_header(data):
@@ -379,21 +437,22 @@ if __name__ == "__main__":
     # =========================== Parameter set ================================
     fid_template="tomography_model_{}.xyz"
     taper_signal=signal.gaussian
-    spacing_x = 47E3
-    spacing_y = 48E3
+    spacing_x = 48E3
+    spacing_y = None
     dict_z = {
         "shallow": {"origin": 3E3, "spacing": 5E3, "std": 500},
-        "crust": {"origin": 6E3, "spacing": 10E3, "std": 1000 },
-        "mantle": {"origin": 25E3, "spacing": 50E3, "std": 10E3}
+        "crust": {"origin": -7E3, "spacing": 10E3, "std": 1000 },
+        "mantle": {"origin": -47E3, "spacing": 50E3, "std": 10E3}
     }
     perturbation = 1
     std = 5E3
     apply_to = ["vp", "vs"]
     zero_values = [3000, 1500]
     mode = "return"
-    no_incompletes = False
+    no_incompletes = {"x": False, "y": False, "z": True}
     sections = ["mantle"] #["crust", "shallow", "mantle"]
-    inverts = [False, True, [
+    invert_dict = {"mantle": False, "crust": True, "shallow": False}
+    plot = True
     # =========================== Parameter set ================================
 
     # Create checkers with varying levels of perturbation
@@ -401,27 +460,28 @@ if __name__ == "__main__":
         print(f"section = {section}")
         fid = fid_template.format(section)
 
-        # Save the outputs with a new tag
+        # Save the outputs with a new tag so we dont overwrite original data
         tag = "_checker"
         fid_parts = os.path.splitext(fid)
         fid_out = f"{fid_parts[0]}{tag}{fid_parts[-1]}"
 
         # Set the Z-axis checkering based on section
         checker_z = dict_z[section]
-
-        # Create the checkerboard data
-        if section == "mantle":
-            spacing_x = 48E3
-            spacing_y = 48E3
+        invert = invert_dict[section]
 
         overlay, checkerboard_data = checkerboardiphy(
-            xyz_fid=fid,  plot_fid=fid_out, spacing_x=spacing_x,
-            spacing_y=spacing_y, checker_z=checker_z, zero_values=zero_values,
-            apply_to=apply_to, perturbation=perturbation, 
+            xyz_fid=fid, spacing_x=spacing_x, spacing_y=spacing_y,
+            checker_z=checker_z, zero_values=zero_values,
+            apply_to=apply_to, perturbation=perturbation, invert=invert,
             taper_signal=taper_signal, no_incompletes=no_incompletes, mode=mode, 
             std=std
         )
         checkerboard_header = parse_data_to_header(checkerboard_data)
+
+        if plot:
+            plot_top_down(checkerboard_data, checkerboard_header,
+                          fid_out, overlay)
+            plot_side_on(checkerboard_data, fid_out, overlay)
 
         # Save the new data to a numpy array for easy i/o
         np.save(fid_out, checkerboard_data)
