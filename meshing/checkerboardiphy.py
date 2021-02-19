@@ -437,21 +437,21 @@ if __name__ == "__main__":
     # =========================== Parameter set ================================
     fid_template="tomography_model_{}.xyz"
     taper_signal=signal.gaussian
-    spacing_x = 48E3
+    spacing_x = 80E3
     spacing_y = None
     dict_z = {
-        "shallow": {"origin": 3E3, "spacing": 5E3, "std": 500},
-        "crust": {"origin": -7E3, "spacing": 10E3, "std": 1000 },
-        "mantle": {"origin": -45E3, "spacing": 30E3, "std": 10E3}
+        "shallow": {"origin": 3E3, "spacing": 10E3, "std": 1500},
+        "crust": {"origin": -7E3, "spacing": 12E3, "std": 1750 },
+        "mantle": {"origin": -40E3, "spacing": 30E3, "std": 10E3}
     }
     perturbation = 1
-    std = 5E3
+    std = 10E3
     apply_to = ["vp", "vs"]
     zero_values = [3000, 1500]
     mode = "return"
     no_incompletes = {"x": False, "y": False, "z": True}
     sections = ["mantle"] # , "shallow", "mantle"]
-    invert_dict = {"mantle": False, "crust": False, "shallow": False}
+    invert_dict = {"mantle": False, "crust": True, "shallow": False}
     plot = True
     # =========================== Parameter set ================================
 
