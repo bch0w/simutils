@@ -23,6 +23,7 @@ import os
 import math
 import string
 import argparse
+from subprocess import call
 from glob import glob
 from paraview.vtk.numpy_interface import dataset_adapter
 from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
@@ -51,13 +52,15 @@ FONTSIZE = 15
 COLOR = COLOR_TABLE["k"]
 
 # Size of the output screenshots
-VIEW_SIZE = [1037, 813]
+# VIEW_SIZE = [1037, 813]
+VIEW_SIZE = [2074, 1626]
 
 # Pre-defined trench parallel cross sections w/ origins based on landmark
 # locations in UTM -60. Trench normal is defined as 40deg from the X-axis
 # Trench parallel tries to closely resemble Fig. 5 of Reyners (2017)
 TRENCH_NORMAL = [-0.64, -0.76, 0.]
 TRENCH_PARALLEL = [-0.7, 0.7, 0.]
+# TRENCH_PARALLEL = [-0.9, 0.65, 0.]  # To match Henrys et al. (2020) F1 B-B'
 TRENCH_POINTS = {"Kaikoura": [226749., 5300535., 0.],
                  "Wellington": [314007., 5426403., 0.,],
                  "Flatpoint": [413092., 5433559., 0.,],
@@ -70,9 +73,6 @@ TRENCH_POINTS = {"Kaikoura": [226749., 5300535., 0.],
                  "Mahia": [575567., 5665558., 0.,],
                  "Gisborne": [588984., 5720001., 0.,]
                  }
-
-# Pre-defined geographical landmarks for easier reference when plotting
-LANDMARKS = {""}
 
 
 class Preset(dict):
@@ -129,6 +129,11 @@ class Preset(dict):
 
 
 PRESETS = {
+    "henrys_ratio_vpvs": Preset(
+        title="Vp/Vs Ratio", cmap="Black-Body Radiation",
+        invert=False, center=False, fmt="%.2f", rnd=None,
+        bounds=[1.5, 1.9], nlabel=4, nvalues=28,
+    ),
     "resolution": Preset(
         title="PSF Volume [m^3 s^2]", cmap="Black, Blue and White", invert=True,
         center=False, fmt="%.2E", rnd=None, bounds=[0, 1E-4], nlabel=3,
@@ -159,13 +164,23 @@ PRESETS = {
         center=False, fmt="%.1f", rnd=10, bounds=False, nlabel=3,
         nvalues=64
     ),
+    # For Henrys et al (2020) comparisons
+    # "model_vp": Preset(
+    #     title="Vp [m/s]", cmap="Rainbow Desaturated", invert=False, center=False,
+    #     fmt="%.1f", rnd=10, bounds=False, nlabel=3, nvalues=64,
+    #     isosurfaces=[5000, 6000, 7000]
+    # ),
+    # "model_vs": Preset(
+    #     title="Vs [m/s]", cmap="Rainbow Desaturated", invert=False, center=False,
+    #     fmt="%.1f", rnd=10, bounds=False, nlabel=5, nvalues=64, cdx=1000,
+    # ),
     "model_vp": Preset(
         title="Vp [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
-        fmt="%.1f", rnd=10, bounds=False, nlabel=3, nvalues=64, cdx=500,
+        fmt="%.1f", rnd=10, bounds=False, nlabel=3, nvalues=33, cdx=500,
     ),
     "model_vs": Preset(
         title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
-        fmt="%.1f", rnd=10, bounds=False, nlabel=5, nvalues=33, cdx=500,
+        fmt="%.1f", rnd=10, bounds=False, nlabel=3, nvalues=33, cdx=500,
     ),
     "gradient_vp_kernel": Preset(
         title="Vp Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
@@ -228,6 +243,13 @@ def myround(x, base):
     Round values to the nearest base
     """
     return int(base * round(float(x) / base))
+
+
+def remove_whitespace(fid):
+    """
+    Use Imagemagick to remove any whitespace from a .png file
+    """
+    call([f"convert {fid} -fuzz 1% -trim +repage {fid}"], shell=True)
 
 
 def project_point_trench_normal(point):
@@ -651,7 +673,8 @@ def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
 
 
 def set_colormap_colorbar(vtk, position, orientation, colormap=None,
-                          title=None, fontsize=None, color=None):
+                          title=None, fontsize=None, color=None, thickness=None,
+                          length=None):
     """
     Set the color transfer function based on preset values.
     Then, create a colorbar to match the colormap
@@ -700,8 +723,8 @@ def set_colormap_colorbar(vtk, position, orientation, colormap=None,
     cbar.LabelFormat = preset.fmt
 
     cbar.AddRangeLabels = 1
-    cbar.ScalarBarThickness = 35
-    cbar.ScalarBarLength = 0.15
+    cbar.ScalarBarThickness = thickness or 35
+    cbar.ScalarBarLength = length or 0.15
     cbar.TitleFontSize = fontsize or FONTSIZE
     cbar.LabelFontSize = fontsize or FONTSIZE
     cbar.TitleColor = color or COLOR
@@ -773,7 +796,7 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
         custom_labels.insert(-1, vmin + dv * i)
 
     cbar.CustomLabels = custom_labels
-    
+
     return vsLUT
 
 
@@ -1054,8 +1077,10 @@ def make_depth_slices(fid, slices, preset, contour=False,
 
 
         # Save screenshot, hide slice and move on, job done
-        SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
-                       ImageResolution=VIEW_SIZE, TransparentBackground=1)
+        fid_out = os.path.join(save_path, f"{tag}.png")
+        SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
+                       TransparentBackground=1)
+        remove_whitespace(fid_out)
         Hide(slice_vtk, renderView)
         
         # Delete the min max value points because they'll change w/ each slice
@@ -1194,8 +1219,10 @@ def make_cross_sections(fid, percentages, normal, preset, contour=False,
             renderView.CameraParallelScale = 205602.
         Render()
 
-        SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
-                       ImageResolution=VIEW_SIZE, TransparentBackground=1)
+        fid_out = os.path.join(save_path, f"{tag}.png")
+        SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
+                       TransparentBackground=1)
+        remove_whitespace(fid_out)
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
@@ -1203,7 +1230,8 @@ def make_cross_sections(fid, percentages, normal, preset, contour=False,
 
 
 def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
-                       contour=False, save_path=os.getcwd()):
+                       anno_height=0.375, contour=False, names=None,
+                       save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench
     based on user-defined origin locations. Mark the origin locations
@@ -1224,6 +1252,8 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
     Hide(vtk, renderView)
 
     for i, (name, origin) in enumerate(TRENCH_POINTS.items()):
+        if names and name not in names:
+            continue
         # Alphabetize the cross sections for easier identification
         ab = string.ascii_uppercase[i]
         tag = f"t_{ab.lower()}_{name.lower()}"
@@ -1280,23 +1310,6 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
                                     max_depth_km=depth_cutoff_km,
                                     scale=scale)
 
-        # Create rulers at each Z tick mark for easier reference
-        # zvals = list(range(int(min(z)), int(min(z) + dist_m_v), int(dz_km*1E3)))
-        # for i, val in enumerate(zvals):
-        #     point1 = [min(x), max(y), val * scale]
-        #     point2 = [min(x) + dist_m_h * math.cos(angle_rad),
-        #               max(y) - dist_m_h * math.sin(angle_rad),
-        #               val * scale]
-        #     if i == 0:
-        #         line_width = 2.
-        #         label = f"{dist_m_h/1E3:.0f}km " \
-        #                 f"(dh={int(tick_spacing_m*1E-3)}km)"
-        #     else:
-        #         label = None
-        #         line_width = 1.
-        #     create_ruler(point1=point1, point2=point2, label=label,
-        #                  reg_name="ruler0", ticknum=num_ticks_h,
-        #                  line_width=line_width)
 
         # Generate appropriate rulers that act as the X and Y axes in this plane
         create_ruler(point1=ruler_origin, point2=ruler_h,
@@ -1304,7 +1317,8 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
                            f"(dh={int(tick_spacing_m*1E-3)}km)",
                      reg_name="ruler0", ticknum=num_ticks_h)
 
-        create_ruler(point1=ruler_v, point2=ruler_origin, ticknum=6,
+        ticknum = int(depth_cutoff_km / dz_km) + 1
+        create_ruler(point1=ruler_v, point2=ruler_origin, ticknum=ticknum,
                      label=f"Z={depth_cutoff_km}km\n"
                            f"1:{int(scale)} scale\n"
                            f"(dz={int(dz_km)}km)",
@@ -1313,18 +1327,17 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
         # Create a reference point based on the landmark location
         create_cone_glyph(origin)
 
-        # Annotate landmark location text to match glyph position
-        create_text(f"{ab}. {name}", [0.2, 0.2], reg_name="text1",
-                    fontsize=int(FONTSIZE * 1.5))
-
-        # Text showing the file name for easy id of data
-        create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                    position=[0.6, 0.2], reg_name="text2",
-                    fontsize=int(FONTSIZE * 1.5))
+        # Annotate landmark location text and filename
+        fid = os.path.splitext(os.path.basename(data_fid))[0]
+        create_text(f"{ab}. {name}\n{fid}", [0.35, anno_height],
+                    reg_name="text1", fontsize=int(FONTSIZE))
 
         # Generate and rescale the colorbar/ colormap
-        vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.175],
-                                            orientation="Horizontal",)
+        vsLUT, cbar = set_colormap_colorbar(vtk,
+                                            position=[0.5, anno_height + 0.01],
+                                            orientation="Horizontal",
+                                            thickness=25, length=.075)
+
         cbar.TextPosition = "Ticks left/bottom, annotations right/top"
         rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
         display = GetDisplayProperties(clip_vtk, view=renderView)
@@ -1340,8 +1353,10 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
         renderView.CameraParallelScale = 375000.0
         Render()
 
-        SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
-                       ImageResolution=VIEW_SIZE, TransparentBackground=1)
+        fid_out = os.path.join(save_path, f"{tag}.png")
+        SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
+                       TransparentBackground=1)
+        remove_whitespace(fid_out)
 
         # Clean up for next plot
         Hide(clip_vtk, renderView)
@@ -1350,7 +1365,8 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
 
 
 def make_trench_parallel(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
-                         contour=False, save_path=os.getcwd()):
+                         anno_height=0.45, contour=False,
+                         save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench
     based on user-defined origin locations. Mark the origin locations
@@ -1368,7 +1384,8 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
     renderView.InteractionMode = "2D"
     Hide(vtk, renderView)
 
-    origin = [455763., 5547040., 0.]
+    # origin = [455763., 5547040., 0.]
+    origin = TRENCH_POINTS["Wellington"]
     tag = f"t_parallel"
 
     # Slice across the given cross section plane
@@ -1425,20 +1442,17 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
                        f"(dh={int(tick_spacing_m*1E-3)}km)",
                  reg_name="ruler1", ticknum=num_ticks_h)
 
-    create_ruler(point1=ruler_v, point2=ruler_origin, ticknum=6,
+    ticknum = int(depth_cutoff_km / dz_km) + 1
+    create_ruler(point1=ruler_v, point2=ruler_origin, ticknum=ticknum,
                  label=f"Z={depth_cutoff_km}km\n"
                        f"1:{int(scale)} scale\n"
                        f"(dz={int(dz_km)}km)",
                  reg_name="ruler2", )
 
-    # Annotate landmark location text to match glyph position
-    create_text(f"Trench Parallel", [0.2, 0.235], reg_name="text1",
-                fontsize=int(FONTSIZE * 1.5))
-
-    # Text showing the file name for easy id of data
-    create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                position=[0.6, 0.235], reg_name="text2",
-                fontsize=int(FONTSIZE * 1.5))
+    # Annotate landmark location text and filename
+    fid = os.path.splitext(os.path.basename(data_fid))[0]
+    create_text(f"Trench Parallel\n{fid}", [0.35, anno_height],
+                reg_name="text1", fontsize=int(FONTSIZE))
 
     # Make Glyphs for each of the landmarks
     for name, x in zip(["Kaikoura", "Wellington", "Porangahau", "Napier",
@@ -1448,8 +1462,9 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
         create_text(s=name, position=[x, .725], fontsize=FONTSIZE)
 
     # Generate and rescale the colorbar/ colormap
-    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.225],
-                                        orientation="Horizontal",)
+    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.5, anno_height + 0.01],
+                                        orientation="Horizontal", thickness=25,
+                                        length=.1)
     cbar.TextPosition = "Ticks left/bottom, annotations right/top"
     rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
     display = GetDisplayProperties(clip_vtk, view=renderView)
@@ -1465,8 +1480,10 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
     renderView.CameraParallelScale = 325507.0
     Render()
 
-    SaveScreenshot(os.path.join(save_path, f"{tag}.png"), renderView,
-                   ImageResolution=VIEW_SIZE, TransparentBackground=1)
+    fid_out = os.path.join(save_path, f"{tag}.png")
+    SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
+                   TransparentBackground=1)
+    remove_whitespace(fid_out)
 
     # Clean up for next plot
     Hide(clip_vtk, renderView)
@@ -1547,8 +1564,11 @@ def make_interface(fid, preset, contour=False, save_path=os.getcwd()):
 
 
     # Save screenshot, hide the surface and move on
-    SaveScreenshot(os.path.join(save_path, f"interface.png"), renderView,
-                   ImageResolution=VIEW_SIZE, TransparentBackground=1)
+    fid_out = os.path.join(save_path, f"interface.png")
+    SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
+                   TransparentBackground=1)
+    remove_whitespace(fid_out)
+
     Hide(interpolator, renderView)
 
 
@@ -1592,10 +1612,16 @@ if __name__ == "__main__":
     # Command line arguments to define behavior of script
     parser = argparse.ArgumentParser()
     parser.add_argument("files", nargs="+", help="file to plot with paraview")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False,
+                        help="print output messages during the plotting")
     parser.add_argument("-o", "--output", type=str, help="output path",
                         default=os.getcwd())
     parser.add_argument("-p", "--preset", type=str, 
                         help="preset colormap and labels given file type")
+    parser.add_argument("-b", "--bounds", type=str,
+                        help="Manually set the bounds of the colorbar, "
+                             "overriding the default or preset bound values",
+                        default=None)
     parser.add_argument("-z", "--default_zslices", action="store_true", 
                         default=False, 
                         help="create default depth slices at the surface, "
@@ -1618,6 +1644,9 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--trench", action="store_true",
                         help="plot pre-defined cross-sections normal to trench",
                         default=False)
+    parser.add_argument("-T", "--trench_names", nargs="+",
+                        help="choose which trench cross sections to make, must"
+                             "match the names defined in TRENCH_POINTS")
     parser.add_argument("-i", "--interface", action="store_true",
                         help="plot projection of model onto plate interface "
                              "of Charles Williams",
@@ -1646,18 +1675,21 @@ if __name__ == "__main__":
     parser.add_argument("-A", "--all", action="store_true", default=False,
                         help="shorthand to make all default slices, "
                              "same as '-xyzit'")
-    parser.add_argument("-d", "--depth_cutoff_km", type=float, default=50,
+    # Fine tuning controls for depth cross sections
+    parser.add_argument("--depth", type=float, default=10,
                         help="For any vertical cross sections (Y-axis figure "
                              "normal to Z axis of volume), define the depth"
                              "cutoff of the screenshot as usually were not "
                              "interested in looking at the entire volume. "
                              "Units of km, positive values only.")
-    parser.add_argument("-b", "--bounds", type=str,
-                        help="Manually set the bounds of the colorbar, "
-                             "overriding the default or preset bound values",
-                        default=None)
-    parser.add_argument("-v", "--verbose", action="store_true", default=False,
-                        help="print output messages during the plotting")
+    parser.add_argument("--z_scale", type=int, default=1,
+                        help="Set the scale for the Z-axis on cross sections")
+    parser.add_argument("--dz", type=int, default=10,
+                        help="Vertical grid spacing on cross sections in km")
+    parser.add_argument("--anno_height", type=float, default=0.5,
+                        help="Height of annotation and colorbar for cross "
+                             "sections. Will change depending on the scale and"
+                             "cutoff depth used.")
     args = parser.parse_args()
 
     # Set up the active render view
@@ -1724,8 +1756,9 @@ if __name__ == "__main__":
             if args.verbose:
                 print(f"\tGenerating X-normal slices for {xslices}")
             make_cross_sections(data_fid, xslices, contour=args.contour,
-                                normal="x", preset=preset,
-                                depth_cutoff_km=args.depth_cutoff_km,
+                                normal="x", preset=preset, scale=args.z_scale,
+                                depth_cutoff_km=args.depth, dz_km=args.dz,
+                                anno_height=args.anno_height,
                                 save_path=save_path)
             reset()
 
@@ -1738,24 +1771,38 @@ if __name__ == "__main__":
             if args.verbose:
                 print(f"\tGenerating Y-normal slices for {yslices}")
             make_cross_sections(data_fid, yslices, normal="y", preset=preset,
-                                contour=args.contour,
-                                depth_cutoff_km=args.depth_cutoff_km,
+                                contour=args.contour, scale=args.z_scale,
+                                depth_cutoff_km=args.depth, dz_km=args.dz,
+                                anno_height=args.anno_height,
                                 save_path=save_path)
             reset()
 
         # ======================================================================
         # TRENCH NORMAL CROSS SECTIONS
         # ======================================================================
+        # Parse the trench names
+        trench_names = []
+        if args.trench_names:
+            trench_names += [_.title() for _ in args.trench_names]
         if args.trench or args.all:
+            trench_names += TRENCH_POINTS.keys()
+            trench_names.append("Parallel")
+
+        if trench_names:
             if args.verbose:
                 print("\tGenerating trench normal cross sections")
             make_trench_normal(data_fid, preset, contour=args.contour,
-                               depth_cutoff_km=args.depth_cutoff_km,
+                               scale=args.z_scale, dz_km=args.dz,
+                               depth_cutoff_km=args.depth, names=trench_names,
+                               anno_height=args.anno_height,
                                save_path=save_path)
+        if "Parallel" in trench_names:
             if args.verbose:
                 print("\tGenerating trench parallel cross section")
             make_trench_parallel(data_fid, preset, contour=args.contour,
-                                 depth_cutoff_km=args.depth_cutoff_km,
+                                 scale=args.z_scale, dz_km=args.dz,
+                                 depth_cutoff_km=args.depth,
+                                 anno_height=args.anno_height,
                                  save_path=save_path)
             reset()
 
