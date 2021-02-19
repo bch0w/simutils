@@ -442,7 +442,7 @@ if __name__ == "__main__":
     dict_z = {
         "shallow": {"origin": 3E3, "spacing": 5E3, "std": 500},
         "crust": {"origin": -7E3, "spacing": 10E3, "std": 1000 },
-        "mantle": {"origin": -47E3, "spacing": 50E3, "std": 10E3}
+        "mantle": {"origin": -45E3, "spacing": 30E3, "std": 10E3}
     }
     perturbation = 1
     std = 5E3
@@ -450,8 +450,8 @@ if __name__ == "__main__":
     zero_values = [3000, 1500]
     mode = "return"
     no_incompletes = {"x": False, "y": False, "z": True}
-    sections = ["mantle"] #["crust", "shallow", "mantle"]
-    invert_dict = {"mantle": False, "crust": True, "shallow": False}
+    sections = ["mantle"] # , "shallow", "mantle"]
+    invert_dict = {"mantle": False, "crust": False, "shallow": False}
     plot = True
     # =========================== Parameter set ================================
 
