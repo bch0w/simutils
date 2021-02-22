@@ -134,6 +134,11 @@ PRESETS = {
         invert=False, center=False, fmt="%.2f", rnd=None,
         bounds=[1.5, 1.9], nlabel=4, nvalues=28,
     ),
+    "checkers": Preset(
+        title="Perturbation [m/s]", cmap="Cool to Warm (extended)", invert=True,
+        center=False, fmt="%.2E", rnd=None, bounds=True, nlabel=3,
+        nvalues=21, cdx=50
+    ),
     "resolution": Preset(
         title="PSF Volume [m^3 s^2]", cmap="Black, Blue and White", invert=True,
         center=False, fmt="%.2E", rnd=None, bounds=[0, 1E-4], nlabel=3,
@@ -574,6 +579,97 @@ def create_ruler_grid_axes_depth_slice(src, tick_spacing_km=50, top=True,
         create_ruler(point1=ruler_y_rgt, point2=[max(x), min(y), max(z)],
                      reg_name="ruler_right", ticknum=tick_num_y)
 
+
+def create_ruler_grid_axes_cross_section(src, normal, tick_spacing_m=50E3,
+                                         depth_cutoff_km=100., scale=5.,
+                                         dz_km=10., xlabel=None):
+    """
+    Generate axis grids for cross section plots using rulers, used to define
+    heights and distances
+
+    :type mode: str
+    :param mode: depending on what plot is being made, different rulers need to
+        be defined. The available modes are:
+        x: normal to the X-axis, parallel to the Y-axis, slices are made for
+            fixed values of X,
+        y:normal to the Y-axis, parallel to the X-axis, slices are made for
+            fixed values of Y,
+        trench_normal: normal to the Hikurangi trench (trench defined as
+            40deg from X-axis)
+        trench_parallel: parallel to the Hikurangi trench
+    """
+    # In order to set the camera, annotations, etc. in a general fashion,
+    # we need to determine the corner grid locations of the slice
+    x, y, z = get_coordinates(src)
+    ruler_origin = [min(x), max(y), min(z) * scale]  # bottom left
+
+    # Vertical scaling is constant for any cross sections
+    dist_m_v = depth_cutoff_km * 1E3
+    ruler_v = [min(x), max(y), min(z) + dist_m_v]
+
+    # Determine the orientation of the horizontal axis
+    if normal in ["x", "y"]:
+        if normal == "x":
+            axis = y
+        elif normal == "y":
+            axis = x
+
+        # Create a ruler for axis grid scale
+        dist_m_h = myround(max(axis) - min(axis), tick_spacing_m)
+        while dist_m_h > (max(axis) - min(axis)):
+            dist_m_h -= tick_spacing_m
+        num_ticks_h = int(dist_m_h // tick_spacing_m)
+
+        if normal == "x":
+            ruler_h = [min(x), max(y) - dist_m_h, min(z) * scale]
+        elif normal == "y":
+            ruler_h = [min(x) + dist_m_h, max(y), min(z) * scale]
+
+    else:
+        if normal == TRENCH_PARALLEL:
+            # Rulers for trench parallel differ because our viewing angle
+            # changes which swaps the definition of the positive direction on
+            # the horizontal axis
+            ruler_v = [min(x), min(y), min(z) + dist_m_v]
+            ruler_origin = [min(x), min(y), min(z) * scale]
+            if normal is None:
+                normal = TRENCH_PARALLEL
+
+        # Use trig to figure out the length of the angled cut
+        slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
+        dist_m_h = myround(slice_length_m, tick_spacing_m)
+
+        # Sometimes the round overestimates so we just go back until its not
+        while dist_m_h > slice_length_m:
+            dist_m_h -= tick_spacing_m
+        num_ticks_h = int(dist_m_h // tick_spacing_m)
+
+        # Calculate the end points of the hypotenuse based on the side lengths
+        angle_rad = math.atan(normal[0] / normal[1])
+        ruler_h = [ruler_origin[0] + dist_m_h * math.cos(angle_rad),
+                   ruler_origin[1] - dist_m_h * math.sin(angle_rad),
+                   ruler_origin[2]]
+
+    # Use Paraviews grid lines to show depth values only, as arbitrary cross
+    # sections will show the 3D outline of the volume on a 2D plane which
+    # is confusing/ not helpful
+    set_xsection_data_axis_grid(src, camera_parallel=False, dz_km=dz_km,
+                                min_depth_km= min(z) + dist_m_v,
+                                max_depth_km=depth_cutoff_km,
+                                scale=scale)
+
+    # Create the 'X' axis ruler along the bottom
+    create_ruler(point1=ruler_origin, point2=ruler_h,
+                 label=f"{xlabel} [{dist_m_h/1E3:.0f}km]\n"
+                       f"(dh={int(tick_spacing_m * 1E-3)}km)",
+                 reg_name="ruler1", ticknum=num_ticks_h)
+
+    create_ruler(point1=ruler_v, point2=ruler_origin,
+                 ticknum=int(depth_cutoff_km / dz_km) + 1,
+                 label=f"Z [{depth_cutoff_km}km]\n"
+                       f"1:{int(scale)} scale\n"
+                       f"(dz={int(dz_km)}km)",
+                 reg_name="ruler2", )
 
 
 def create_minmax_glyphs(src, glyph_type="2D Glyph", glyph_type_2d="Cross",
@@ -1035,14 +1131,9 @@ def make_depth_slices(fid, slices, preset, contour=False,
     renderView.CameraViewUp = [0, 1, 0]
     Render()
 
-    # This is good for a 3D projection but that's trash for viewing 2D planes
-    # renderView.CameraPosition = [401399., 5567959., 1276057.]
-    # renderView.CameraFocalPoint = [401399., 5567959., -197500.0]
-
-
     # Sit the colorbar partway down from the top left corner
     vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.25, 0.7],
-                                        orientation="Vertical",)
+                                        orientation="Vertical", thickness=35)
 
     # Generate slices through the volume at desired depth levels
     # Make special precautions if we're looking at surface projections
@@ -1075,7 +1166,6 @@ def make_depth_slices(fid, slices, preset, contour=False,
         show_colorbar(slice_vtk)
         create_minmax_glyphs(slice_vtk)
 
-
         # Save screenshot, hide slice and move on, job done
         fid_out = os.path.join(save_path, f"{tag}.png")
         SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
@@ -1087,8 +1177,9 @@ def make_depth_slices(fid, slices, preset, contour=False,
         delete_temp_objects(reg_names=["glyph", "point", "contour"])
 
 
-def make_cross_sections(fid, percentages, normal, preset, contour=False,
-                        depth_cutoff_km=100, save_path=os.getcwd()):
+def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
+                        dz_km=10., scale=5., anno_height=0.5, contour=False,
+                        save_path=os.getcwd()):
     """
     Create cross sections normal to the X or Y axes, create screenshots
 
@@ -1122,12 +1213,10 @@ def make_cross_sections(fid, percentages, normal, preset, contour=False,
     # we need to determine the absolute extent of the volume
     x, y, z = get_coordinates(vtk)
     if normal == "x":
-        axis = y
         naxis = x
         parallel = "y"
         nvector = [1., 0., 0.]
     elif normal == "y":
-        axis = x
         naxis = y
         parallel = "x"
         nvector = [0., 1., 0.]
@@ -1160,45 +1249,26 @@ def make_cross_sections(fid, percentages, normal, preset, contour=False,
         display = GetDisplayProperties(active, view=renderView)
         display.RescaleTransferFunctionToDataRange(False, True)
 
-        # Create rulers for use as scalebars
-        tick_spacing_m = 50E3
-        x, y, z = get_coordinates(clip_vtk)
-        ruler_origin = [min(x), max(y), min(z)]  # bottom left
-        dist_m_h = myround(max(axis) - min(axis), tick_spacing_m)
-        while dist_m_h > (max(axis) - min(axis)):
-            dist_m_h -= tick_spacing_m
-        num_ticks_h = int(dist_m_h // tick_spacing_m)
-
-        # Determine how long the ruler needs to be for each axis
-        if normal == "x":
-            ruler_h = [min(x), max(y) - dist_m_h, min(z)]
-        elif normal == "y":
-            ruler_h = [min(x) + dist_m_h, max(y), min(z)]
-
-        # Vertical axis is based off the cutoff depth defined by the user
-        dist_m_v = depth_cutoff_km * 1E3
-        ruler_v = [min(x), max(y), min(z) + dist_m_v]
-
-        create_ruler(point1=ruler_origin, point2=ruler_h,
-                     label=f"[{parallel.upper()}] "
-                           f"(d{parallel}={int(tick_spacing_m*1E-3)}km)",
-                     reg_name="ruler1", ticknum=num_ticks_h)
-        create_ruler(point1=ruler_v, point2=ruler_origin,
-                     label="[Z]\n(dz=25km)", reg_name="ruler2",)
+        # Use rulers to generate scale bars
+        create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
+                                             xlabel=parallel.upper(),
+                                             scale=scale,
+                                             depth_cutoff_km=depth_cutoff_km,
+                                             dz_km=dz_km)
 
         # Annotate distance
-        create_text(f"{normal}={(axis_dist-min(naxis))*1E-3:.2f}km",
-                    position=[0.2, 0.25], reg_name="text1",
-                    fontsize=int(FONTSIZE * 1.5))
-
-        # Text showing the file name for easy id of data
-        create_text(s=os.path.splitext(os.path.basename(data_fid))[0],
-                    position=[0.6, 0.25], reg_name="text2",
-                    fontsize=int(FONTSIZE * 1.5))
+        fid = os.path.splitext(os.path.basename(data_fid))[0]
+        anno = f"{normal.upper()}={(axis_dist-min(naxis))*1E-3:.2f}km"
+        create_text(f"{anno}\n{fid}",
+                    position=[0.35, anno_height], reg_name="text1",
+                    fontsize=int(FONTSIZE))
 
         # Generate and rescale the colorbar/ colormap
-        vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.4, 0.275],
-                                            orientation="Horizontal", )
+        vsLUT, cbar = set_colormap_colorbar(vtk,
+                                            position=[0.5, anno_height + 0.01],
+                                            orientation="Horizontal",
+                                            thickness=25, length=.075)
+
         cbar.TextPosition = "Ticks left/bottom, annotations right/top"
         rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
         display = GetDisplayProperties(clip_vtk, view=renderView)
@@ -1216,7 +1286,7 @@ def make_cross_sections(fid, percentages, normal, preset, contour=False,
         elif normal == "y":
             renderView.CameraPosition = [378617., 4093007., -47332.]
             renderView.CameraFocalPoint = [378617., 5595515.0, -47332.]
-            renderView.CameraParallelScale = 205602.
+            renderView.CameraParallelScale = 300000.
         Render()
 
         fid_out = os.path.join(save_path, f"{tag}.png")
@@ -1275,61 +1345,20 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
         display = GetDisplayProperties(active, view=renderView)
         display.RescaleTransferFunctionToDataRange(False, True)
 
-        # In order to set the camera, annotations, etc. in a general fashion,
-        # we need to determine the corner grid locations of the slice
-        x, y, z = get_coordinates(clip_vtk)
-
-        # Create a ruler for axis grid scale
-        ruler_origin = [min(x), max(y), min(z) * scale]  # bottom left
-
-        # Find the optimal length of the slice to fit an even spacing of ticks
-        tick_spacing_m = 50 * 1E3
-        slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
-        dist_m_h = myround(slice_length_m, tick_spacing_m)
-        # Sometimes the round overestimates so we just go back until its not
-        while dist_m_h > slice_length_m:
-            dist_m_h -= tick_spacing_m
-        num_ticks_h = int(dist_m_h // tick_spacing_m)
-
-        # Horizontal ruler dimensions must be found with the power of trig.
-        # (it took me way too long to figure out how to do this properly, oh
-        #  highschool trig...)
-        angle_rad = math.atan(TRENCH_NORMAL[0] / TRENCH_NORMAL[1])
-        ruler_h = [min(x) + dist_m_h * math.cos(angle_rad),
-                   max(y) - dist_m_h * math.sin(angle_rad),
-                   min(z) * scale]
-
-        # Keep the vertical scaling constant because it won't change
-        dist_m_v = depth_cutoff_km * 1E3
-        ruler_v = [min(x), max(y), min(z) + dist_m_v]
-
-        # Grid lines to show depth values only
-        set_xsection_data_axis_grid(clip_vtk, camera_parallel=False,
-                                    dz_km=dz_km,
-                                    min_depth_km= min(z) + dist_m_v,
-                                    max_depth_km=depth_cutoff_km,
-                                    scale=scale)
-
-
-        # Generate appropriate rulers that act as the X and Y axes in this plane
-        create_ruler(point1=ruler_origin, point2=ruler_h,
-                     label=f"{dist_m_h/1E3:.0f}km "
-                           f"(dh={int(tick_spacing_m*1E-3)}km)",
-                     reg_name="ruler0", ticknum=num_ticks_h)
-
-        ticknum = int(depth_cutoff_km / dz_km) + 1
-        create_ruler(point1=ruler_v, point2=ruler_origin, ticknum=ticknum,
-                     label=f"Z={depth_cutoff_km}km\n"
-                           f"1:{int(scale)} scale\n"
-                           f"(dz={int(dz_km)}km)",
-                     reg_name="ruler2", )
+        # Use rulers to define the axis grids w/ tickmarks etc.
+        create_ruler_grid_axes_cross_section(src=clip_vtk,
+                                             normal=TRENCH_NORMAL,
+                                             xlabel="Trench Normal",
+                                             scale=scale,
+                                             depth_cutoff_km=depth_cutoff_km,
+                                             dz_km=dz_km)
 
         # Create a reference point based on the landmark location
         create_cone_glyph(origin)
 
         # Annotate landmark location text and filename
         fid = os.path.splitext(os.path.basename(data_fid))[0]
-        create_text(f"{ab}. {name}\n{fid}", [0.35, anno_height],
+        create_text(f"{ab}. {name}\n{fid}", [0.4, anno_height],
                     reg_name="text1", fontsize=int(FONTSIZE))
 
         # Generate and rescale the colorbar/ colormap
@@ -1405,49 +1434,12 @@ def make_trench_parallel(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
     display = GetDisplayProperties(active, view=renderView)
     display.RescaleTransferFunctionToDataRange(False, True)
 
-    # In order to set the camera, annotations, etc. in a general fashion,
-    # we need to determine the corner grid locations of the slice
-    x, y, z = get_coordinates(clip_vtk)
-    ruler_origin = [min(x), min(y), min(z) * scale]  # bottom left
+    # Use rulers to define the axis grids w/ tickmarks etc.
+    create_ruler_grid_axes_cross_section(src=clip_vtk, normal=TRENCH_PARALLEL,
+                                         xlabel="Trench Parallel", scale=scale,
+                                         depth_cutoff_km=depth_cutoff_km,
+                                         dz_km=dz_km)
 
-    # Find the optimal length of the slice to fit an even spacing of ticks
-    tick_spacing_m = 50E3
-    slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
-    dist_m_h = myround(slice_length_m, tick_spacing_m)
-    # Sometimes the round overestimates so we just go back until its not
-    while dist_m_h > slice_length_m:
-        dist_m_h -= tick_spacing_m
-    num_ticks_h = int(dist_m_h // tick_spacing_m)
-
-    # Horizontal ruler dimensions must be found with the power of trig.
-    # (it took me way too long to figure out how to do this properly, oh
-    #  highschool trig...)
-    angle_rad = math.atan(TRENCH_PARALLEL[0] / TRENCH_PARALLEL[1])
-    ruler_h = [min(x) + dist_m_h * math.cos(angle_rad),
-               min(y) - dist_m_h * math.sin(angle_rad),
-               min(z) * scale]
-
-    # Keep the vertical scaling constant because it won't change
-    dist_m_v = depth_cutoff_km * 1E3
-    ruler_v = [min(x), min(y), min(z) + dist_m_v]
-
-    # Put grid lines segments to match the ruler depth values
-    set_xsection_data_axis_grid(clip_vtk, camera_parallel=True, dz_km=dz_km,
-                                min_depth_km=min(z) + dist_m_v,
-                                max_depth_km=depth_cutoff_km, scale=scale)
-
-    # Generate appropriate rulers that act as the X and Y axes in this plane
-    create_ruler(point1=ruler_origin, point2=ruler_h,
-                 label=f"{dist_m_h/1E3:.0f}km " 
-                       f"(dh={int(tick_spacing_m*1E-3)}km)",
-                 reg_name="ruler1", ticknum=num_ticks_h)
-
-    ticknum = int(depth_cutoff_km / dz_km) + 1
-    create_ruler(point1=ruler_v, point2=ruler_origin, ticknum=ticknum,
-                 label=f"Z={depth_cutoff_km}km\n"
-                       f"1:{int(scale)} scale\n"
-                       f"(dz={int(dz_km)}km)",
-                 reg_name="ruler2", )
 
     # Annotate landmark location text and filename
     fid = os.path.splitext(os.path.basename(data_fid))[0]
@@ -1676,13 +1668,13 @@ if __name__ == "__main__":
                         help="shorthand to make all default slices, "
                              "same as '-xyzit'")
     # Fine tuning controls for depth cross sections
-    parser.add_argument("--depth", type=float, default=10,
+    parser.add_argument("--depth", type=float, default=30,
                         help="For any vertical cross sections (Y-axis figure "
                              "normal to Z axis of volume), define the depth"
                              "cutoff of the screenshot as usually were not "
                              "interested in looking at the entire volume. "
                              "Units of km, positive values only.")
-    parser.add_argument("--z_scale", type=int, default=1,
+    parser.add_argument("--z_scale", type=int, default=2,
                         help="Set the scale for the Z-axis on cross sections")
     parser.add_argument("--dz", type=int, default=10,
                         help="Vertical grid spacing on cross sections in km")
