@@ -450,7 +450,7 @@ if __name__ == "__main__":
     zero_values = [3000, 1500]
     mode = "return"
     no_incompletes = {"x": False, "y": False, "z": True}
-    sections = ["mantle"] # , "shallow", "mantle"]
+    sections = ["mantle", "crust", "shallow"]
     invert_dict = {"mantle": False, "crust": True, "shallow": False}
     plot = True
     # =========================== Parameter set ================================
