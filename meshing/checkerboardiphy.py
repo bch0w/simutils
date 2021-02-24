@@ -445,7 +445,7 @@ if __name__ == "__main__":
         "mantle": {"origin": -40E3, "spacing": 30E3, "std": 10E3}
     }
     perturbation = 1
-    std = 10E3
+    std = 20E3
     apply_to = ["vp", "vs"]
     zero_values = [3000, 1500]
     mode = "return"

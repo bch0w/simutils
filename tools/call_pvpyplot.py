@@ -31,28 +31,28 @@ def wspace():
 # ================================ SWITCHES ====================================
 # ACTIONS
 MK = 1  # Make the figures using pvpyplot
-WS = 1  # Remove border whitespace using Imagemagick
-TZ = 0  # Tile Z slice images using Imagemagick
-TT = 1  # Tile Trench images using Imagemagick
-TI = 0  # Tile Interface images using Imagemagick
+WS = 0  # Remove border whitespace using Imagemagick
+TZ = 1  # Tile Z slice images using Imagemagick
+TT = 0  # Tile Trench images using Imagemagick
+TI = 1  # Tile Interface images using Imagemagick
 # MODELS
 VS = 1    # S-Wave Velocity
 VP = 0    # P-Wave Velocity
 PS = 1    # Vp/Vs Ratio
-PO = 0    # Poisson's Ratio
-MU = 0    # Shear Modulus
+PO = 1    # Poisson's Ratio
+MU = 1    # Shear Modulus
 UP = 1    # Net Model Update
 # SLICES
-T = 1     # Trench
+T = 0    # Trench
 X = 0     # X Slices
 Y = 0     # Y Slices
 Z = 0     # Z Slices
 M = 0     # Manual Z slices for Vp and Vs
-I = 0     # Interface
+I = 1     # Interface
 F = 0     # Add active faults
 S = 0     # Add source epicenter locations
 R = 0     # Add receiver locations
-C = 1     # Add contour lines to figures
+C = 0     # Add contour lines to figures
 # ==============================================================================
 
 s_flags = ""
@@ -76,7 +76,7 @@ if s_flags:
     s_flags = f"-{s_flags}"
 # !!!
 if Z:
-    s_flags += " -Z s 5-50,5"
+    s_flags += " -Z s"
 
 # DEPTH SLICES
 basepath = "/Users/Chow/Documents/academic/vuw/forest/figures/model_comparisons"
@@ -253,8 +253,8 @@ if TZ:
     os.chdir(scratch)
     
     print("making z-slice tiles")
-    tile_dirs = ["model_init_vp", "model_0028_vp", "update_0028_vp"]
-    # tile_dirs = ["model_init_vs", "model_0028_vs", "update_0028_vs"]
+    # tile_dirs = ["model_init_vp", "model_0028_vp", "update_0028_vp"]
+    tile_dirs = ["model_init_vs", "model_0028_vs", "update_0028_vs"]
     # tile_dirs = ["ratio_init_vpvs", "ratio_0028_vpvs", "update_0028_vpvs"]
     # tile_dirs = ["model_init_vs", "model_0028_vs", "update_0028_vs",
     #              "ratio_init_vpvs", "ratio_0028_vpvs", "update_0028_vpvs",
