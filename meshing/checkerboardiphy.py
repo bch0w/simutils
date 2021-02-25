@@ -136,6 +136,13 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
         std_x = kwargs["std"] / header["spacing_x"]
         std_y = kwargs["std"] / header["spacing_y"]
 
+    # Ensure that spacings fit together, if the underlying tomography file is
+    # sampled at grid size not equal to 1
+    assert (spacing_x / header["spacing_x"]).is_integer(), \
+            f"spacing_x must be an integer multiple of {header['spacing_x']}"
+    assert (spacing_y / header["spacing_y"]).is_integer(), \
+            f"spacing_y must be an integer multiple of {header['spacing_y']}"
+
     # Initialize starting values
     checker_overlay = np.zeros(len(data))
     x = 1
@@ -200,7 +207,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                             y_window[np.where(y_checker == data[ind, 1])[0]]
                     )
                 except ValueError as e:
-                    print(e)
+                    from traceback import print_exc; print_exc()
                     import ipdb;ipdb.set_trace()
 
             # Flip the sign of the y-axis checker
@@ -437,21 +444,21 @@ if __name__ == "__main__":
     # =========================== Parameter set ================================
     fid_template="tomography_model_{}.xyz"
     taper_signal=signal.gaussian
-    spacing_x = 80E3
-    spacing_y = None
+    spacing_x = 92E3
+    spacing_y = 84E3
     dict_z = {
-        "shallow": {"origin": 3E3, "spacing": 10E3, "std": 1500},
-        "crust": {"origin": -7E3, "spacing": 12E3, "std": 1750 },
-        "mantle": {"origin": -40E3, "spacing": 30E3, "std": 10E3}
+        "shallow": {"origin": 0, "spacing": 7E3, "std": 1750},
+        "crust": {"origin": -8E3, "spacing": 18E3, "std": 3500 },
+        "mantle": {"origin": -40E3, "spacing": 30E3, "std": 15E3}
     }
     perturbation = 1
-    std = 20E3
+    std = 15E3
     apply_to = ["vp", "vs"]
     zero_values = [3000, 1500]
     mode = "return"
     no_incompletes = {"x": False, "y": False, "z": True}
-    sections = ["mantle", "crust", "shallow"]
-    invert_dict = {"mantle": False, "crust": True, "shallow": False}
+    sections = ["mantle"]  # , "crust", "shallow"]
+    invert_dict = {"mantle": True, "crust": True, "shallow": False}
     plot = True
     # =========================== Parameter set ================================
 
