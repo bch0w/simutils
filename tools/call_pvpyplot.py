@@ -32,15 +32,15 @@ def wspace():
 # ACTIONS
 MK = 1  # Make the figures using pvpyplot
 WS = 0  # Remove border whitespace using Imagemagick
-TZ = 1  # Tile Z slice images using Imagemagick
+TZ = 0  # Tile Z slice images using Imagemagick
 TT = 0  # Tile Trench images using Imagemagick
 TI = 1  # Tile Interface images using Imagemagick
 # MODELS
-VS = 1    # S-Wave Velocity
+VS = 0    # S-Wave Velocity
 VP = 0    # P-Wave Velocity
-PS = 1    # Vp/Vs Ratio
-PO = 1    # Poisson's Ratio
-MU = 1    # Shear Modulus
+PS = 0    # Vp/Vs Ratio
+PO = 0    # Poisson's Ratio
+MU = 0    # Shear Modulus
 UP = 1    # Net Model Update
 # SLICES
 T = 0    # Trench
@@ -178,14 +178,14 @@ for dir_ in ["initial_model", "current_model"]:
         fid = os.path.abspath(glob("modulus_????_shear.vtk")[0])
         assert(fid and os.path.exists(fid)), f"{dir_} shear modulus not exist"
         print("making shear modulus figures")
-        callpv(f"{fid} -o {scratch} -c {s_flags}")
+        callpv(f"{fid} -o {scratch} -l {s_flags}")
 
     # Poisson's Ratio on interface
     if PO:
         fid = os.path.abspath(glob("ratio_????_poissons.vtk")[0])
         assert (fid and os.path.exists(fid)), f"{dir_} poisson's does not exist"
         print("making poisson's ratio figures")
-        callpv(f"{fid} -o {scratch} -c {s_flags}")
+        callpv(f"{fid} -o {scratch} -l {s_flags}")
 
     os.chdir("..")
 
@@ -254,8 +254,8 @@ if TZ:
     
     print("making z-slice tiles")
     # tile_dirs = ["model_init_vp", "model_0028_vp", "update_0028_vp"]
-    tile_dirs = ["model_init_vs", "model_0028_vs", "update_0028_vs"]
-    # tile_dirs = ["ratio_init_vpvs", "ratio_0028_vpvs", "update_0028_vpvs"]
+    # tile_dirs = ["model_init_vs", "model_0028_vs", "update_0028_vs"]
+    tile_dirs = ["ratio_init_vpvs", "ratio_0028_vpvs", "update_0028_vpvs"]
     # tile_dirs = ["model_init_vs", "model_0028_vs", "update_0028_vs",
     #              "ratio_init_vpvs", "ratio_0028_vpvs", "update_0028_vpvs",
     #              "model_init_vp", "model_0028_vp", "update_0028_vp",]

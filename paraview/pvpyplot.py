@@ -41,41 +41,52 @@ from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              GetOpacityTransferFunction, ImportPresets, Contour)
 
 
-
-# Constants
-# An RGB color table to avoid looking up values, correspond to Python names
-COLOR_TABLE = {"k": [0., 0., 0.], "w": [1., 1., 1.], "r": [1., 0., 0.],
-               "b": [0., 0., 1.], "g": [0., 1., 0.], "y": [1., 1., 0.],
-               "o": [1., .5, 0.], "c": [0., 1., 1.], "gray": [.5, .5, .5]}
-# General fontsize and color for standard objects, e.g. text, rulers
-FONTSIZE = 16
-COLOR = COLOR_TABLE["k"]
-
-# Size of the output screenshots
-VIEW_SIZE = [1270, 1000]
-# VIEW_SIZE = [2074, 1626]
-
 # Pre-defined landmark locations
-TRENCH_POINTS = {"Kaikoura": [226749., 5300535., 0.],
-                 "Wellington": [314007., 5426403., 0.,],
-                 "Flatpoint": [413092., 5433559., 0.,],
-                 "Castlepoint": [434724., 5471821., 0.,],
-                 "Akitio": [436980., 5511241., 0.],
-                 "Porangahau": [467051., 5538717., 0.,],
-                 "Elsthorpe": [484394., 5581561., 0.,],
-                 "Napier": [489374., 5626518., 0.,],
-                 "Mohaka": [507922., 5670909. ,0.,],
-                 "Mahia": [575567., 5665558., 0.,],
-                 "Gisborne": [588984., 5720001., 0.,]
-                 }
-TVZ_POINTS = {"Whanganui": [333381., 5577822., 0.],
-              "Ruapehu": [376534., 5650985., 0.],
-              "Taupo": [419131., 5717691, 0.],
-              "Rotorua": [433851., 5778522., 0.],
-              "White Island": [516003., 5847502., 0.],
-              }
+DEFAULT_Z = 2000.
+TRENCH_POINTS = {
+    "Kaikoura": [226749., 5300535., DEFAULT_Z],
+    "Wellington": [314007., 5426403., DEFAULT_Z, ],
+    "Flatpoint": [413092., 5433559., DEFAULT_Z, ],
+    "Castlepoint": [434724., 5471821., DEFAULT_Z, ],
+    "Akitio": [436980., 5511241., DEFAULT_Z],
+    "Porangahau": [467051., 5538717., DEFAULT_Z, ],
+    "Elsthorpe": [484394., 5581561., DEFAULT_Z, ],
+    "Napier": [489374., 5626518., DEFAULT_Z, ],
+    "Mohaka": [507922., 5670909., DEFAULT_Z, ],
+    "Mahia": [575567., 5665558., DEFAULT_Z, ],
+    "Gisborne": [588984., 5720001., DEFAULT_Z, ],
+    "Cvr": [417044., 5726459., DEFAULT_Z],
+}
+TVZ_POINTS = {
+    "Whanganui": [333381., 5577822., DEFAULT_Z],
+    "Ruapehu": [376534., 5650985., DEFAULT_Z],
+    "Taupo": [419131., 5717691, DEFAULT_Z],
+    "Rotorua": [433851., 5778522., DEFAULT_Z],
+    "White Island": [516003., 5847502., DEFAULT_Z]
+}
+
+DEFAULT_Z = 4000.
+LANDMARKS = {
+    "Ruapehu": [376534., 5650985., DEFAULT_Z],
+    "Taupo": [419131., 5717691, DEFAULT_Z],
+    "Rotorua": [433851., 5778522., DEFAULT_Z],
+    "White Island": [516003., 5847502., DEFAULT_Z],
+    "Whakatane": [498721., 5798783., DEFAULT_Z]
+}
 
 
+def rgb_colors(c):
+    """
+    Paraview requires RGB color codes to set colors of items. This function
+    converts python color characters to RGB to give to Paraview
+
+    :type c: str
+    :param c: python color code
+    :return: list of float
+    """
+    return {"k": [0., 0., 0.], "w": [1., 1., 1.], "r": [1., 0., 0.],
+            "b": [0., 0., 1.], "g": [0., 1., 0.], "y": [1., 1., 0.],
+            "o": [1., .5, 0.], "c": [0., 1., 1.], "gray": [.5, .5, .5]}[c]
 
 class Preset(dict):
     """
@@ -131,6 +142,11 @@ class Preset(dict):
 
 
 PRESETS = {
+    "tvz": Preset(
+        title="Vs [m/s]", cmap="erdc_iceFire_H", invert=True, center=False,
+        fmt="%.1f", rnd=10, bounds=False, nlabel=3, nvalues=33, cdx=500,
+        above_range=rgb_colors("k"), below_range=rgb_colors("k")
+    ),
     "henrys_ratio_vpvs": Preset(
         title="Vp/Vs Ratio", cmap="Black-Body Radiation",
         invert=False, center=False, fmt="%.2f", rnd=None,
@@ -143,12 +159,12 @@ PRESETS = {
     ),
     "resolution": Preset(
         title="PSF Volume [m^3 s^2]", cmap="Black, Blue and White", invert=True,
-        center=False, fmt="%.2E", rnd=None, bounds=[0, 1E-4], nlabel=3,
-        nvalues=21, isosurfaces=[1E-5 * _ for _ in list(range(1,9))]
+        center=False, fmt="%.2E", rnd=None, bounds=[0, 3E-5], nlabel=3,
+        nvalues=33, isosurfaces=[1E-5 * _ for _ in list(range(1,9))]
     ),
     "hessian": Preset(
-        title="Action Hessian [m^-2 s^2]", cmap="Blue Orange (divergent)", 
-        invert=True, center=True, fmt="%.2E", rnd=None, bounds=False, 
+        title="Action Hessian [m^-2 s^2]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, fmt="%.2E", rnd=None, bounds=False,
         nlabel=3, nvalues=33,
     ),
     "donna_vpvs": Preset(
@@ -159,12 +175,12 @@ PRESETS = {
     "trench_vs": Preset(
         title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
         fmt="%.1f", rnd=10, bounds=[1750, 5500], nlabel=4, nvalues=64,
-        cdx=500, above_range=False #COLOR_TABLE["gray"],
+        cdx=500, above_range=False #rgb_colors("gray"),
     ),
     "trench_vp": Preset(
         title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
         fmt="%.1f", rnd=10, bounds=[3500, 9250], nlabel=4, nvalues=64,
-        cdx=500, above_range=False # COLOR_TABLE["gray"],
+        cdx=500, above_range=False # rgb_colors("gray"),
     ),
     "model_rho": Preset(
         title="Density [kg m^-3]", cmap="Rainbow Desaturated", invert=True,
@@ -220,7 +236,7 @@ PRESETS = {
         bounds=[-.5, .5], nlabel=3, nvalues=64,
     ),
     "update_shear": Preset(
-        title="Shear Modulus Update [ln(m/m00)]", 
+        title="Shear Modulus Update [ln(m/m00)]",
         cmap="Blue Orange (divergent)",
         invert=True, center=True, fmt="%.02f", rnd=None,
         bounds=[-.5, .5], nlabel=3, nvalues=64,
@@ -228,7 +244,7 @@ PRESETS = {
     "ratio_poissons": Preset(
         title="Poisson's Ratio", cmap="Blue - Green - Orange", invert=False,
         center=False, fmt="%.1f", rnd=None, bounds=[0.1, 0.4], nlabel=3,
-        nvalues=64, isosurfaces=[0.1, 0.2, 0.3, 0.4]
+        nvalues=28, isosurfaces=[0.1, 0.2, 0.3, 0.4]
     ),
     "ratio_vpvs": Preset(
         title="Vp/Vs Ratio", cmap="Green-Blue Asymmetric Divergent (62Blbc)",
@@ -243,111 +259,6 @@ PRESETS = {
         cdx=10,
     ),
 }
-
-def parse_args():
-    """
-    Allow user defined arguments to fine tune figures
-    """
-    # Command line arguments to define behavior of script
-    parser = argparse.ArgumentParser()
-
-    # MAIN ARGUMENTS
-    parser.add_argument("files", nargs="+", help="file to plot with paraview")
-    parser.add_argument("-v", "--verbose", action="store_true", default=False,
-                        help="print output messages during the plotting")
-    parser.add_argument("-o", "--output", type=str, help="output path",
-                        default=os.getcwd())
-
-    # COLORMAP
-    parser.add_argument("-p", "--preset", type=str,
-                        help="preset colormap and labels given file type")
-    parser.add_argument("-b", "--bounds", type=str,
-                        help="Manually set the bounds of the colorbar, "
-                             "overriding the default or preset bound values",
-                        default=None)
-
-    # SLICES, CROSS SECTIONS, PROJECTIONS
-    parser.add_argument("-z", "--default_zslices", action="store_true",
-                        default=False,
-                        help="create default depth slices at the surface, "
-                             "2-20km by increments of 2km, and 25-50km by "
-                             "increments of 5km. Can be used in conjunciton "
-                             "with -Z")
-    parser.add_argument("-Z", "--zslices", nargs="+",
-                        help="manually set depths to slice at, 'surface' equals "
-                             "surface projection. entries can be given as "
-                             "ranges, e.g. 5-10,1 will produce 5,6,7,8,9,10; "
-                             "depths and increments must be given in integers; "
-                             "can be used in conjunction with -z",
-                        default=[])
-    parser.add_argument("-x", "--xslices", action="store_true", default=False,
-                        help="create vertical cross sections with the viewing"
-                             "plane normal to the X-axis.")
-    parser.add_argument("-y", "--yslices", action="store_true", default=False,
-                        help="create vertical cross sections with the viewing"
-                             "plane normal to the Y-axis.")
-    parser.add_argument("-t", "--trench", action="store_true",
-                        help="plot pre-defined cross-sections normal to trench",
-                        default=False)
-    parser.add_argument("-T", "--trench_names", nargs="+",
-                        help="choose which trench cross sections to make, must"
-                             "match the names defined in TRENCH_POINTS")
-    parser.add_argument("-i", "--interface", action="store_true",
-                        help="plot projection of model onto plate interface "
-                             "of Charles Williams",
-                        default=False)
-    parser.add_argument("--taupo", action="store_true",
-                        help="plot trench parallel cross section that makes a "
-                             "line between Ruapehu and White Island",
-                        default=False)
-    parser.add_argument("-A", "--all", action="store_true", default=False,
-                        help="shorthand to make all default slices, "
-                             "same as '-xyzit'")
-
-    # PLOT EXTRAS
-    parser.add_argument("-c", "--contour", action="store_true",
-                        help="generate contour lines ontop of the slices",
-                        default=False)
-    parser.add_argument("-l", "--outline", action="store_true",
-                        help="plot the coastline and shoreline of lake Taupo",
-                        default=False)
-    parser.add_argument("-s", "--sources", action="store_true",
-                        help="plot events as glyphs", default=False)
-    parser.add_argument("-r", "--receivers", action="store_true",
-                        help="plot stations as glyphs", default=False)
-    parser.add_argument("-S", "--srvtk", type=str, default=None,
-                        help="plot an sr.vtk file for sensitivity kernels",)
-    parser.add_argument("-f", "--faults", action="store_true",
-                        help="plot north island active faults on surface proj "
-                        "only", default=False)
-    parser.add_argument("-e", "--slowslip", action="store_true",
-                        help="plot slow slip slip event slip patches",
-                        default=False)
-    parser.add_argument("-E", "--extras", action="store_true",
-                        help="shorthand to plot all extras like coast, glyphs'",
-                        default=False,)
-
-    # CROSS SECTION FINE TUNE
-    parser.add_argument("--depth", type=float, default=30,
-                        help="For any vertical cross sections (Y-axis figure "
-                             "normal to Z axis of volume), define the depth"
-                             "cutoff of the screenshot as usually were not "
-                             "interested in looking at the entire volume. "
-                             "Units of km, positive values only.")
-    parser.add_argument("--scale", type=int, default=2,
-                        help="Set the scale for the Z-axis on cross sections")
-    parser.add_argument("--dz", type=int, default=10,
-                        help="Vertical grid spacing on cross sections in km")
-    parser.add_argument("--anno", type=float, default=0.5,
-                        help="Height of annotation and colorbar for cross "
-                             "sections. Will change depending on the scale and"
-                             "cutoff depth used.")
-    parser.add_argument("--line", type=str, default="reyners",
-                        help="Choose the line to generate trench parallel "
-                             "cross section: 'reyners', 'taupo', 'henrys', "
-                             "'mahia'")
-
-    return parser.parse_args()
 
 
 def myround(x, base):
@@ -383,6 +294,30 @@ def project_point_trench_normal(point):
 
     return [x0, y0, z]
 
+
+def parse_bounds(bounds):
+    """
+    Parse the 'bounds' argument, which is allowed to either be:
+    1) two float values separated by a comma, negatives okay but there must not
+        be a space after the command line input otherwise argparse will complain
+        e.g. pvpython .... -b-5000,5000 ....
+    2) a boolean where True means respect global bounds for any slice made, and
+        False means use the local bounds of the slice to set colorbar
+    3) None, meaning let Paraview decide the bounds automatically
+
+    :type bounds: str
+    :param bounds: string to parse
+    """
+    if bounds is None:
+        return None
+    if bounds.lower() in "none":
+        return None
+    elif bounds.lower() in ["t", "true"]:
+        return True
+    elif bounds.lower() in ["f", "false"]:
+        return False
+    else:
+        return [float(_) for _ in bounds.split(",")]
 
 def parse_slice_list(slice_list):
     """
@@ -505,7 +440,7 @@ def contour_lines(vtk, preset, scale=1., color=None, reg_name="contour"):
     ColorBy(contourDisplay, None)
 
     if color is None:
-        color = COLOR_TABLE["w"]
+        color = rgb_colors("w")
     contourDisplay.AmbientColor = color
     contourDisplay.DiffuseColor = color
 
@@ -773,7 +708,7 @@ def create_ruler_grid_axes_cross_section(src, normal, tick_spacing_m=50E3,
     create_ruler(point1=ruler_v, point2=ruler_origin,
                  ticknum=int(depth_cutoff_km / dz_km) + 1,
                  label=f"Z [{depth_cutoff_km}km]\n"
-                       f"1:{int(scale)} scale\n"
+                       f"{int(scale)}x scale\n"
                        f"(dz={int(dz_km)}km)",
                  reg_name="ruler2", )
 
@@ -1084,7 +1019,8 @@ def plot_point_cloud(fid, reg_name, point_size=2., color=None, opacity=1.):
     :param color: color of the coastline, defaults to COLOR
     """
     if color is None:
-        color = COLOR_TABLE["k"]
+        color = rgb_colors("k")
+
     renderView = GetActiveView()
     point_cloud = OpenDataFile(fid)
     RenameSource(reg_name, point_cloud)
@@ -1142,7 +1078,8 @@ def plot_stations():
     glyph.ScaleArray = ["POINTS", "No scale array"]
     glyph.ScaleFactor = 10000.
     glyph.GlyphMode = "All Points"
-    glyph.GlyphType.GlyphType = "Diamond"
+    glyph.GlyphType.GlyphType = "Triangle"
+    glyph.GlyphTransform.Rotate = [0.0, 0.0, 180.0]
     glyph.GlyphType.Filled = 1
     glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
     glyphDisplay.PointSize = 3.
@@ -1193,8 +1130,8 @@ def plot_srvtk(fid, src_depth=3E3):
     glyph.ScaleFactor = 12000
     glyph.GlyphType = "Sphere"
     glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
-    glyphDisplay.AmbientColor = COLOR_TABLE["g"]
-    glyphDisplay.DiffuseColor = COLOR_TABLE["g"]
+    glyphDisplay.AmbientColor = rgb_colors("g")
+    glyphDisplay.DiffuseColor = rgb_colors("g")
 
     # Glyph the receiver as a white box
     pointSource = PointSource(registrationName="PointSource2")
@@ -1203,9 +1140,77 @@ def plot_srvtk(fid, src_depth=3E3):
     glyph.ScaleFactor = 12000
     glyph.GlyphType = "Box"
     glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
-    glyphDisplay.AmbientColor = COLOR_TABLE["w"]
-    glyphDisplay.DiffuseColor = COLOR_TABLE["w"]
+    glyphDisplay.AmbientColor = rgb_colors("w")
+    glyphDisplay.DiffuseColor = rgb_colors("w")
     glyphDisplay.SetRepresentationType('Surface With Edges')
+
+
+def plot_landmarks(src=None, color=None):
+    """
+    Plot landmark locations as glyphs, src needs to be a dictionary
+    with values as lists of floats [x, y, z] denoting the location of the point
+
+    """
+    if color is None:
+        color = COLOR
+    if src is None:
+        src = LANDMARKS
+    renderView = GetActiveView()
+
+    for i, (name, origin) in enumerate(src.items()):
+        # Glyph the source as a green sphere
+        pointSource = PointSource(registrationName=f"PointSource{i}")
+        pointSource.Center = origin
+        glyph = Glyph(registrationName=f"Glyph{i}", Input=pointSource,
+                      GlyphType="2D Glyph")
+        glyph.ScaleArray = ["POINTS", "No scale array"]
+        glyph.ScaleFactor = 10000.
+        glyph.GlyphMode = "All Points"
+        glyph.GlyphType.GlyphType = "Cross"
+        glyph.GlyphType.Filled = 1
+        glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
+        glyphDisplay.PointSize = 3.
+        glyph.GlyphTransform.Rotate = [0.0, 0.0, 45.0]
+        glyphDisplay.SetRepresentationType("Surface")
+        glyphDisplay.LineWidth = 3.0
+        glyphDisplay.Opacity = 1.
+        glyphDisplay.AmbientColor = color
+        glyphDisplay.DiffuseColor = color
+
+
+def plot_checkers(src, slicez=-3000.):
+    """
+    Plot checkerboard as an overlay to see how the point spread function
+    performs. Plots only one slice through the checkers and uses contour and
+    a lower opacity so that the underlying model is still visible through
+    the overlay
+
+    :return:
+    """
+    renderView = GetActiveViewOrCreate('RenderView')
+    checkers = OpenDataFile(src)
+    RenameSource("checkers", checkers)
+    checkersDisplay = Show(checkers, renderView,
+                           "UnstructuredGridRepresentation")
+    checkersDisplay.SetScalarBarVisibility(renderView, False)
+    Hide(checkers, renderView)
+
+    # Make a slice as we only want an overlay
+    slice = Slice(registrationName="SliceC", Input=checkers)
+    slice.SliceType.Origin = [402390.0, 5595515.0, slicez]
+    slice.SliceType.Normal = [0., 0., 1.]
+    sliceDisplay = Show(slice, renderView, "GeometryRepresentation")
+    sliceDisplay.SetScalarBarVisibility(renderView, False)
+    Hide(slice, renderView)
+
+    # Make a contour so we can see through the checkers to the underlying model
+    contour = Contour(registrationName="ContourC", Input=slice)
+    contourDisplay = Show(contour, renderView, "GeometryRepresentation")
+    contourDisplay.Position = [0.0, 0.0, 5000.0]
+    contourDisplay.LineWidth = 1.
+    contourDisplay.DataAxesGrid.Position = [0.0, 0.0, 5000.0]
+    contour.Isosurfaces = [1499.0, 1499.2, 1499.4, 1499.6, 1499.8, 1500.2,
+                           1500.4, 1500.6, 1500.8, 1501.0]
 
 
 def make_depth_slices(fid, slices, preset, contour=False,
@@ -1267,12 +1272,13 @@ def make_depth_slices(fid, slices, preset, contour=False,
             ClearSelection()
         else:
             slice_vtk = depth_slice(vtk, float(slice_))
+            if contour:
+                contour_lines(slice_vtk, preset)
+
             create_minmax_glyphs(slice_vtk)
             tag = f"z_{slice_:0>2}km"
             text.Text = tag
             rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
-            if contour:
-                contour_lines(slice_vtk, preset)
 
         show_colorbar(slice_vtk)
         create_minmax_glyphs(slice_vtk)
@@ -1351,6 +1357,9 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
         clip_vtk.ClipType.Normal = [0., 0., -1.]
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
+        if contour:
+            contour_lines(clip_vtk, preset)
+
         set_xsection_data_axis_grid(clip_vtk, camera_parallel=False,
                                     min_depth_km=0.,
                                     max_depth_km=depth_cutoff_km)
@@ -1385,9 +1394,6 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
         display = GetDisplayProperties(clip_vtk, view=renderView)
         display.SetScalarBarVisibility(renderView, True)
 
-        if contour:
-            contour_lines(clip_vtk, preset)
-
         # Reset camera view to be normal to the plane. Specific to this plane
         renderView.CameraViewUp = [0.0, 0.0, 1.0]
         if normal == "x":
@@ -1410,8 +1416,8 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
         delete_temp_objects(reg_names=["ruler", "text", "contour"])
 
 
-def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
-                       anno_height=0.375, contour=False, names=None,
+def make_trench_normal(fid, preset, depth_cutoff_km=100., names=None,
+                       dz_km=10., scale=5., anno_height=0.375, contour=False, 
                        save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench
@@ -1434,6 +1440,7 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
 
     # Normal is defined as 40deg from X-axis following Eberhart-Phillips
     normal = [-0.64, -0.76, 0.]
+    # normal = [0.5, 0.9, 0.]  # CVR
 
     for i, (name, origin) in enumerate(TRENCH_POINTS.items()):
         if names and name not in names:
@@ -1453,6 +1460,9 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
         clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
         clip_vtk.ClipType.Normal = [0., 0., -1.]
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
+
+        if contour:
+            contour_lines(clip_vtk, preset, scale=scale)
 
         # Reset the colorbounds to data range
         active = GetActiveSource()
@@ -1484,9 +1494,6 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., dz_km=10., scale=5.,
         rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
         display = GetDisplayProperties(clip_vtk, view=renderView)
         display.SetScalarBarVisibility(renderView, True)
-
-        if contour:
-            contour_lines(clip_vtk, preset, scale=scale)
 
         # Reset camera view to be normal to the plane. Specific to this plane
         renderView.CameraPosition = [-544676., 4552966., -79504.]
@@ -1551,10 +1558,15 @@ def make_trench_parallel(fid, preset, line=None,
 
         # Set locations for annotation of landmarks
         points["origins"] = [TRENCH_POINTS[_]for _ in points["names"]]
-    elif line == "taupo":
-        # Create a line crossing Ruapehu and White Island
-        origin = [376534.0, 5650985.0, 0.0]
-        normal = [-0.2, 0.14, 0.0]
+    elif line in ["taupo", "rift"]:
+        if line == "taupo":
+            # Create a line crossing Ruapehu and White Island
+            origin = [376534.0, 5650985.0, 0.0]
+            normal = [-0.2, 0.14, 0.0]
+        elif line == "rift":
+            # Create a line following the Taupo rift, comparing Heise 2010
+            origin = [392675., 5716119., 0.]
+            normal = [-0.62, 0.78, 0.]
         points["names"] = list(TVZ_POINTS.keys())
         points["origins"] = list(TVZ_POINTS.values())
         y = 0.725
@@ -1574,6 +1586,9 @@ def make_trench_parallel(fid, preset, line=None,
     clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
     clip_vtk.ClipType.Normal = [0., 0., -1.]
     Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
+
+    if contour:
+        contour_lines(clip_vtk, preset, scale=scale)
 
     # Reset the colorbounds to data range
     active = GetActiveSource()
@@ -1607,9 +1622,6 @@ def make_trench_parallel(fid, preset, line=None,
     display = GetDisplayProperties(clip_vtk, view=renderView)
     display.SetScalarBarVisibility(renderView, True)
 
-    if contour:
-        contour_lines(clip_vtk, preset, scale=scale)
-
     # Reset camera view to be normal to the plane. Specific to this plane
     renderView.CameraPosition = [1422985., 4461623., -139631.]
     renderView.CameraFocalPoint = [346611., 5537997., -139631.]
@@ -1627,7 +1639,7 @@ def make_trench_parallel(fid, preset, line=None,
     delete_temp_objects(reg_names=["ruler", "glyph", "point", "text",
                                    "contour"])
 
-def make_interface(fid, preset, contour=False, save_path=os.getcwd()):
+def make_interface(fid, preset, save_path=os.getcwd()):
     """
     Project the volume  onto an arbitrarily defined 3D surface. In this case the
     surface defines the plate interface model from Charles Williams (2013).
@@ -1678,7 +1690,7 @@ def make_interface(fid, preset, contour=False, save_path=os.getcwd()):
                                         orientation="Vertical",)
     rescale_colorscale(vsLUT, src=interpolator, vtk=vtk, preset=preset)
     show_colorbar(interpolator)
-    create_minmax_glyphs(interpolator, glyph_type="Sphere", scale_factor=20000)
+    # create_minmax_glyphs(interpolator, glyph_type="Sphere", scale_factor=20000)
 
 
     # Annotate the bottom-right corner to explain this is the interface
@@ -1704,39 +1716,168 @@ def make_preplot(args):
     Convenience function to plot extras such as coastline, srcs, rcvs
     """
     util_dir = "/Users/Chow/Documents/academic/vuw/forest/utils/vtk_files/"
-    if args.outline or args.extras:
+    if args.outline:
         if args.verbose:
             print(f"\t\tPlotting coastline")
         plot_point_cloud(fid=os.path.join(util_dir, "coast.vtk"),
-                         reg_name="coast")
+                         reg_name="coast", color=COLOR)
         if args.verbose:
             print(f"\t\tPlotting Lake Taupo outline")
         plot_point_cloud(fid=os.path.join(util_dir, "taupo.vtk"),
-                         reg_name="taupo",)
-    if args.sources or args.extras:
+                         reg_name="taupo", color=COLOR)
+    if args.sources:
         if args.verbose:
             print(f"\t\tPlotting event glyphs")
-        plot_events(color=COLOR_TABLE["g"])
-    if args.receivers or args.extras:
+        plot_events(color=rgb_colors("g"))
+    if args.receivers:
         if args.verbose:
             print(f"\t\tPlotting receiver glyphs")
         plot_stations()
-    if args.faults or args.extras:
+    if args.faults:
         if args.verbose:
             print(f"\t\tPlotting active fault traces")
         plot_point_cloud(fid=os.path.join(util_dir, "faults.vtk"),
                          reg_name="faults", point_size=1.25, opacity=0.6,
-                         color=COLOR_TABLE["w"])
-    if args.slowslip or args.extras:
+                         color=rgb_colors("w"))
+    if args.slowslip:
         if args.verbose:
             print(f"\t\tPlotting SSE slip patches")
         plot_sse_slip_patches()
     if args.srvtk:
         plot_srvtk(fid=args.srvtk)
+    if args.landmarks:
+        plot_landmarks(color=rgb_colors("k"))
+    if args.checkers:
+        plot_checkers(src=os.path.join(util_dir, "checkers.vtk"))
+
+
+def parse_args():
+    """
+    Allow user defined arguments to fine tune figures
+    """
+    # Command line arguments to define behavior of script
+    parser = argparse.ArgumentParser()
+
+    # MAIN ARGUMENTS
+    parser.add_argument("files", nargs="+", help="file to plot with paraview")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False,
+                        help="print output messages during the plotting")
+    parser.add_argument("-o", "--output", type=str, help="output path",
+                        default=os.getcwd())
+
+    # COLORMAP
+    parser.add_argument("-p", "--preset", type=str,
+                        help="preset colormap and labels given file type")
+    parser.add_argument("-b", "--bounds", type=str,
+                        help="Manually set the bounds of the colorbar, "
+                             "overriding the default or preset bound values",
+                        default=None)
+
+    # GLOBAL DEFAULTS
+    parser.add_argument("-C", "--color", type=str, default="k",
+                        help="The default color to use for any plot attributes"
+                             "such as text color, line color etc.")
+    parser.add_argument("-F", "--fontsize", type=int, default=16,
+                        help="The default color fontsize to use for any text.")
+    parser.add_argument("-V", "--viewsize", type=list, default=[1270, 1000],
+                        help="The default viewing size for all screenshots "
+                             "made; controls the resolution as well as the "
+                             "relative sizing of objects in the screenshot")
+
+    # SLICES, CROSS SECTIONS, PROJECTIONS
+    parser.add_argument("-z", "--default_zslices", action="store_true",
+                        default=False,
+                        help="create default depth slices at the surface, "
+                             "2-20km by increments of 2km, and 25-50km by "
+                             "increments of 5km. Can be used in conjunciton "
+                             "with -Z")
+    parser.add_argument("-Z", "--zslices", nargs="+",
+                        help="manually set depths to slice at, 'surface' equals "
+                             "surface projection. entries can be given as "
+                             "ranges, e.g. 5-10,1 will produce 5,6,7,8,9,10; "
+                             "depths and increments must be given in integers; "
+                             "can be used in conjunction with -z",
+                        default=[])
+    parser.add_argument("-x", "--xslices", action="store_true", default=False,
+                        help="create vertical cross sections with the viewing"
+                             "plane normal to the X-axis.")
+    parser.add_argument("-y", "--yslices", action="store_true", default=False,
+                        help="create vertical cross sections with the viewing"
+                             "plane normal to the Y-axis.")
+    parser.add_argument("-t", "--trench", action="store_true",
+                        help="plot pre-defined cross-sections normal to trench",
+                        default=False)
+    parser.add_argument("-T", "--trench_names", nargs="+",
+                        help="choose which trench cross sections to make, must"
+                             "match the names defined in TRENCH_POINTS")
+    parser.add_argument("-i", "--interface", action="store_true",
+                        help="plot projection of model onto plate interface "
+                             "of Charles Williams",
+                        default=False)
+    parser.add_argument("--taupo", action="store_true",
+                        help="plot trench parallel cross section that makes a "
+                             "line between Ruapehu and White Island",
+                        default=False)
+    parser.add_argument("-A", "--all", action="store_true", default=False,
+                        help="shorthand to make all default slices, "
+                             "same as '-xyzit'")
+
+    # PLOT EXTRAS
+    parser.add_argument("-c", "--contour", action="store_true",
+                        help="generate contour lines ontop of the slices",
+                        default=False)
+    parser.add_argument("-l", "--outline", action="store_true",
+                        help="plot the coastline and shoreline of lake Taupo",
+                        default=False)
+    parser.add_argument("-s", "--sources", action="store_true",
+                        help="plot events as glyphs", default=False)
+    parser.add_argument("-r", "--receivers", action="store_true",
+                        help="plot stations as glyphs", default=False)
+    parser.add_argument("-S", "--srvtk", type=str, default=None,
+                        help="plot an sr.vtk file for sensitivity kernels",)
+    parser.add_argument("-f", "--faults", action="store_true",
+                        help="plot north island active faults on surface proj "
+                        "only", default=False)
+    parser.add_argument("-e", "--slowslip", action="store_true",
+                        help="plot slow slip slip event slip patches",
+                        default=False)
+    parser.add_argument("--landmarks", action="store_true", default=False,
+                        help="Plot landmarks as 2D glyphs for easier reference "
+                             "on depth slices")
+    parser.add_argument("--checkers", action="store_true", default=False,
+                        help="Plot checker overlay for point spread test")
+
+    # CROSS SECTION FINE TUNE
+    parser.add_argument("--depth", type=float, default=30,
+                        help="For any vertical cross sections (Y-axis figure "
+                             "normal to Z axis of volume), define the depth"
+                             "cutoff of the screenshot as usually were not "
+                             "interested in looking at the entire volume. "
+                             "Units of km, positive values only.")
+    parser.add_argument("--scale", type=int, default=2,
+                        help="Set the scale for the Z-axis on cross sections")
+    parser.add_argument("--dz", type=int, default=10,
+                        help="Vertical grid spacing on cross sections in km")
+    parser.add_argument("--anno", type=float, default=0.5,
+                        help="Height of annotation and colorbar for cross "
+                             "sections. Will change depending on the scale and"
+                             "cutoff depth used.")
+    parser.add_argument("--line", type=str, default="reyners",
+                        help="Choose the line to generate trench parallel "
+                             "cross section: 'reyners', 'taupo', 'henrys', "
+                             "'mahia'")
+
+    return parser.parse_args()
+
 
 
 if __name__ == "__main__":
     args = parse_args()
+
+    # Set some global variables
+    COLOR = rgb_colors(args.color)
+    FONTSIZE = args.fontsize
+    VIEW_SIZE = args.viewsize
 
     # Set up the active render view
     renderView = GetActiveViewOrCreate("RenderView")
@@ -1772,8 +1913,7 @@ if __name__ == "__main__":
         if args.verbose:
             print(f"\tPreset is set to '{preset_key}'")
         preset = PRESETS[preset_key]
-        if args.bounds:
-            preset.bounds = [float(_) for _ in args.bounds.split(",")]
+        preset.bounds = parse_bounds(args.bounds)
 
         # ======================================================================
         # DEPTH SLICES
