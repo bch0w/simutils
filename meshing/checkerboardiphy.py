@@ -70,7 +70,7 @@ def xyz_reader(xyz_fid, save=True):
 def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                      perturbation=0.02, mode="apply", apply_to=None, 
                      invert=False, zero_values=None, taper_signal=None, 
-                     no_incompletes=True, **kwargs):
+                     no_incompletes=True, stagger=False, **kwargs):
     """
     Read in the data from an XYZ tomography file and create a checkerboard
     overlay which has +/- {perturbation} checkers overlain on the tomography
@@ -116,7 +116,14 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
         e.g. {'x': True, 'y': False, 'z': False}
     :type plot_fid: bool
     :param plot_fid: plot the overlay for confirmation
-    :return:
+    :type stagger: bool
+    :param stagger: stagger every other row by half a unit so that the checkers
+        are offset. Useful if e.g. raypaths are dominantly diagonal across the
+        domain so you want the lines of similar checkers in the up-down or
+        left-right directions.
+    :type odd_checkering: bool
+    :param odd_checkering: flip the checkers every odd row, useful when
+        staggering checkers to get a different pattern
     """
     # Pre-defined indices in the data array
     apply_dict = {"vp": 3, "vs": 4, "rho": 5, "qp": 6, "qs": 7}
@@ -132,7 +139,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
     header, data = xyz_reader(xyz_fid=xyz_fid, save=True)
 
     # Scipy signal kwargs
-    if "std" in kwargs:
+    if "std" in kwargs and kwargs["std"] is not None:
         std_x = kwargs["std"] / header["spacing_x"]
         std_y = kwargs["std"] / header["spacing_y"]
 
@@ -142,6 +149,9 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
             f"spacing_x must be an integer multiple of {header['spacing_x']}"
     assert (spacing_y / header["spacing_y"]).is_integer(), \
             f"spacing_y must be an integer multiple of {header['spacing_y']}"
+    if stagger:
+        assert (spacing_x / 2 / header["spacing_x"]).is_integer(), \
+            f"spacing_x must be an integer multiple of {header['spacing_x']*2}"
 
     # Initialize starting values
     checker_overlay = np.zeros(len(data))
@@ -165,26 +175,52 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
 
         # Create the tapered checker for a given checker defined by bounds
         x_checker = np.arange(x_left, x_right, header["spacing_x"])
-        if "std" in kwargs:
+        if "std" in kwargs and kwargs["std"] is not None:
             kwargs["std"] = std_x
         x_window = taper_signal(len(x_checker), **kwargs)
 
+        # Create an optional offset checker to allow for row staggering
+        if stagger:
+            x_checker_stagger = np.arange(x_left + spacing_x / 2,
+                                          x_right + spacing_x / 2,
+                                          header["spacing_x"])
+            x_window_stagger = taper_signal(len(x_checker_stagger), **kwargs)
+
         # Loop through the y-axis, setting lower and upper boundaries
-        for y_bot in np.arange(header["orig_y"], header["end_y"], spacing_y):
+        for iy, y_bot in enumerate(
+                np.arange(header["orig_y"], header["end_y"], spacing_y)
+        ):
+
             print(f"\ty_bot: {y_bot:.3E}/{header['end_y']:.3E}\t{y:+d}",
                   end=" ")
             y_top = y_bot + spacing_y
 
             # Option to not create incomplete checkers
             if no_incompletes["y"] and (y_top > header["end_y"]):
-                print("outside range")
+                print("outside range", end=" ")
                 continue
             else:
+                print("", end=" ")
+
+            # Option to stagger every other row by half a unit
+            # Make sure we don't overwrite the x values since they'll be reused
+            if stagger and (iy % 2):
+                print("(stagger)")
+                x_left_ = x_left + spacing_x / 2
+                x_right_ = x_right + spacing_x / 2
+                x_window_ = x_window_stagger
+                x_checker_ = x_checker_stagger
+            else:
                 print("")
+                x_left_ = x_left
+                x_right_ = x_right
+                x_window_ = x_window
+                x_checker_ = x_checker
+
 
             # Create the tapered checker for the given checker defined by bounds
             y_checker = np.arange(y_bot, y_top, header["spacing_y"])
-            if "std" in kwargs:
+            if "std" in kwargs and kwargs["std"] is not None:
                 kwargs["std"] = std_y
             y_window = taper_signal(len(y_checker), **kwargs)
 
@@ -194,7 +230,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
 
             # Determine where the data falls within this checker's bounds
             checker_indices = np.where(
-                (data[:, 0] >= x_left) & (data[:, 0] < x_right) &
+                (data[:, 0] >= x_left_) & (data[:, 0] < x_right_) &
                 (data[:, 1] >= y_bot) & (data[:, 1] < y_top)
             )
             # For each of the given indices, figure out the resulting overlay
@@ -203,15 +239,21 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
             for ind in checker_indices[0]:
                 try:
                     checker_overlay[ind] = checker * (
-                            x_window[np.where(x_checker == data[ind, 0])[0]] *
+                            x_window_[np.where(x_checker_ == data[ind, 0])[0]] *
                             y_window[np.where(y_checker == data[ind, 1])[0]]
                     )
-                except ValueError as e:
+                except ValueError:
                     from traceback import print_exc; print_exc()
+                    print("Invalid selection for checkering, check parameters")
                     import ipdb;ipdb.set_trace()
 
             # Flip the sign of the y-axis checker
-            y *= -1
+            # y *= -1
+
+            # Flip y-checker at every odd row
+            if not bool(iy % 2):
+                y *= -1
+
         # Flip the sign of the x-axis checker
         x *= -1
 
@@ -262,7 +304,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
             z_checker = np.arange(z_top, z_bottom, 
                                   max(-1000, -1 * header["spacing_z"])
                                   )
-            if "std" in checker_z:
+            if "std" in checker_z and checker_z["std"] is not None:
                 kwargs["std"] = checker_z["std"] / header["spacing_z"]
             z_window = taper_signal(len(z_checker), **kwargs)
 
@@ -444,21 +486,23 @@ if __name__ == "__main__":
     # =========================== Parameter set ================================
     fid_template="tomography_model_{}.xyz"
     taper_signal=signal.gaussian
-    spacing_x = 92E3
-    spacing_y = 84E3
+    spacing_x = 48E3
+    spacing_y = None
     dict_z = {
-        "shallow": {"origin": 0, "spacing": 7E3, "std": 1750},
-        "crust": {"origin": -8E3, "spacing": 18E3, "std": 3500 },
-        "mantle": {"origin": -40E3, "spacing": 30E3, "std": 15E3}
+        "shallow": {"origin": 3E3, "spacing": 10E3, "std": 2000},
+        "crust": {"origin": -7E3, "spacing": 10E3, "std": 2000 },
+        "mantle": {"origin": -40E3, "spacing": 24E3, "std": 12E3}
     }
     perturbation = 1
-    std = 15E3
+    std = 10E3
     apply_to = ["vp", "vs"]
     zero_values = [3000, 1500]
     mode = "return"
+    stagger = True
+    odd_checkering = True
     no_incompletes = {"x": False, "y": False, "z": True}
-    sections = ["mantle"]  # , "crust", "shallow"]
-    invert_dict = {"mantle": True, "crust": True, "shallow": False}
+    sections = ["mantle"] #, "crust", "shallow"]
+    invert_dict = {"mantle": False, "crust": True, "shallow": False}
     plot = True
     # =========================== Parameter set ================================
 
@@ -480,8 +524,8 @@ if __name__ == "__main__":
             xyz_fid=fid, spacing_x=spacing_x, spacing_y=spacing_y,
             checker_z=checker_z, zero_values=zero_values,
             apply_to=apply_to, perturbation=perturbation, invert=invert,
-            taper_signal=taper_signal, no_incompletes=no_incompletes, mode=mode, 
-            std=std
+            taper_signal=taper_signal, no_incompletes=no_incompletes, mode=mode,
+            stagger=stagger, std=std, #odd_checkering=odd_checkering
         )
         checkerboard_header = parse_data_to_header(checkerboard_data)
 
