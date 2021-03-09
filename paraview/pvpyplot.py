@@ -71,7 +71,9 @@ LANDMARKS = {
     "Taupo": [419131., 5717691, DEFAULT_Z],
     "Rotorua": [433851., 5778522., DEFAULT_Z],
     "White Island": [516003., 5847502., DEFAULT_Z],
-    "Whakatane": [498721., 5798783., DEFAULT_Z]
+    "Whakatane": [498721., 5798783., DEFAULT_Z],
+    "Tarawera": [451842., 5771851., DEFAULT_Z],
+    "Putauaki": [482464., 5783070., DEFAULT_Z]
 }
 
 
@@ -308,8 +310,6 @@ def parse_bounds(bounds):
     :type bounds: str
     :param bounds: string to parse
     """
-    if bounds is None:
-        return None
     if bounds.lower() in "none":
         return None
     elif bounds.lower() in ["t", "true"]:
@@ -1748,7 +1748,11 @@ def make_preplot(args):
     if args.landmarks:
         plot_landmarks(color=rgb_colors("k"))
     if args.checkers:
-        plot_checkers(src=os.path.join(util_dir, "checkers.vtk"))
+        # plot_checkers(src=os.path.join(util_dir, "checkers.vtk"))
+        plot_checkers(src="/Users/Chow/Documents/academic/vuw/tomo/"
+                          "point_spread_test/dvs_stagger/checkers/"
+                          "psf_stagger_vs.vtk")
+
 
 
 def parse_args():
@@ -1913,7 +1917,8 @@ if __name__ == "__main__":
         if args.verbose:
             print(f"\tPreset is set to '{preset_key}'")
         preset = PRESETS[preset_key]
-        preset.bounds = parse_bounds(args.bounds)
+        if args.bounds is not None:
+            preset.bounds = parse_bounds(args.bounds)
 
         # ======================================================================
         # DEPTH SLICES
