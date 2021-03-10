@@ -23,7 +23,7 @@
     ],
     "nproc": 160,
     "grid_space_top_hv": [4, 1.5],
-    "shortest_period_s": 2.5,
+    "shortest_period_s": 2.0,
     "vs_min_km_per_s": 1.0,
     "vp_max_km_per_s": 9.3,
     "top_vertical_element_ratio": 1.0
