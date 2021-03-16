@@ -32,9 +32,9 @@ def wspace():
 # ACTIONS
 MK = 1  # Make the figures using pvpyplot
 WS = 0  # Remove border whitespace using Imagemagick
-TZ = 0  # Tile Z slice images using Imagemagick
+TZ = 1  # Tile Z slice images using Imagemagick
 TT = 0  # Tile Trench images using Imagemagick
-TI = 1  # Tile Interface images using Imagemagick
+TI = 0  # Tile Interface images using Imagemagick
 # MODELS
 VS = 0    # S-Wave Velocity
 VP = 0    # P-Wave Velocity
@@ -46,13 +46,14 @@ UP = 1    # Net Model Update
 T = 0    # Trench
 X = 0     # X Slices
 Y = 0     # Y Slices
-Z = 0     # Z Slices
+Z = 1     # Z Slices
 M = 0     # Manual Z slices for Vp and Vs
-I = 1     # Interface
+I = 0     # Interface
 F = 0     # Add active faults
-S = 0     # Add source epicenter locations
-R = 0     # Add receiver locations
+S = 1     # Add source epicenter locations
+R = 1     # Add receiver locations
 C = 0     # Add contour lines to figures
+K = 0     # Add interface contours lines
 # ==============================================================================
 
 s_flags = ""
@@ -74,13 +75,19 @@ if F:
     s_flags += "f"
 if s_flags:
     s_flags = f"-{s_flags}"
-# !!!
-if Z:
-    s_flags += " -Z s"
 
-# DEPTH SLICES
+if Z:
+    s_flags += " -Z 5 -b-.2,.2 "
+
+
+# Set paths yo
 basepath = "/Users/Chow/Documents/academic/vuw/forest/figures/model_comparisons"
 scratch = os.path.join(basepath, "scratch")
+
+# Standard default flags
+flags = f"-o {scratch} -l"
+if K:
+    flags += " --intcont "
 
 os.chdir(basepath)
 for dir_ in ["initial_model", "current_model"]:
@@ -93,7 +100,6 @@ for dir_ in ["initial_model", "current_model"]:
     if VP:
         fid = os.path.abspath(glob("model_????_vp.vtk")[0])
         assert(fid and os.path.exists(fid)), f"{dir_} model vs does not exist"
-        flags = f"-o {scratch} -l"
         
         print("making Vp figures")
         callpv(f"{fid} {flags} {s_flags}")
@@ -129,7 +135,6 @@ for dir_ in ["initial_model", "current_model"]:
     if VS:
         fid = os.path.abspath(glob("model_????_vs.vtk")[0])
         assert(fid and os.path.exists(fid)), f"{dir_} model vs does not exist"
-        flags = f"-o {scratch} -l"
 
         print("making Vs figures")
         callpv(f"{fid} {flags} {s_flags}")
@@ -167,7 +172,6 @@ for dir_ in ["initial_model", "current_model"]:
         assert(fid and os.path.exists(fid)), f"{dir_} ratio vpvs does not exist"
 
         print("making Vp/Vs figures")
-        flags = f"-o {scratch} -l"
         if M:
             callpv(f"{fid} {flags} -Z s 5-50,5")
         if s_flags:
@@ -253,19 +257,26 @@ if TZ:
     os.chdir(scratch)
     
     print("making z-slice tiles")
-    # tile_dirs = ["model_init_vp", "model_0028_vp", "update_0028_vp"]
-    # tile_dirs = ["model_init_vs", "model_0028_vs", "update_0028_vs"]
-    tile_dirs = ["ratio_init_vpvs", "ratio_0028_vpvs", "update_0028_vpvs"]
-    # tile_dirs = ["model_init_vs", "model_0028_vs", "update_0028_vs",
-    #              "ratio_init_vpvs", "ratio_0028_vpvs", "update_0028_vpvs",
-    #              "model_init_vp", "model_0028_vp", "update_0028_vp",]
-    os.chdir(tile_dirs[0])
-    z_files = sorted(glob("z_*.png"))
-    os.chdir("..")
-    for zf in z_files:
-        tile_files = [os.path.join(_, zf) for _ in tile_dirs]
-        tile(tile_files, out=os.path.join(z_tile_dir, f"tile_{zf}"),
-             ncol=3, nrow=1)
+    tile_list = []
+    if VP:
+        tile_list.append(["model_init_vp", "model_0028_vp", "update_0028_vp"])
+    if VS:
+        tile_list.append(["model_init_vs", "model_0028_vs", "update_0028_vs"])
+    if PS:
+        tile_list.append(["ratio_init_vpvs", "ratio_0028_vpvs", 
+                          "update_0028_vpvs"])
+
+    tile_list.append(["ratio_init_vpvs", "ratio_0028_vpvs", 
+                      "update_0028_vpvs"])
+    for tile_dirs in tile_list:
+        qty = tile_dirs[0].split("_")[-1]
+        os.chdir(tile_dirs[0])
+        z_files = sorted(glob("z_*.png"))
+        os.chdir("..")
+        for zf in z_files:
+            tile_files = [os.path.join(_, zf) for _ in tile_dirs]
+            tile(tile_files, out=os.path.join(z_tile_dir, f"tile_{qty}_{zf}"),
+                 ncol=len(tile_dirs), nrow=1)
 
 
 

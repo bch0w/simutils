@@ -1,0 +1,204 @@
+"""
+Manipulate a SPECFEM3D external tomography file (.xyz) by creating a point
+localized perturbation, for use in point spread function resolution analysis.
+Allows for multiple, independent, perturbations to be included in a single run.
+Treats each velocity model individually so points may overlap if the
+perturbations are too close to the edges. Also treats each perturbation
+individually so the User must ensure that they do not overlap on another
+spatially.
+"""
+import os
+import numpy as np
+from scipy import signal
+from checkerboardiphy import xyz_reader, parse_data_to_header, write_xyz
+
+
+def perturb(data, origin, radii, window=signal.windows.hann, **kwargs):
+    """
+    Define a perturbation that can be re-used for all points in the model
+    Origin must define actual discrete points within the model otherwise this
+    will not work. Kwargs passed to the underlying scipy window signal
+
+    :type data: np.ndarray
+    :param data: multidimensional array defining the velocity model
+        in the format [x, y, z, ...]
+    :type origin: list of floats
+    :param origin: [x0, y0, z0]
+    :type radii: list of floats
+    :param radii: [xr, yr, zr], radius of the given signal, the total length
+        of the signal will then be 2r centered at the origin point
+    :return:
+    """
+    prtrb = np.ones(len(data))
+    for i, (o, r) in enumerate(zip(origin, radii)):
+        datum = data[:, i]
+        unqdata = np.unique(datum)
+        space = abs(unqdata[1] - unqdata[0])
+
+        # Ensure that radius value is a multiple of the discretization
+        if r < space:
+            print(f"\tradius {r} < discretization {space}, rounding up")
+            r = space
+        if r % space != 0:
+            print(f"radis {r} not a factor of discretization {space}", end=", ")
+            r = int(space * np.ceil(float(r) / space))
+            print(f"rounded up to {r}")
+
+        # Temporary arrays to define the perturbation along a given axis
+        range_ = np.arange(o - r, o + r, space)
+        prtrb_ = window(len(range_), **kwargs)
+
+        # For each coordinate, we multiple all applicable values by the given
+        # perturbation and set everything else to 0. This should allow each
+        # coordinate to carve out its correct domain leading a 3D perturbation.
+        for r_, p_ in zip(range_, prtrb_):
+            prtrb[np.where(datum == r_)] *= p_
+
+        # Set everything outside the range to 0 to isolate the perturbation
+        prtrb[np.where((datum < range_.min()) | (datum > range_.max()))] *= 0
+
+    return prtrb
+
+
+def verify_location(data, origin, return_index=False):
+    """
+    Check if the given 3D coordinate is present in the given velocity model and
+    determine the closest point based on the discretization of the model.
+
+    :type data: np.ndarray
+    :param data: multidimensional array defining the velocity model
+        in the format [x, y, z, ...]
+    :type origin: list of floats
+    :param origin: [x0, y0, z0]
+    :type return_index: bool
+    :param return_index: return the index within the data array of the given
+        coordinate point
+    :rtype: tuple
+    :return: (points, index), points defines 3D coordinate that best matches
+        the velocity model discretization. index defines where that point lies
+        within the data array, but is NoneType if return_index is False
+    """
+    points = []
+    for i, val in enumerate(origin):
+        arr = data[:, i]
+
+        # Quick check to ensure the point falls completely within model bounds
+        assert (arr.min() < val < arr.max()), "coord {i} OOB"
+
+        # Find the nearest matching value which may differ due to discretization
+        vals = np.unique(arr)
+        if val not in vals:
+            print(f"\torigin {val} is not a discrete point...", end=" ")
+            val = vals[abs(vals - val).argmin()]
+            print(f"{val} is nearest discrete point")
+
+        points.append(val)
+
+    # Determine the location of the given point within the matrix
+    if return_index:
+        index = np.where((data[:, 0] == points[0]) & (data[:, 1] == points[1]) &
+                         (data[:, 2] == points[2]))
+        return points, index
+    else:
+        return points, None
+
+
+def main(origins, radiis, files, mode="return", apply_to=None, zero_values=None,
+         **kwargs):
+    """
+    Apply point local perturbations at given points to the given velocity model
+    Kwargs passed to scipy signal function underlying perturb function
+    """
+    apply_dict = {"vp": 3, "vs": 4, "rho": 5, "qp": 6, "qs": 7}
+
+    # Default values determining which values to manipulate with perturbation
+    if not apply_to:
+        apply_to = ["vp", "vs"]
+    if not zero_values:
+        zero_values = [3000, 1500]
+
+    # Quick assertion checks to make sure this won't crash at the end
+    assert (len(apply_to) == len(zero_values)), \
+        "len(apply_to) != len(zero_values)"
+    assert (all([_ in apply_dict.keys() for _ in apply_to])), \
+        f"unacceptable 'apply_to' values, see 'apply_dict'"
+
+    apply_idx = [apply_dict[_] for _ in apply_to]
+
+    for fid in files:
+        print(fid.split("/")[-1])
+        _, data = xyz_reader(fid, save=True)
+        data_out = data.copy()
+
+        # Set output model to 0 so we can fill it up with perturbations
+        data_out[:, apply_idx] *= 0.
+
+        for i, (origin, radii) in enumerate(zip(origins, radiis)):
+            print(f"PERTURBATION {i} / {len(origins) - 1}")
+            try:
+                points, _ = verify_location(data, origin, return_index=False)
+            except AssertionError:
+                print(f"\t!!! origin {i} lies outside data bounds, skipping")
+                continue
+
+            # Return a perturbation array the same length as the data
+            print(f"\tperturbing velocity model")
+            perturbation = perturb(data, origin, radii, **kwargs)
+
+            # Add each perturbation ontop of the perturbed, empty model
+            for apply, zeroval in zip(apply_to, zero_values):
+                idx = apply_dict[apply]
+                if mode == "return":
+                    prtrb = perturbation
+                elif mode == "apply":
+                    prtrb = perturbation * data[:, idx]
+                elif mode == "extract":
+                    prtrb = perturbation * data[:, idx]
+
+                data_out[:, idx] += prtrb
+
+        # Apply the offset values after all perturbations have been added
+        for apply, zeroval in zip(apply_to, zero_values):
+            idx = apply_dict[apply]
+            if mode == "apply":
+                offset = data[:, idx]
+            else:
+                offset = zeroval
+            data_out[:, idx] += offset
+
+        # Finalize by saving the data into new files for SPECFEM
+        print("writing new .xyz file")
+
+        header = parse_data_to_header(data_out)
+        fid_ = os.path.basename(fid)
+        base, ext = os.path.splitext(fid_)
+        fid_out = f"{base}_ploc{ext}"
+
+        np.save(fid_out, data_out)
+        write_xyz(header, data_out, fid_out)
+
+
+if __name__ == "__main__":
+    # Note: Origins and radii must match the units and directions of the
+    # underlying model. There is no checking involved to determine if correct
+    # Format of the lists should be [x, y, z]
+    origins = [[578000., 5667000., -12E3],  # Mahia Peninsula Anomaly
+               [466855, 5538861., -10E3],   # Porangahau Anomaly
+               [307699., 5384284., 0],      # Cook Strait
+               [463185., 5780787., 0],      # TVZ (~Okataina Caldera)
+               ]
+    radii = [[15E3, 15E3, 7.5E3],  # Mahia
+             [7.5E3, 7.5E3, 5E3],  # Pora.
+             [25E3, 25E3, 10E3],   # Cook Strait
+             [5E3, 5E3, 5E3],      # TVZ
+             ]
+
+    assert(len(origins) == len(radii)), "origin list and radii list must match"
+
+    kwargs = {}
+    files = ["tomography_model_mantle.xyz",
+             "tomography_model_crust.xyz",
+             "tomography_model_shallow.xyz"
+             ]
+    main(origins, radii, files, **kwargs)
+
