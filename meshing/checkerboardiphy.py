@@ -70,7 +70,8 @@ def xyz_reader(xyz_fid, save=True):
 def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                      perturbation=0.02, mode="apply", apply_to=None, 
                      invert=False, zero_values=None, taper_signal=None, 
-                     no_incompletes=True, stagger=False, **kwargs):
+                     no_incompletes=True, stagger=False, odd_checkering=False,
+                     **kwargs):
     """
     Read in the data from an XYZ tomography file and create a checkerboard
     overlay which has +/- {perturbation} checkers overlain on the tomography
@@ -138,10 +139,13 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
     # Read in the data
     header, data = xyz_reader(xyz_fid=xyz_fid, save=True)
 
-    # Scipy signal kwargs
-    if "std" in kwargs and kwargs["std"] is not None:
-        std_x = kwargs["std"] / header["spacing_x"]
-        std_y = kwargs["std"] / header["spacing_y"]
+    # Scipy optional signal kwargs
+    if "std" in kwargs:
+        if kwargs["std"] is not None:
+            std_x = kwargs["std"] / header["spacing_x"]
+            std_y = kwargs["std"] / header["spacing_y"]
+        else:
+            kwargs.pop("std")
 
     # Ensure that spacings fit together, if the underlying tomography file is
     # sampled at grid size not equal to 1
@@ -175,7 +179,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
 
         # Create the tapered checker for a given checker defined by bounds
         x_checker = np.arange(x_left, x_right, header["spacing_x"])
-        if "std" in kwargs and kwargs["std"] is not None:
+        if "std" in kwargs:
             kwargs["std"] = std_x
         x_window = taper_signal(len(x_checker), **kwargs)
 
@@ -220,7 +224,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
 
             # Create the tapered checker for the given checker defined by bounds
             y_checker = np.arange(y_bot, y_top, header["spacing_y"])
-            if "std" in kwargs and kwargs["std"] is not None:
+            if "std" in kwargs:
                 kwargs["std"] = std_y
             y_window = taper_signal(len(y_checker), **kwargs)
 
@@ -248,11 +252,13 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
                     import ipdb;ipdb.set_trace()
 
             # Flip the sign of the y-axis checker
-            # y *= -1
-
-            # Flip y-checker at every odd row
-            if not bool(iy % 2):
+            if odd_checkering:
+                # Flip y-checker at every odd row
+                if not bool(iy % 2):
+                    y *= -1 
+            else:
                 y *= -1
+
 
         # Flip the sign of the x-axis checker
         x *= -1
@@ -263,6 +269,10 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
     if checker_z:
         print("\nDepth Layers")
         z = 1
+
+        # Optional scipy signal kwarg for Gaussian
+        if "std" in checker_z and checker_z["std"] is None:
+            checker_z.pop("std")
 
         # First we set all values above the chosen 'origin' to be 0 so that
         # they won't interfere with tomo files that define checkers above
@@ -304,7 +314,7 @@ def checkerboardiphy(xyz_fid, spacing_x, spacing_y=None, checker_z=None,
             z_checker = np.arange(z_top, z_bottom, 
                                   max(-1000, -1 * header["spacing_z"])
                                   )
-            if "std" in checker_z and checker_z["std"] is not None:
+            if "std" in checker_z:
                 kwargs["std"] = checker_z["std"] / header["spacing_z"]
             z_window = taper_signal(len(z_checker), **kwargs)
 
@@ -485,23 +495,23 @@ def write_xyz(header, data, fid_out):
 if __name__ == "__main__":
     # =========================== Parameter set ================================
     fid_template="tomography_model_{}.xyz"
-    taper_signal=signal.gaussian
-    spacing_x = 48E3
+    taper_signal=signal.windows.hann
+    spacing_x = 40E3
     spacing_y = None
     dict_z = {
-        "shallow": {"origin": 3E3, "spacing": 10E3, "std": 2000},
-        "crust": {"origin": -7E3, "spacing": 10E3, "std": 2000 },
-        "mantle": {"origin": -40E3, "spacing": 24E3, "std": 12E3}
+        "shallow": {"origin": 3E3, "spacing": 10E3, "std": None},
+        "crust": {"origin": -7E3, "spacing": 10E3, "std": None},
+        "mantle": {"origin": -40E3, "spacing": 24E3, "std": None}
     }
     perturbation = 1
-    std = 10E3
+    std = None
     apply_to = ["vp", "vs"]
     zero_values = [3000, 1500]
     mode = "return"
     stagger = True
-    odd_checkering = True
+    odd_checkering = False
     no_incompletes = {"x": False, "y": False, "z": True}
-    sections = ["shallow", "mantle"] #, "crust", "shallow"]
+    sections = ["shallow"] #, "crust", "shallow"]
     invert_dict = {"mantle": True, "crust": True, "shallow": False}
     plot = True
     # =========================== Parameter set ================================
@@ -525,7 +535,7 @@ if __name__ == "__main__":
             checker_z=checker_z, zero_values=zero_values,
             apply_to=apply_to, perturbation=perturbation, invert=invert,
             taper_signal=taper_signal, no_incompletes=no_incompletes, mode=mode,
-            stagger=stagger, std=std, #odd_checkering=odd_checkering
+            stagger=stagger, std=std, odd_checkering=odd_checkering
         )
         checkerboard_header = parse_data_to_header(checkerboard_data)
 
