@@ -176,3 +176,8 @@ Using the Python calculator, you can change the units of your value
 using the following command
 """
 inputs[0].PointData['vs']*1E-3
+
+"""
+Convert isocontour to Z coordinates so you can color by depth
+"""
+inputs[0].Points[:, 2]

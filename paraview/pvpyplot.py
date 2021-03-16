@@ -56,6 +56,7 @@ TRENCH_POINTS = {
     "Mahia": [575567., 5665558., DEFAULT_Z, ],
     "Gisborne": [588984., 5720001., DEFAULT_Z, ],
     "Cvr": [417044., 5726459., DEFAULT_Z],
+    "Cook": [402390., 5401725., DEFAULT_Z],
 }
 TVZ_POINTS = {
     "Whanganui": [333381., 5577822., DEFAULT_Z],
@@ -249,8 +250,10 @@ PRESETS = {
         nvalues=28, isosurfaces=[0.1, 0.2, 0.3, 0.4]
     ),
     "ratio_vpvs": Preset(
-        title="Vp/Vs Ratio", cmap="Green-Blue Asymmetric Divergent (62Blbc)",
-        invert=True, center=False, fmt="%.2f", rnd=None,
+        title="Vp/Vs Ratio",
+        # cmap="Green-Blue Asymmetric Divergent (62Blbc)", invert=True
+        cmap="Yellow - Gray - Blue", invert=False,
+        center=False, fmt="%.2f", rnd=None,
         bounds=[1.55, 2.1], nlabel=4, nvalues=28,
         isosurfaces=[1.5, 1.6, 1.7, 1.8, 1.9, 2., 2.1, 2.2]
     ),
@@ -1213,13 +1216,32 @@ def plot_checkers(src, slicez=-3000.):
                            1500.4, 1500.6, 1500.8, 1501.0]
 
 
-def make_depth_slices(fid, slices, preset, contour=False,
-                      save_path=os.getcwd()):
+# def plot_interface_cross_section(origin, normal):
+#     """
+#     Plot the smooth interface model of Williams et al. 2013 onto a cross
+#     section
+#     """
+#     renderView = GetActiveViewOrCreate('RenderView')
+#
+#     interface = OpenDataFile("/Users/Chow/Documents/academic/vuw/data/"
+#                              "carto/interface/interface_utm60.vtk")
+#
+#     clip_vtk = Clip(interface)
+#     clip_vtk.ClipType = "Plane"
+#     clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
+#     clip_vtk.ClipType.Normal = [0., 0., -1.]
+#     Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
+
+
+
+def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     """
     Main function for creating and screenshotting depth slices (slice plane
     normal/perpendicular to Z axis). Creates a standardized look for the
     depth slices with scale bar, colorbar and annotations
     """
+    args = parse_args()
+
     # Open the model volume
     vtk = OpenDataFile(fid)
     RenameSource("surface", vtk)
@@ -1272,16 +1294,19 @@ def make_depth_slices(fid, slices, preset, contour=False,
             ClearSelection()
         else:
             slice_vtk = depth_slice(vtk, float(slice_))
-            if contour:
+            if args.contour:
                 contour_lines(slice_vtk, preset)
 
-            create_minmax_glyphs(slice_vtk)
+            if args.minmax:
+                create_minmax_glyphs(slice_vtk)
             tag = f"z_{slice_:0>2}km"
             text.Text = tag
             rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
 
-        show_colorbar(slice_vtk)
-        create_minmax_glyphs(slice_vtk)
+        if not args.cbar_off:
+            show_colorbar(slice_vtk)
+        if args.minmax:
+            create_minmax_glyphs(slice_vtk)
 
         # Save screenshot, hide slice and move on, job done
         fid_out = os.path.join(save_path, f"{tag}.png")
@@ -1294,8 +1319,7 @@ def make_depth_slices(fid, slices, preset, contour=False,
         delete_temp_objects(reg_names=["glyph", "point", "contour"])
 
 
-def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
-                        dz_km=10., scale=5., anno_height=0.5, contour=False,
+def make_cross_sections(fid, percentages, normal, preset,
                         save_path=os.getcwd()):
     """
     Create cross sections normal to the X or Y axes, create screenshots
@@ -1316,6 +1340,7 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
         x-axis of the plot will be the X axis of the model. the y-axis will
         always by the Z axis of the model.
     """
+    args = parse_args()
     normal = normal.lower()
 
     vtk = OpenDataFile(fid)
@@ -1353,16 +1378,15 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
         # Cut off depths below a certain range as we are not interested in deep
         clip_vtk = Clip(slice_vtk)
         clip_vtk.ClipType = "Plane"
-        clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
+        clip_vtk.ClipType.Origin = [0., 0., abs(args.depth) * -1E3]
         clip_vtk.ClipType.Normal = [0., 0., -1.]
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
-        if contour:
+        if args.contour:
             contour_lines(clip_vtk, preset)
 
         set_xsection_data_axis_grid(clip_vtk, camera_parallel=False,
-                                    min_depth_km=0.,
-                                    max_depth_km=depth_cutoff_km)
+                                    min_depth_km=0., max_depth_km=args.depth)
 
         # Reset the colorbounds to data range
         active = GetActiveSource()
@@ -1372,27 +1396,27 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
         # Use rulers to generate scale bars
         create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
                                              xlabel=parallel.upper(),
-                                             scale=scale,
-                                             depth_cutoff_km=depth_cutoff_km,
-                                             dz_km=dz_km)
+                                             scale=args.scale,
+                                             depth_cutoff_km=args.depth,
+                                             dz_km=args.dz)
 
         # Annotate distance
         fid = os.path.splitext(os.path.basename(data_fid))[0]
         anno = f"{normal.upper()}={(axis_dist-min(naxis))*1E-3:.2f}km"
         create_text(f"{anno}\n{fid}",
-                    position=[0.3, anno_height], reg_name="text1",
+                    position=[0.3, args.anno], reg_name="text1",
                     fontsize=int(FONTSIZE))
 
         # Generate and rescale the colorbar/ colormap
         vsLUT, cbar = set_colormap_colorbar(vtk,
-                                            position=[0.5, anno_height + 0.01],
+                                            position=[0.5, args.anno + 0.01],
                                             orientation="Horizontal",
                                             thickness=25, length=.1)
 
         cbar.TextPosition = "Ticks left/bottom, annotations right/top"
         rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
         display = GetDisplayProperties(clip_vtk, view=renderView)
-        display.SetScalarBarVisibility(renderView, True)
+        display.SetScalarBarVisibility(renderView, not args.cbar_off)
 
         # Reset camera view to be normal to the plane. Specific to this plane
         renderView.CameraViewUp = [0.0, 0.0, 1.0]
@@ -1416,9 +1440,7 @@ def make_cross_sections(fid, percentages, normal, preset, depth_cutoff_km=100.,
         delete_temp_objects(reg_names=["ruler", "text", "contour"])
 
 
-def make_trench_normal(fid, preset, depth_cutoff_km=100., names=None,
-                       dz_km=10., scale=5., anno_height=0.375, contour=False, 
-                       save_path=os.getcwd()):
+def make_trench_normal(fid, preset, names=None, save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench
     based on user-defined origin locations. Mark the origin locations
@@ -1430,6 +1452,8 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., names=None,
     :type scale_z: float
     :param scale_z: scale the Z-axis to exagerrate features
     """
+    args = parse_args()
+
     vtk = OpenDataFile(fid)
     RenameSource("surface", vtk)
     Show(vtk)
@@ -1457,12 +1481,12 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., names=None,
         # Cut off depths below a certain range as we are not interested in deep
         clip_vtk = Clip(slice_vtk)
         clip_vtk.ClipType = "Plane"
-        clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
+        clip_vtk.ClipType.Origin = [0., 0., abs(args.depth) * -1E3]
         clip_vtk.ClipType.Normal = [0., 0., -1.]
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
-        if contour:
-            contour_lines(clip_vtk, preset, scale=scale)
+        if args.contour:
+            contour_lines(clip_vtk, preset, scale=args.scale)
 
         # Reset the colorbounds to data range
         active = GetActiveSource()
@@ -1472,21 +1496,21 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., names=None,
         # Use rulers to define the axis grids w/ tickmarks etc.
         create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
                                              xlabel="Trench Normal",
-                                             scale=scale,
-                                             depth_cutoff_km=depth_cutoff_km,
-                                             dz_km=dz_km)
+                                             scale=args.scale,
+                                             depth_cutoff_km=args.depth,
+                                             dz_km=args.dz)
 
         # Create a reference point based on the landmark location
         create_cone_glyph(origin)
 
         # Annotate landmark location text and filename
         fid = os.path.splitext(os.path.basename(data_fid))[0]
-        create_text(f"{ab}. {name}\n{fid}", [0.4, anno_height],
+        create_text(f"{ab}. {name}\n{fid}", [0.4, args.anno],
                     reg_name="text1", fontsize=int(FONTSIZE))
 
         # Generate and rescale the colorbar/ colormap
         vsLUT, cbar = set_colormap_colorbar(vtk,
-                                            position=[0.5, anno_height + 0.01],
+                                            position=[0.5, args.anno + 0.01],
                                             orientation="Horizontal",
                                             thickness=25, length=.075)
 
@@ -1513,10 +1537,7 @@ def make_trench_normal(fid, preset, depth_cutoff_km=100., names=None,
                                        "contour"])
 
 
-def make_trench_parallel(fid, preset, line=None,
-                         depth_cutoff_km=100., dz_km=10., scale=5.,
-                         anno_height=0.45, contour=False,
-                         save_path=os.getcwd()):
+def make_trench_parallel(fid, preset, line=None, save_path=os.getcwd()):
     """
     Create cross sections of a volume perpendicular to the Hikurangi trench
     based on user-defined origin locations. Mark the origin locations
@@ -1526,6 +1547,8 @@ def make_trench_parallel(fid, preset, line=None,
     :param depth_cutoff_km: define where the bottom edge of the cross section
         will be. defaults to 100km depth
     """
+    args = parse_args()
+
     vtk = OpenDataFile(fid)
     RenameSource("surface", vtk)
     Show(vtk)
@@ -1571,6 +1594,9 @@ def make_trench_parallel(fid, preset, line=None,
         points["origins"] = list(TVZ_POINTS.values())
         y = 0.725
         points["annos"] = [(.5, y), (.6, y), (.7, y), (.75, y), (.9, y)]
+    elif line == "cook":
+        origin = [465288., 5476997., 0.]
+        normal = [-.5, .85, 0.]
 
     # origin = [455763., 5547040., 0.]
     tag = f"t_parallel_{line}"
@@ -1583,12 +1609,12 @@ def make_trench_parallel(fid, preset, line=None,
     # Cut off depths below a certain range as we are not interested in deep
     clip_vtk = Clip(slice_vtk)
     clip_vtk.ClipType = "Plane"
-    clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
+    clip_vtk.ClipType.Origin = [0., 0., abs(args.depth) * -1E3]
     clip_vtk.ClipType.Normal = [0., 0., -1.]
     Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
-    if contour:
-        contour_lines(clip_vtk, preset, scale=scale)
+    if args.contour:
+        contour_lines(clip_vtk, preset, scale=args.scale)
 
     # Reset the colorbounds to data range
     active = GetActiveSource()
@@ -1597,14 +1623,14 @@ def make_trench_parallel(fid, preset, line=None,
 
     # Use rulers to define the axis grids w/ tickmarks etc.
     create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
-                                         xlabel="H", scale=scale,
-                                         depth_cutoff_km=depth_cutoff_km,
-                                         dz_km=dz_km, flip=True)
+                                         xlabel="H", scale=args.scale,
+                                         depth_cutoff_km=args.depth,
+                                         dz_km=args.dz, flip=True)
 
 
     # Annotate landmark location text and filename
     fid = os.path.splitext(os.path.basename(data_fid))[0]
-    create_text(f"Trench Parallel {line.title()}\n{fid}", [0.35, anno_height],
+    create_text(f"Trench Parallel {line.title()}\n{fid}", [0.35, args.anno],
                 reg_name="text1", fontsize=int(FONTSIZE))
 
     # Make Glyphs for each of the landmarks
@@ -1614,7 +1640,7 @@ def make_trench_parallel(fid, preset, line=None,
                     fontsize=FONTSIZE)
 
     # Generate and rescale the colorbar/ colormap
-    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.5, anno_height + 0.01],
+    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.5, args.anno + 0.01],
                                         orientation="Horizontal", thickness=25,
                                         length=.1)
     cbar.TextPosition = "Ticks left/bottom, annotations right/top"
@@ -1749,9 +1775,23 @@ def make_preplot(args):
         plot_landmarks(color=rgb_colors("k"))
     if args.checkers:
         # plot_checkers(src=os.path.join(util_dir, "checkers.vtk"))
-        plot_checkers(src="/Users/Chow/Documents/academic/vuw/tomo/"
+        plot_checkers(src=args.checkers or 
+                          "/Users/Chow/Documents/academic/vuw/tomo/"
                           "point_spread_test/dvs_stagger/checkers/"
                           "psf_stagger_vs.vtk")
+    if args.intcont:
+        plot_point_cloud(fid=os.path.join(util_dir, "interface_contours.vtk"),
+                         reg_name="intcont", point_size=1.5, opacity=.6,
+                         color=rgb_colors("w"))
+        # Super hard-coded locations for depth slices only, will not line up
+        # if view size or camera location is changed
+        contour_lines = {"3": [.71, .31], "6": [.68, .31], "9": [.64, .31],
+                         "12": [.558, .31], "15": [.49, .31], "20": [.45, .31],
+                         "30": [.39, .31], "40": [.35, .31], "50": [.315, .31],
+                         "75": [.27, .31], "100": [.23, .31]}
+        for s, pos in contour_lines.items():
+            create_text(s=s, position=pos, fontsize=15, color=rgb_colors("w"))
+
 
 
 
@@ -1848,8 +1888,15 @@ def parse_args():
     parser.add_argument("--landmarks", action="store_true", default=False,
                         help="Plot landmarks as 2D glyphs for easier reference "
                              "on depth slices")
-    parser.add_argument("--checkers", action="store_true", default=False,
+    parser.add_argument("--checkers", type=str, default=False,
                         help="Plot checker overlay for point spread test")
+    parser.add_argument("--intcont", action="store_true", default=False,
+                        help="Plot pre-defined interface contours")
+    parser.add_argument("--minmax", action="store_true", default=False,
+                        help="Mark the  min. and max. values on the slice. "
+                             "Wont work with surface projections")
+    parser.add_argument("--cbar_off", action="store_true", default=False,
+                        help="Colorbar off, it is on by default")
 
     # CROSS SECTION FINE TUNE
     parser.add_argument("--depth", type=float, default=30,
@@ -1934,8 +1981,8 @@ if __name__ == "__main__":
             zslices = parse_slice_list(zslices)
             if args.verbose:
                 print(f"\tGenerating Z slices for {zslices}")
-            make_depth_slices(data_fid, zslices, contour=args.contour,
-                              preset=preset, save_path=save_path)
+            make_depth_slices(data_fid, zslices, preset=preset,
+                              save_path=save_path)
             reset()
 
         # ======================================================================
@@ -1946,10 +1993,7 @@ if __name__ == "__main__":
             xslices = list(range(5, 100, 10))
             if args.verbose:
                 print(f"\tGenerating X-normal slices for {xslices}")
-            make_cross_sections(data_fid, xslices, contour=args.contour,
-                                normal="x", preset=preset, scale=args.scale,
-                                depth_cutoff_km=args.depth, dz_km=args.dz,
-                                anno_height=args.anno,
+            make_cross_sections(data_fid, xslices, normal="x", preset=preset,
                                 save_path=save_path)
             reset()
 
@@ -1982,19 +2026,12 @@ if __name__ == "__main__":
         if trench_names:
             if args.verbose:
                 print("\tGenerating trench normal cross sections")
-            make_trench_normal(data_fid, preset, contour=args.contour,
-                               scale=args.scale, dz_km=args.dz,
-                               depth_cutoff_km=args.depth, names=trench_names,
-                               anno_height=args.anno,
+            make_trench_normal(data_fid, preset, names=trench_names,
                                save_path=save_path)
         if "Parallel" in trench_names:
             if args.verbose:
                 print("\tGenerating trench parallel cross section")
             make_trench_parallel(data_fid, preset, line=args.line,
-                                 contour=args.contour,
-                                 scale=args.scale, dz_km=args.dz,
-                                 depth_cutoff_km=args.depth,
-                                 anno_height=args.anno,
                                  save_path=save_path)
             reset()
 
@@ -2002,10 +2039,6 @@ if __name__ == "__main__":
             if args.verbose:
                 print("\tGenerating Taupo cross section")
             make_trench_parallel(data_fid, preset, line="taupo",
-                                 contour=args.contour,
-                                 scale=args.scale, dz_km=args.dz,
-                                 depth_cutoff_km=args.depth,
-                                 anno_height=args.anno,
                                  save_path=save_path)
             reset()
 
@@ -2016,8 +2049,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print("\tGenerating interface projection")
             make_preplot(args)
-            make_interface(data_fid, preset, contour=args.contour,
-                           save_path=save_path)
+            make_interface(data_fid, preset, save_path=save_path)
             reset()
            
 
