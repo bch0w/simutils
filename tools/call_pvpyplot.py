@@ -77,7 +77,7 @@ if s_flags:
     s_flags = f"-{s_flags}"
 
 if Z:
-    s_flags += " -Z 5 -b-.2,.2 "
+    s_flags += " -Z 5 -b-.15,.15 "
 
 
 # Set paths yo
@@ -120,17 +120,6 @@ for dir_ in ["initial_model", "current_model"]:
             callpv(f"{fid} {flags} -Z 45 -b 7250,9200")
             callpv(f"{fid} {flags} -Z 50 -b 7400,9200")
 
-            # Old Values, can delete
-            # callpv(f"{fid} {flags} -Z s -b 2000,5500")
-            # callpv(f"{fid} {flags} -Z 1-5,1 -b 2500,6000")
-            # callpv(f"{fid} {flags} -Z 6-10,1 -b 3500,6500")
-            # callpv(f"{fid} {flags} -Z 11-15,1 -b 4500,6500")
-            # callpv(f"{fid} {flags} -Z 16-20,1 -b 5000,7500")
-            # callpv(f"{fid} {flags} -Z 21-25,1 -b 5500,8250")
-            # callpv(f"{fid} {flags} -Z 26-30,1 -b 6000,8750")
-            # callpv(f"{fid} {flags} -Z 31-40,1 -b 6000,9000")
-            # callpv(f"{fid} {flags} -Z 41-50,1 -b 6500,9250")
-
     # Vs Model
     if VS:
         fid = os.path.abspath(glob("model_????_vs.vtk")[0])
@@ -154,17 +143,6 @@ for dir_ in ["initial_model", "current_model"]:
             callpv(f"{fid} {flags} -Z 40 -b 3750,5000")
             callpv(f"{fid} {flags} -Z 45 50 -b 4000,5000")
             
-            # Old values, out of bounds slightly
-            # callpv(f"{fid} {flags} -Z s -b 1000,3000")
-            # callpv(f"{fid} {flags} -Z 1-5,1 -b 1500,3500")
-            # callpv(f"{fid} {flags} -Z 6-10,1 -b 1750,4000")
-            # callpv(f"{fid} {flags} -Z 11-15,1 -b 2250,4000")
-            # callpv(f"{fid} {flags} -Z 16-20,1 -b 2750,4250")
-            # callpv(f"{fid} {flags} -Z 21-25,1 -b 3000,4500")
-            # callpv(f"{fid} {flags} -Z 26-30,1 -b 3250,4750")
-            # callpv(f"{fid} {flags} -Z 31-40,1 -b 3250,5000")
-            # callpv(f"{fid} {flags} -Z 41-50,1 -b 3750,5000")
-
 
     # Vp/Vs Ratio
     if PS:
@@ -266,8 +244,7 @@ if TZ:
         tile_list.append(["ratio_init_vpvs", "ratio_0028_vpvs", 
                           "update_0028_vpvs"])
 
-    tile_list.append(["ratio_init_vpvs", "ratio_0028_vpvs", 
-                      "update_0028_vpvs"])
+    tile_list.append(["model_init_vp", "model_0028_vp", "update_0028_vp"])
     for tile_dirs in tile_list:
         qty = tile_dirs[0].split("_")[-1]
         os.chdir(tile_dirs[0])

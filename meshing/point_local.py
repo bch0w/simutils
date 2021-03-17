@@ -8,7 +8,9 @@ individually so the User must ensure that they do not overlap on another
 spatially.
 """
 import os
+import sys
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy import signal
 from checkerboardiphy import xyz_reader, parse_data_to_header, write_xyz
 
@@ -43,7 +45,8 @@ def perturb(data, origin, radii, sign, window=signal.windows.hann, **kwargs):
             print(f"\tradius {r} < discretization {space}, rounding up")
             r = space
         if r % space != 0:
-            print(f"radis {r} not a factor of discretization {space}", end=", ")
+            print(f"\tradius {r} not a factor of discretization {space}", 
+                  end=", ")
             r = int(space * np.ceil(float(r) / space))
             print(f"rounded up to {r}")
 
@@ -106,8 +109,45 @@ def verify_location(data, origin, return_index=False):
         return points, None
 
 
-def main(origins, radiis, signs, files, mode="return", apply_to=None, 
-         zero_values=None, **kwargs):
+def plot_origin(data, origin, name=None, choice="vs"):
+    """
+    Make cross sections and depth slice through each axis at the origin point
+    to get a quick glance at the size and shape of the input perturbation
+    """
+    # Convert string to index
+    choice_idx = {"vp": 3, "vs": 4, "rho": 5, "qp": 6, "qs": 7}[choice]
+
+    for i, o in enumerate(origin):
+        data_unique = data[np.where(data[:, i] == o)]
+        x_, y_, z_ = data_unique[:, :3].T
+        c = data_unique[:, choice_idx]
+        # Define the coordinate system based on origin point of interest
+        if i == 0:
+            x, y = y_, z_
+        elif i == 1:
+            x, y = x_, z_
+        elif i == 2:
+            x, y = x_, y_
+    
+        plt.scatter(x, y, c=c, s=1, cmap=plt.cm.seismic_r, vmin=-1, vmax=1)
+        plt.title(f"{origin}[{i}] {choice}")
+        if i != 2:
+            plt.gca().set_aspect(2)
+        else:
+            plt.gca().set_aspect(1)
+        plt.colorbar()
+        plt.grid()
+        plt.savefig(f"{name}_{i}_{choice}.png")
+        plt.close()
+
+    # if input("Acceptable?: "):
+    #     return
+    # else:
+    #     sys.exit()
+
+    
+def main(anomalies, files, mode="return", apply_to=None, zero_values=None, 
+         **kwargs):
     """
     Apply point local perturbations at given points to the given velocity model
     Kwargs passed to scipy signal function underlying perturb function
@@ -136,10 +176,14 @@ def main(origins, radiis, signs, files, mode="return", apply_to=None,
         # Set output model to 0 so we can fill it up with perturbations
         data_out[:, apply_idx] *= 0.
 
-        for i, (origin, radii, sign) in enumerate(zip(origins, radiis, signs)):
-            print(f"PERTURBATION {i} / {len(origins) - 1}")
+        for i, (name, values) in enumerate(anomalies.items()):
+            origin = values["origin"]
+            radii = values["radii"]
+            sign = values["sign"]
+
+            print(f"PERTURBATION {name.upper()} ({i}/{len(anomalies) - 1})")
             try:
-                points, _ = verify_location(data, origin, return_index=False)
+                origin, _ = verify_location(data, origin, return_index=False)
             except AssertionError:
                 print(f"\t!!! origin {i} lies outside data bounds, skipping")
                 continue
@@ -159,6 +203,9 @@ def main(origins, radiis, signs, files, mode="return", apply_to=None,
                     prtrb = perturbation * data[:, idx]
 
                 data_out[:, idx] += prtrb
+        
+            # Visualize perturbations
+            plot_origin(data_out, origin, name, choice="vs")
 
         # Apply the offset values after all perturbations have been added
         for apply, zeroval in zip(apply_to, zero_values):
@@ -182,27 +229,40 @@ def main(origins, radiis, signs, files, mode="return", apply_to=None,
 
 
 if __name__ == "__main__":
+    # Each anomaly should have three keys: origin, radii, sign
+    # 1) origin [x0, y0, z0]: point defining the center of the anomaly
+    # 2) radii [x_r, y_r, z_r]: radius defining 3D extent of anomaly    
+    # 3) sign (int): +1 or -1, the relative sign for fast or slow anomaly
+    #
     # Note: Origins and radii must match the units and directions of the
     # underlying model. There is no checking involved to determine if correct
-    # Format of the lists should be [x, y, z]
-    origins = [[578000., 5667000., -12E3],  # Mahia Peninsula Anomaly
-               [466855, 5538861., -10E3],   # Porangahau Anomaly
-               [307699., 5384284., 0],      # Cook Strait
-               [463185., 5780787., 0],      # TVZ (~Okataina Caldera)
-               ]
-    radii = [[15E3, 15E3, 7.5E3],  # Mahia
-             [7.5E3, 7.5E3, 5E3],  # Pora.
-             [25E3, 25E3, 10E3],   # Cook Strait
-             [5E3, 5E3, 5E3],      # TVZ
-             ]
-    signs = [1, 1, -1, -1]
 
-    assert(len(origins) == len(radii)), "origin list and radii list must match"
-
+    anomalies = {
+            "mahia": 
+                {"origin": [578000., 5668000., -12E3],
+                 "radii": [15E3, 15E3, 7.5E3],
+                 "sign": 1},
+            "porangahau": 
+                {"origin": [466855., 5538861., -10E3],
+                 "radii": [7.5E3, 7.5E3, 5E3],
+                 "sign": 1},
+            "cook_strait": 
+                {"origin": [307699., 5384284., 0.],
+                 "radii": [25E3, 25E3, 10E3],
+                 "sign": -1},
+            "okataina": 
+                {"origin": [463185., 5780787., 0.,],
+                 "radii": [10E3, 10E3, 5E3],
+                 "sign": -1},
+            "whakamaru":
+                {"origin": [427595., 5741709., 0.],
+                 "radii": [20E3, 20E3, 10E3],
+                 "sign": -1},
+                }
     kwargs = {}
     files = ["tomography_model_mantle.xyz",
              "tomography_model_crust.xyz",
              "tomography_model_shallow.xyz"
              ]
-    main(origins, radii, signs, files, **kwargs)
+    main(anomalies, files, **kwargs)
 
