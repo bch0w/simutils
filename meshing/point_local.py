@@ -13,7 +13,7 @@ from scipy import signal
 from checkerboardiphy import xyz_reader, parse_data_to_header, write_xyz
 
 
-def perturb(data, origin, radii, window=signal.windows.hann, **kwargs):
+def perturb(data, origin, radii, sign, window=signal.windows.hann, **kwargs):
     """
     Define a perturbation that can be re-used for all points in the model
     Origin must define actual discrete points within the model otherwise this
@@ -27,9 +27,12 @@ def perturb(data, origin, radii, window=signal.windows.hann, **kwargs):
     :type radii: list of floats
     :param radii: [xr, yr, zr], radius of the given signal, the total length
         of the signal will then be 2r centered at the origin point
+    :type signs: list of int
+    :param signs: +1 or -1 to define if the peturbation is pos. or neg.
     :return:
     """
-    prtrb = np.ones(len(data))
+    prtrb = sign * np.ones(len(data))
+
     for i, (o, r) in enumerate(zip(origin, radii)):
         datum = data[:, i]
         unqdata = np.unique(datum)
@@ -103,8 +106,8 @@ def verify_location(data, origin, return_index=False):
         return points, None
 
 
-def main(origins, radiis, files, mode="return", apply_to=None, zero_values=None,
-         **kwargs):
+def main(origins, radiis, signs, files, mode="return", apply_to=None, 
+         zero_values=None, **kwargs):
     """
     Apply point local perturbations at given points to the given velocity model
     Kwargs passed to scipy signal function underlying perturb function
@@ -133,7 +136,7 @@ def main(origins, radiis, files, mode="return", apply_to=None, zero_values=None,
         # Set output model to 0 so we can fill it up with perturbations
         data_out[:, apply_idx] *= 0.
 
-        for i, (origin, radii) in enumerate(zip(origins, radiis)):
+        for i, (origin, radii, sign) in enumerate(zip(origins, radiis, signs)):
             print(f"PERTURBATION {i} / {len(origins) - 1}")
             try:
                 points, _ = verify_location(data, origin, return_index=False)
@@ -142,8 +145,8 @@ def main(origins, radiis, files, mode="return", apply_to=None, zero_values=None,
                 continue
 
             # Return a perturbation array the same length as the data
-            print(f"\tperturbing velocity model")
-            perturbation = perturb(data, origin, radii, **kwargs)
+            print(f"\tperturbing velocity model ({sign})")
+            perturbation = perturb(data, origin, radii, sign, **kwargs)
 
             # Add each perturbation ontop of the perturbed, empty model
             for apply, zeroval in zip(apply_to, zero_values):
@@ -192,6 +195,7 @@ if __name__ == "__main__":
              [25E3, 25E3, 10E3],   # Cook Strait
              [5E3, 5E3, 5E3],      # TVZ
              ]
+    signs = [1, 1, -1, -1]
 
     assert(len(origins) == len(radii)), "origin list and radii list must match"
 
@@ -200,5 +204,5 @@ if __name__ == "__main__":
              "tomography_model_crust.xyz",
              "tomography_model_shallow.xyz"
              ]
-    main(origins, radii, files, **kwargs)
+    main(origins, radii, signs, files, **kwargs)
 
