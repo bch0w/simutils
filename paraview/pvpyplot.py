@@ -458,7 +458,7 @@ def cross_section(vtk, normal, origin, name):
     :type normal: list of float
     :param normal: normal vector of the plane
     :type origin: list of float
-    :param origin: origin point for the
+    :param origin: origin points for the xsection
     """
     slice_vtk = Slice(vtk)
     slice_vtk.SliceType = "Plane"
@@ -1216,23 +1216,85 @@ def plot_checkers(src, slicez=-3000.):
                            1500.4, 1500.6, 1500.8, 1501.0]
 
 
-# def plot_interface_cross_section(origin, normal):
-#     """
-#     Plot the smooth interface model of Williams et al. 2013 onto a cross
-#     section
-#     """
-#     renderView = GetActiveViewOrCreate('RenderView')
-#
-#     interface = OpenDataFile("/Users/Chow/Documents/academic/vuw/data/"
-#                              "carto/interface/interface_utm60.vtk")
-#
-#     clip_vtk = Clip(interface)
-#     clip_vtk.ClipType = "Plane"
-#     clip_vtk.ClipType.Origin = [0., 0., abs(depth_cutoff_km) * -1E3]
-#     clip_vtk.ClipType.Normal = [0., 0., -1.]
-#     Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
+def plot_interface_cross_section(origin, normal, choice, offset=1E3,
+                                 pointsize=1., color=None):
+    """
+    Draw a line corresponding to the interface model of Williams et al. (2013).
+    This is pretty messed up but the only way I could figure out how to do it.
+    We'll plot the 3D interface model, and then cut either side of the cross
+    section, essentially leaving a small strip that straddles the xsection.
+    This should be enough to give the impression that we're looking at a 2D line
+    even though were looking at a 3D distribution of points. Vamanos!
 
+    :type origin: list of float
+    :param origin: origin points for the xsection
+    :type normal: list of float
+    :param normal: normal vector of the plane
+    :type offset: float
+    :param offset: amount to offset x and y to generate the strip. The larger
+        the value, the larger the strip, and probably the more 3D variation,
+        which will look weird on a 2D plot. You may need to play around with
+        this value to get the interface to look like a line rather than a
+        strip
+    :type pointsize: float
+    :param pointsize: control the size of the points that plot the original
+        interface. This along with offset may help you get a more line-looking
+        interface
+    :type choice: str
+    :param choice: choice between trench normal and parallel cross sections,
+        just dictates which way we need to offset our clips since each direction
+        changes the defition of the positive axes.
+    :type color: list of float
+    :param color: color of the interface, in rgb
+    """
+    args = parse_args()
+    if color is None:
+        color = rgb_colors("w")
 
+    renderView = GetActiveViewOrCreate('RenderView')
+    interface = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
+                             "vtk_files/interface.vtk")
+
+    # First clip away irrelevant depth values
+    clip_0 = Clip(interface)
+    clip_0.ClipType = "Plane"
+    clip_0.ClipType.Origin = [0., 0., abs(args.depth) * -1E3]
+    clip_0.ClipType.Normal = [0., 0., -1.]
+
+    # Now clip away one side of the cross section
+    # Too lazy to do this with trig so just add some km to x and y and pray!
+    clip_1 = Clip(clip_0)
+    clip_1.ClipType = "Plane"
+    if choice == "normal":
+        clip_1.ClipType.Origin = [origin[0] - offset,
+                                  origin[1] - offset,
+                                  origin[2]]
+    elif choice == "parallel":
+        clip_1.ClipType.Origin = [origin[0] - offset,
+                                  origin[1] + offset,
+                                  origin[2]]
+    clip_1.ClipType.Normal = normal
+
+    # Now clip away the other side of the cross section
+    clip_2 = Clip(clip_1)
+    clip_2.ClipType = "Plane"
+    if choice == "normal":
+        clip_2.ClipType.Origin = [origin[0] + offset,
+                                  origin[1] + offset,
+                                  origin[2]]
+    elif choice == "parallel":
+        clip_2.ClipType.Origin = [origin[0] + offset,
+                                  origin[1] - offset,
+                                  origin[2]]
+    clip_2.ClipType.Normal = [_ * -1 for _ in normal]
+
+    # import pdb;pdb.set_trace()
+    clipDisplay = Show(clip_2, renderView, "UnstructuredGridRepresentation")
+    clipDisplay.Scale = [1., 1., args.scale]
+    clipDisplay.PointSize = pointsize
+    ColorBy(clipDisplay, None)
+    clipDisplay.AmbientColor = color
+    clipDisplay.DiffuseColor = color
 
 def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     """
@@ -1503,6 +1565,9 @@ def make_trench_normal(fid, preset, names=None, save_path=os.getcwd()):
         # Create a reference point based on the landmark location
         create_cone_glyph(origin)
 
+        if args.williams:
+            plot_interface_cross_section(origin, normal, choice="normal")
+
         # Annotate landmark location text and filename
         fid = os.path.splitext(os.path.basename(data_fid))[0]
         create_text(f"{ab}. {name}\n{fid}", [0.4, args.anno],
@@ -1615,6 +1680,9 @@ def make_trench_parallel(fid, preset, line=None, save_path=os.getcwd()):
 
     if args.contour:
         contour_lines(clip_vtk, preset, scale=args.scale)
+
+    if args.williams:
+        plot_interface_cross_section(origin, normal, choice="parallel")
 
     # Reset the colorbounds to data range
     active = GetActiveSource()
@@ -1779,7 +1847,7 @@ def make_preplot(args):
                           "/Users/Chow/Documents/academic/vuw/tomo/"
                           "point_spread_test/dvs_stagger/checkers/"
                           "psf_stagger_vs.vtk")
-    if args.intcont:
+    if args.williams:
         plot_point_cloud(fid=os.path.join(util_dir, "interface_contours.vtk"),
                          reg_name="intcont", point_size=1.5, opacity=.6,
                          color=rgb_colors("w"))
@@ -1862,6 +1930,7 @@ def parse_args():
                         help="plot trench parallel cross section that makes a "
                              "line between Ruapehu and White Island",
                         default=False)
+
     parser.add_argument("-A", "--all", action="store_true", default=False,
                         help="shorthand to make all default slices, "
                              "same as '-xyzit'")
@@ -1885,13 +1954,16 @@ def parse_args():
     parser.add_argument("-e", "--slowslip", action="store_true",
                         help="plot slow slip slip event slip patches",
                         default=False)
+    parser.add_argument("-w", "--williams", action="store_true", default=False,
+                        help="Plot the Hikurangi interface model of Williams"
+                             "et al. (2013). If depth slice, will plot contour"
+                             "lines pre defined by the .vtk file. If xsection"
+                             "will plot a line tracing the interface.")
     parser.add_argument("--landmarks", action="store_true", default=False,
                         help="Plot landmarks as 2D glyphs for easier reference "
                              "on depth slices")
     parser.add_argument("--checkers", type=str, default=False,
                         help="Plot checker overlay for point spread test")
-    parser.add_argument("--intcont", action="store_true", default=False,
-                        help="Plot pre-defined interface contours")
     parser.add_argument("--minmax", action="store_true", default=False,
                         help="Mark the  min. and max. values on the slice. "
                              "Wont work with surface projections")
@@ -2006,9 +2078,6 @@ if __name__ == "__main__":
             if args.verbose:
                 print(f"\tGenerating Y-normal slices for {yslices}")
             make_cross_sections(data_fid, yslices, normal="y", preset=preset,
-                                contour=args.contour, scale=args.scale,
-                                depth_cutoff_km=args.depth, dz_km=args.dz,
-                                anno_height=args.anno,
                                 save_path=save_path)
             reset()
 
