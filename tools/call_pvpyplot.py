@@ -31,29 +31,30 @@ def wspace():
 # ================================ SWITCHES ====================================
 # ACTIONS
 MK = 1  # Make the figures using pvpyplot
-WS = 0  # Remove border whitespace using Imagemagick
-TZ = 1  # Tile Z slice images using Imagemagick
+TZ = 0  # Tile Z slice images using Imagemagick
 TT = 0  # Tile Trench images using Imagemagick
-TI = 0  # Tile Interface images using Imagemagick
+TI = 1  # Tile Interface images using Imagemagick
 # MODELS
 VS = 0    # S-Wave Velocity
-VP = 0    # P-Wave Velocity
+VP = 1    # P-Wave Velocity
 PS = 0    # Vp/Vs Ratio
 PO = 0    # Poisson's Ratio
 MU = 0    # Shear Modulus
-UP = 1    # Net Model Update
+UP = 0    # Net Model Update
 # SLICES
 T = 0    # Trench
 X = 0     # X Slices
 Y = 0     # Y Slices
-Z = 1     # Z Slices
+Z = 0     # Z Slices
 M = 0     # Manual Z slices for Vp and Vs
-I = 0     # Interface
+I = 1     # Interface
 F = 0     # Add active faults
-S = 1     # Add source epicenter locations
-R = 1     # Add receiver locations
-C = 0     # Add contour lines to figures
+S = 0     # Add source epicenter locations
+R = 0     # Add receiver locations
+C = 1     # Add contour lines to figures
 K = 0     # Add interface contours lines
+# MANUAL
+B = " -b 3000,7000 "  # Set colorbar bounds manually
 # ==============================================================================
 
 s_flags = ""
@@ -75,14 +76,16 @@ if F:
     s_flags += "f"
 if s_flags:
     s_flags = f"-{s_flags}"
+if B:
+    s_flags += B
 
 if Z:
-    s_flags += " -Z 5 -b-.15,.15 "
+    s_flags += " -Z 5 15 25 "
 
 
 # Set paths yo
 basepath = "/Users/Chow/Documents/academic/vuw/forest/figures/model_comparisons"
-scratch = os.path.join(basepath, "scratch")
+scratch = os.path.join(basepath, "output")
 
 # Standard default flags
 flags = f"-o {scratch} -l"
@@ -173,22 +176,31 @@ for dir_ in ["initial_model", "current_model"]:
 
 if MK and UP:
     os.chdir("update")
-    for fid in glob("update_????_*.vtk"):
-        print(f"making {fid.split('.')[0]} figures")
-        callpv(f"{fid} -o {scratch} -l {s_flags}")
-        if M:
-            callpv(f"{fid} -o {scratch} -Z s 5-50,5 -l")
+    for check, val in zip([VS, VP, PS, PO, MU], 
+                          ["vs", "vp", "vpvs", "poisson", "shear"]):
+        if check:
+            for fid in glob(f"update_????_{val}.vtk"):
+                print(f"making {fid.split('.')[0]} figures")
+                callpv(f"{fid} -o {scratch} -l {s_flags}")
+                if M:
+                    callpv(f"{fid} -o {scratch} -Z s 5-50,5 -l")
 
-# Remove whitespace from all figures
-if WS:
-    os.chdir(scratch)
-    print("removing whitespace from all figures in scratch dir")
-    for dir_ in glob("*"):
-        if os.path.isdir(dir_):
-            os.chdir(dir_)
-            wspace()
-            os.chdir("..")
 
+# Set up for tile generation
+tile_list = []
+if VP:
+    tile_list.append(["model_init_vp", "model_0028_vp", "update_0028_vp"])
+if VS:
+    tile_list.append(["model_init_vs", "model_0028_vs", "update_0028_vs"])
+if PS:
+    tile_list.append(["ratio_init_vpvs", "ratio_0028_vpvs", 
+                      "update_0028_vpvs"])
+if MU:
+    tile_list.append(["modulus_init_shear", "modulus_0028_shear", 
+                      "update_0028_shear"])
+if PO:
+    tile_list.append(["ratio_init_poissons", "ratio_0028_poissons", 
+                      "update_0028_poissons"])
 
 # I-Tile images
 if TI:
@@ -196,14 +208,9 @@ if TI:
     if not os.path.exists(i_tile_dir):
         os.mkdir(i_tile_dir)
     os.chdir(scratch)
+
     print("making interface tiles")
-    tile_dirs_list = [
-            ["model_init_vs", "model_0028_vs", "update_0028_vs"],
-            ["ratio_init_vpvs", "ratio_0028_vpvs", "update_0028_vpvs"],
-            ["ratio_init_poissons", "ratio_0028_poissons", "update_0028_poissons"],
-            ["modulus_init_shear", "modulus_0028_shear", "update_0028_shear"]
-            ]
-    for tile_dirs in tile_dirs_list:
+    for tile_dirs in tile_list:
         tile_files = [os.path.join(_, "interface.png") for _ in tile_dirs]
         name = tile_dirs[0].replace("init_", "")
         tile(tile_files, out=os.path.join(i_tile_dir, f"tile_{name}.png"), 
@@ -235,16 +242,6 @@ if TZ:
     os.chdir(scratch)
     
     print("making z-slice tiles")
-    tile_list = []
-    if VP:
-        tile_list.append(["model_init_vp", "model_0028_vp", "update_0028_vp"])
-    if VS:
-        tile_list.append(["model_init_vs", "model_0028_vs", "update_0028_vs"])
-    if PS:
-        tile_list.append(["ratio_init_vpvs", "ratio_0028_vpvs", 
-                          "update_0028_vpvs"])
-
-    tile_list.append(["model_init_vp", "model_0028_vp", "update_0028_vp"])
     for tile_dirs in tile_list:
         qty = tile_dirs[0].split("_")[-1]
         os.chdir(tile_dirs[0])

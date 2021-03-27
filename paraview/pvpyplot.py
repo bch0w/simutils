@@ -38,7 +38,8 @@ from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              ResetCamera, Clip, PointSource, Glyph,
                              CreateRenderView, SetActiveView, GetSources, Axes,
                              ColorBy, PointDatasetInterpolator,
-                             GetOpacityTransferFunction, ImportPresets, Contour)
+                             GetOpacityTransferFunction, ImportPresets, Contour,
+                             ProgrammableFilter)
 
 
 # Pre-defined landmark locations
@@ -53,7 +54,7 @@ TRENCH_POINTS = {
     "Elsthorpe": [484394., 5581561., DEFAULT_Z, ],
     "Napier": [489374., 5626518., DEFAULT_Z, ],
     "Mohaka": [507922., 5670909., DEFAULT_Z, ],
-    "Mahia": [575567., 5665558., DEFAULT_Z, ],
+    "Mahia": [577779., 5667301., DEFAULT_Z, ],
     "Gisborne": [588984., 5720001., DEFAULT_Z, ],
     "Cvr": [417044., 5726459., DEFAULT_Z],
     "Cook": [402390., 5401725., DEFAULT_Z],
@@ -89,7 +90,9 @@ def rgb_colors(c):
     """
     return {"k": [0., 0., 0.], "w": [1., 1., 1.], "r": [1., 0., 0.],
             "b": [0., 0., 1.], "g": [0., 1., 0.], "y": [1., 1., 0.],
-            "o": [1., .5, 0.], "c": [0., 1., 1.], "gray": [.5, .5, .5]}[c]
+            "o": [1., .5, 0.], "c": [0., 1., 1.], "gray": [.5, .5, .5],
+            "pink": [255., 0., 255.], "darkgray": [64., 64., 64.],
+            }[c]
 
 class Preset(dict):
     """
@@ -161,7 +164,7 @@ PRESETS = {
         nvalues=33, cdx=50
     ),
     "resolution": Preset(
-        title="PSF Volume [m^3 s^2]", cmap="Black, Blue and White", invert=True,
+        title="PSF Volume [m^3]", cmap="Black, Blue and White", invert=True,
         center=False, fmt="%.2E", rnd=None, bounds=[0, 3E-5], nlabel=3,
         nvalues=33, isosurfaces=[1E-5 * _ for _ in list(range(1,9))]
     ),
@@ -258,9 +261,9 @@ PRESETS = {
         isosurfaces=[1.5, 1.6, 1.7, 1.8, 1.9, 2., 2.1, 2.2]
     ),
     "modulus_shear": Preset(
-        title="Shear Modulus [GPa]", cmap="Inferno (matplotlib)",
+        title="Shear Modulus [GPa]", cmap="Jet", #cmap="Inferno (matplotlib)",
         invert=True, center=False, fmt="%.0f", rnd=None,
-        bounds=[10, 40], nlabel=3, nvalues=10, above_range=[.78, .78, .78],
+        bounds=[5, 65], nlabel=3, nvalues=12, above_range=[.78, .78, .78],
         cdx=10,
     ),
 }
@@ -271,6 +274,20 @@ def myround(x, base):
     Round values to the nearest base
     """
     return int(base * round(float(x) / base))
+
+
+def normal_to_angle(x, y):
+    """
+    Take two normal vectors and return the angle that they give.
+
+    :type x: float
+    :param x: x normal
+    :type y: float
+    :param y: y normal
+    :rtype: float
+    :return: angle created by the two normals
+    """
+    return math.atan2(y, x) * 180 / math.pi
 
 
 def remove_whitespace(fid):
@@ -322,6 +339,7 @@ def parse_bounds(bounds):
     else:
         return [float(_) for _ in bounds.split(",")]
 
+
 def parse_slice_list(slice_list):
     """
     Slices are provided by the user and may consist of a list of mixed types, 
@@ -368,6 +386,41 @@ def parse_slice_list(slice_list):
         new_list.insert(0, "surface")
 
     return new_list
+
+
+def scale_units(input, scale_by=1):
+    """
+    Use the ProgrammableFilter to scale the input units, e.g. to get from m/s
+    to km/s. Should be run immediately after opening the input file.
+
+    :type input
+    :type scale_by: float
+    :param scale_by: value to scale input units by.
+    :return:
+    """
+    renderView = GetActiveViewOrCreate('RenderView')
+
+    Show(input)
+    progFilt = ProgrammableFilter(registrationName='ProgrammableFilter',
+                                  Input=input)
+    progFilt.Script = f"""pdi = self.GetInput()
+pdo = self.GetOutput()
+ivals = pdi.GetPointData().GetScalars()
+numPoints = pdi.GetNumberOfPoints()
+newPoints=vtk.vtkPoints()
+ca = vtk.vtkFloatArray()
+ca.SetName(ivals.GetName())
+ca.SetNumberOfComponents(1)
+ca.SetNumberOfTuples(numPoints)
+for i in range(0, numPoints):
+  ca.SetValue(i, ivals.GetValue(i) * {scale_by})
+pdo.GetPointData().AddArray(ca)"""
+
+    Show(progFilt, renderView, "UnstructuredGridRepresentation")
+    Hide(input)
+    Hide(progFilt)
+
+    return progFilt
 
 
 def depth_slice(vtk, depth):
@@ -567,6 +620,48 @@ def create_cone_glyph(origin, reg_name_point="point", reg_name_glyph="glyph"):
     Show(glyph, renderView, "GeometryRepresentation")
 
 
+def mark_surface_point(origin, normal, color=None, z_value=None,
+                       reg_name_point="point", reg_name_glyph="glyph"):
+    """
+    Create a 3D cone glyph used to denote points at the surface
+
+    :type origin: list of float
+    :param origin: center point for mark
+    :type normal: list of float
+    :param normal: normal of the given slice, to rotate the glyph to orientation
+    :type color: list of float
+    :param color: rgb color for the mark, default black
+    :type z_value: float
+    :param z_value: height of the mark, defaults 9000. to push the glyph above
+        any topography, might need to play with this value.
+    """
+    renderView = GetActiveView()
+
+    if color is None:
+        color = rgb_colors("k")
+    if z_value is None:
+        z_value = 9000.
+
+    # Generate point at origin
+    point = PointSource(registrationName=reg_name_point)
+    point.Center = [origin[0], origin[1], z_value]
+
+    # Create a 2D inverted triangle glyph, rotated to the correct orientation
+    glyph = Glyph(Input=point, GlyphType="2D Glyph",
+                  registrationName=reg_name_glyph)
+    glyph.GlyphType.GlyphType = "Triangle"
+    rotate = normal_to_angle(normal[0], normal[1])
+    glyph.GlyphTransform.Rotate = [-90, 90., rotate]
+    glyph.ScaleFactor = 12000.
+
+    # Set the look of the displayed glyphs
+    glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
+    glyphDisplay.AmbientColor = color
+    glyphDisplay.DiffuseColor = color
+    glyphDisplay.SetRepresentationType("Surface With Edges")
+    glyphDisplay.LineWidth = 2.
+
+
 def create_ruler_grid_axes_depth_slice(src, tick_spacing_km=50, top=True,
                                        bottom=True, left=True, right=True):
     """
@@ -704,13 +799,13 @@ def create_ruler_grid_axes_cross_section(src, normal, tick_spacing_m=50E3,
 
     # Create the 'X' axis ruler along the bottom
     create_ruler(point1=ruler_origin, point2=ruler_h,
-                 label=f"{xlabel} [{dist_m_h/1E3:.0f}km]\n"
+                 label=f"{xlabel}={dist_m_h/1E3:.0f}km "
                        f"(dh={int(tick_spacing_m * 1E-3)}km)",
                  reg_name="ruler1", ticknum=num_ticks_h)
 
     create_ruler(point1=ruler_v, point2=ruler_origin,
                  ticknum=int(depth_cutoff_km / dz_km) + 1,
-                 label=f"Z [{depth_cutoff_km}km]\n"
+                 label=f"Z={depth_cutoff_km}km\n"
                        f"{int(scale)}x scale\n"
                        f"(dz={int(dz_km)}km)",
                  reg_name="ruler2", )
@@ -790,6 +885,7 @@ def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
     display = GetDisplayProperties(source, view=renderView)
     display.DataAxesGrid.GridAxesVisibility = 1
     display.DataAxesGrid.ShowGrid = 1
+    display.DataAxesGrid.ShowEdges = 0
 
     display.DataAxesGrid.XAxisUseCustomLabels = 1
     display.DataAxesGrid.XAxisLabels = []
@@ -1212,19 +1308,24 @@ def plot_checkers(src, slicez=-3000.):
     contourDisplay.Position = [0.0, 0.0, 5000.0]
     contourDisplay.LineWidth = 1.
     contourDisplay.DataAxesGrid.Position = [0.0, 0.0, 5000.0]
-    contour.Isosurfaces = [1499.0, 1499.2, 1499.4, 1499.6, 1499.8, 1500.2,
-                           1500.4, 1500.6, 1500.8, 1501.0]
+    # contour.Isosurfaces = [1499.0, 1499.2, 1499.4, 1499.6, 1499.8, 1500.2,
+    #                        1500.4, 1500.6, 1500.8, 1501.0]
+    contour.Isosurfaces =[-200, -180, -160, -140, -120, -100, -80, -60, -40,
+                          40, 60, 80, 100, 120, 140, 160, 180, 200]
 
-
-def plot_interface_cross_section(origin, normal, choice, offset=1E3,
-                                 pointsize=1., color=None):
+def plot_2D_surface_projection(fid, origin, normal, choice, offset=1E3,
+                               pointsize=1.5, color=None):
     """
-    Draw a line corresponding to the interface model of Williams et al. (2013).
-    This is pretty messed up but the only way I could figure out how to do it.
-    We'll plot the 3D interface model, and then cut either side of the cross
-    section, essentially leaving a small strip that straddles the xsection.
-    This should be enough to give the impression that we're looking at a 2D line
-    even though were looking at a 3D distribution of points. Vamanos!
+    A hacky method of projecting a 3D surface onto a 2D plane.
+
+    For example, we have a 3D plate interface model from Williams et al. (2013),
+    and when we make a cross section we want to plot the line that defines this
+    3D model on our 2D plane.
+
+    This works but clipping a small buffer on either side of the 3D model,
+    oriented in the same direction as the cross sections plane, essentially
+    leaving a small 3D strip. If the strip is small enough, it should look like
+    a line, and be visible on either side of the cross section. Vaya!
 
     :type origin: list of float
     :param origin: origin points for the xsection
@@ -1252,8 +1353,7 @@ def plot_interface_cross_section(origin, normal, choice, offset=1E3,
         color = rgb_colors("w")
 
     renderView = GetActiveViewOrCreate('RenderView')
-    interface = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
-                             "vtk_files/interface.vtk")
+    interface = OpenDataFile(fid)
 
     # First clip away irrelevant depth values
     clip_0 = Clip(interface)
@@ -1288,13 +1388,13 @@ def plot_interface_cross_section(origin, normal, choice, offset=1E3,
                                   origin[2]]
     clip_2.ClipType.Normal = [_ * -1 for _ in normal]
 
-    # import pdb;pdb.set_trace()
     clipDisplay = Show(clip_2, renderView, "UnstructuredGridRepresentation")
-    clipDisplay.Scale = [1., 1., args.scale]
+    clipDisplay.Scale = [1., 1., args.zscale]
     clipDisplay.PointSize = pointsize
     ColorBy(clipDisplay, None)
     clipDisplay.AmbientColor = color
     clipDisplay.DiffuseColor = color
+
 
 def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
     """
@@ -1306,6 +1406,8 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
 
     # Open the model volume
     vtk = OpenDataFile(fid)
+    # vtk = scale_units(vtk, scale_by=args.cscale)
+
     RenameSource("surface", vtk)
     if "surface" in slices:
         Show(vtk)
@@ -1367,8 +1469,6 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
 
         if not args.cbar_off:
             show_colorbar(slice_vtk)
-        if args.minmax:
-            create_minmax_glyphs(slice_vtk)
 
         # Save screenshot, hide slice and move on, job done
         fid_out = os.path.join(save_path, f"{tag}.png")
@@ -1457,8 +1557,7 @@ def make_cross_sections(fid, percentages, normal, preset,
 
         # Use rulers to generate scale bars
         create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
-                                             xlabel=parallel.upper(),
-                                             scale=args.scale,
+                                             xlabel=parallel, scale=args.zscale,
                                              depth_cutoff_km=args.depth,
                                              dz_km=args.dz)
 
@@ -1548,7 +1647,7 @@ def make_trench_normal(fid, preset, names=None, save_path=os.getcwd()):
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
         if args.contour:
-            contour_lines(clip_vtk, preset, scale=args.scale)
+            contour_lines(clip_vtk, preset, scale=args.zscale)
 
         # Reset the colorbounds to data range
         active = GetActiveSource()
@@ -1557,20 +1656,31 @@ def make_trench_normal(fid, preset, names=None, save_path=os.getcwd()):
 
         # Use rulers to define the axis grids w/ tickmarks etc.
         create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
-                                             xlabel="Trench Normal",
-                                             scale=args.scale,
+                                             xlabel="H", scale=args.zscale,
                                              depth_cutoff_km=args.depth,
                                              dz_km=args.dz)
 
-        # Create a reference point based on the landmark location
-        create_cone_glyph(origin)
+        # Create a reference point based on the landmark origin location
+        mark_surface_point(origin, normal)
 
+        # Plot the interface model of Williams et al. (2013)
         if args.williams:
-            plot_interface_cross_section(origin, normal, choice="normal")
+            fid = ("/Users/Chow/Documents/academic/vuw/"
+                   "forest/utils/vtk_files/interface.vtk")
+            plot_2D_surface_projection(fid, origin, normal, choice="normal")
+
+        # Create a mark wherever the coastline intersects this plane
+        if args.outline:
+            fid = ("/Users/Chow/Documents/academic/vuw/"
+                   "forest/utils/vtk_files/coast.vtk")
+            plot_2D_surface_projection(fid, origin, normal, choice="normal",
+                                       offset=1E3, pointsize=4.5,
+                                       color=rgb_colors("k"))
+
 
         # Annotate landmark location text and filename
         fid = os.path.splitext(os.path.basename(data_fid))[0]
-        create_text(f"{ab}. {name}\n{fid}", [0.4, args.anno],
+        create_text(f"{name} {fid}", [0.2, args.anno],
                     reg_name="text1", fontsize=int(FONTSIZE))
 
         # Generate and rescale the colorbar/ colormap
@@ -1624,7 +1734,7 @@ def make_trench_parallel(fid, preset, line=None, save_path=os.getcwd()):
 
     # Generate the trench parallel line based on landmark locations. These were
     # all manually generated by looking at the output figures and setting values
-    y = 0.725  # height of the annotations, should be static for given viewsize
+    y = 0.73  # height of the annotations, should be static for given viewsize
     points = {"names": [], "origins": [], "annos": []}
     if line in ["reyners", "henrys", "mahia"]:
         # Default values
@@ -1678,11 +1788,23 @@ def make_trench_parallel(fid, preset, line=None, save_path=os.getcwd()):
     clip_vtk.ClipType.Normal = [0., 0., -1.]
     Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
+    # Contour the colormap
     if args.contour:
-        contour_lines(clip_vtk, preset, scale=args.scale)
+        contour_lines(clip_vtk, preset, scale=args.zscale)
 
+    # Plot the interface model of Williams et al as a line
     if args.williams:
-        plot_interface_cross_section(origin, normal, choice="parallel")
+        fid = ("/Users/Chow/Documents/academic/vuw/"
+               "forest/utils/vtk_files/interface.vtk")
+        plot_2D_surface_projection(fid, origin, normal, choice="parallel")
+
+    # Create a mark wherever the coastline intersects this plane
+    if args.outline:
+        fid = ("/Users/Chow/Documents/academic/vuw/"
+               "forest/utils/vtk_files/coast.vtk")
+        plot_2D_surface_projection(fid, origin, normal, choice="parallel",
+                                   offset=1E3, pointsize=3,
+                                   color=rgb_colors("k"))
 
     # Reset the colorbounds to data range
     active = GetActiveSource()
@@ -1691,7 +1813,7 @@ def make_trench_parallel(fid, preset, line=None, save_path=os.getcwd()):
 
     # Use rulers to define the axis grids w/ tickmarks etc.
     create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
-                                         xlabel="H", scale=args.scale,
+                                         scale=args.zscale, xlabel="H",
                                          depth_cutoff_km=args.depth,
                                          dz_km=args.dz, flip=True)
 
@@ -1703,7 +1825,7 @@ def make_trench_parallel(fid, preset, line=None, save_path=os.getcwd()):
 
     # Make Glyphs for each of the landmarks
     for i in range(len(points["names"])):
-        create_cone_glyph(points["origins"][i])
+        mark_surface_point(points["origins"][i], normal)
         create_text(s=points["names"][i], position=points["annos"][i],
                     fontsize=FONTSIZE)
 
@@ -1842,11 +1964,14 @@ def make_preplot(args):
     if args.landmarks:
         plot_landmarks(color=rgb_colors("k"))
     if args.checkers:
+        if isinstance(args.checkers, str):
+            checkers = args.checkers
+        else:
+            checkers = ("/Users/Chow/Documents/academic/vuw/tomo/" 
+                        "point_spread_test/dvs_stagger/checkers/"
+                        "psf_stagger_vs.vtk")
         # plot_checkers(src=os.path.join(util_dir, "checkers.vtk"))
-        plot_checkers(src=args.checkers or 
-                          "/Users/Chow/Documents/academic/vuw/tomo/"
-                          "point_spread_test/dvs_stagger/checkers/"
-                          "psf_stagger_vs.vtk")
+        plot_checkers(src=checkers)
     if args.williams:
         plot_point_cloud(fid=os.path.join(util_dir, "interface_contours.vtk"),
                          reg_name="intcont", point_size=1.5, opacity=.6,
@@ -1875,7 +2000,7 @@ def parse_args():
     parser.add_argument("-v", "--verbose", action="store_true", default=False,
                         help="print output messages during the plotting")
     parser.add_argument("-o", "--output", type=str, help="output path",
-                        default=os.getcwd())
+                        default=os.path.join(os.getcwd(), "output"))
 
     # COLORMAP
     parser.add_argument("-p", "--preset", type=str,
@@ -1884,6 +2009,9 @@ def parse_args():
                         help="Manually set the bounds of the colorbar, "
                              "overriding the default or preset bound values",
                         default=None)
+    parser.add_argument("--cscale", type=float, default=1,
+                        help="Scale the input data by a given value, e.g. to "
+                             "convert m/s to km/s set cscale to 1E-3")
 
     # GLOBAL DEFAULTS
     parser.add_argument("-C", "--color", type=str, default="k",
@@ -1977,7 +2105,7 @@ def parse_args():
                              "cutoff of the screenshot as usually were not "
                              "interested in looking at the entire volume. "
                              "Units of km, positive values only.")
-    parser.add_argument("--scale", type=int, default=2,
+    parser.add_argument("--zscale", type=int, default=2,
                         help="Set the scale for the Z-axis on cross sections")
     parser.add_argument("--dz", type=int, default=10,
                         help="Vertical grid spacing on cross sections in km")
