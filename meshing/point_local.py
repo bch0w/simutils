@@ -15,7 +15,7 @@ from scipy import signal
 from checkerboardiphy import xyz_reader, parse_data_to_header, write_xyz
 
 
-def perturb(data, origin, radii, sign, window=signal.windows.hann, **kwargs):
+def perturb(data, origin, radii, sign, window, **kwargs):
     """
     Define a perturbation that can be re-used for all points in the model
     Origin must define actual discrete points within the model otherwise this
@@ -33,6 +33,7 @@ def perturb(data, origin, radii, sign, window=signal.windows.hann, **kwargs):
     :param signs: +1 or -1 to define if the peturbation is pos. or neg.
     :return:
     """
+    print(f"\tperturbing with {window.__name__} window")
     prtrb = sign * np.ones(len(data))
 
     for i, (o, r) in enumerate(zip(origin, radii)):
@@ -240,29 +241,31 @@ if __name__ == "__main__":
     anomalies = {
             "mahia": 
                 {"origin": [578000., 5668000., -12E3],
-                 "radii": [15E3, 15E3, 7.5E3],
+                 "radii": [6E3, 6E3, 6E3],
                  "sign": 1},
-            "porangahau": 
-                {"origin": [466855., 5538861., -10E3],
-                 "radii": [7.5E3, 7.5E3, 5E3],
-                 "sign": 1},
-            "cook_strait": 
-                {"origin": [307699., 5384284., 0.],
-                 "radii": [25E3, 25E3, 10E3],
-                 "sign": -1},
-            "okataina": 
-                {"origin": [463185., 5780787., 0.,],
-                 "radii": [10E3, 10E3, 5E3],
-                 "sign": -1},
-            "whakamaru":
-                {"origin": [427595., 5741709., 0.],
-                 "radii": [20E3, 20E3, 10E3],
-                 "sign": -1},
+            # "porangahau": 
+            #     {"origin": [466855., 5538861., -10E3],
+            #      "radii": [7.5E3, 7.5E3, 5E3],
+            #      "sign": 1},
+            # "cook_strait": 
+            #     {"origin": [307699., 5384284., 0.],
+            #      "radii": [25E3, 25E3, 10E3],
+            #      "sign": -1},
+            # "okataina": 
+            #     {"origin": [463185., 5780787., 0.,],
+            #      "radii": [10E3, 10E3, 5E3],
+            #      "sign": -1},
+            # "whakamaru":
+            #     {"origin": [427595., 5741709., 0.],
+            #      "radii": [20E3, 20E3, 10E3],
+            #      "sign": -1},
                 }
-    kwargs = {}
-    files = ["tomography_model_mantle.xyz",
+    kwargs = {"window": signal.gaussian
+              "std": 1E3
+              }
+    files = [# "tomography_model_mantle.xyz",
              "tomography_model_crust.xyz",
-             "tomography_model_shallow.xyz"
+             # "tomography_model_shallow.xyz"
              ]
     main(anomalies, files, **kwargs)
 
