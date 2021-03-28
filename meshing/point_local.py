@@ -35,6 +35,8 @@ def perturb(data, origin, radii, sign, window, **kwargs):
     """
     print(f"\tperturbing with {window.__name__} window")
     prtrb = sign * np.ones(len(data))
+    if "std" in kwargs:
+        std = kwargs["std"]
 
     for i, (o, r) in enumerate(zip(origin, radii)):
         datum = data[:, i]
@@ -53,6 +55,9 @@ def perturb(data, origin, radii, sign, window, **kwargs):
 
         # Temporary arrays to define the perturbation along a given axis
         range_ = np.arange(o - r, o + r, space)
+        if "std" in kwargs:
+            kwargs["std"] = std / space
+        print(kwargs['std'])  # !!!
         prtrb_ = window(len(range_), **kwargs)
 
         # For each coordinate, we multiple all applicable values by the given
@@ -260,8 +265,8 @@ if __name__ == "__main__":
             #      "radii": [20E3, 20E3, 10E3],
             #      "sign": -1},
                 }
-    kwargs = {"window": signal.gaussian
-              "std": 1E3
+    kwargs = {"window": signal.gaussian,
+              "std": 3E3
               }
     files = [# "tomography_model_mantle.xyz",
              "tomography_model_crust.xyz",
