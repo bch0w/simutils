@@ -20,8 +20,8 @@ Must be run using PvPython from the CLI, which should be packaged with Paraview
 
 """
 import os
+import sys
 import math
-import string
 import argparse
 from subprocess import call
 from glob import glob
@@ -42,41 +42,51 @@ from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              ProgrammableFilter)
 
 
-# Pre-defined landmark locations
-DEFAULT_Z = 2000.
-TRENCH_POINTS = {
-    "Kaikoura": [226749., 5300535., DEFAULT_Z],
-    "Wellington": [314007., 5426403., DEFAULT_Z, ],
-    "Flatpoint": [413092., 5433559., DEFAULT_Z, ],
-    "Castlepoint": [434724., 5471821., DEFAULT_Z, ],
-    "Akitio": [436980., 5511241., DEFAULT_Z],
-    "Porangahau": [467051., 5538717., DEFAULT_Z, ],
-    "Elsthorpe": [484394., 5581561., DEFAULT_Z, ],
-    "Napier": [489374., 5626518., DEFAULT_Z, ],
-    "Mohaka": [507922., 5670909., DEFAULT_Z, ],
-    "Mahia": [577779., 5667301., DEFAULT_Z, ],
-    "Gisborne": [588984., 5720001., DEFAULT_Z, ],
-    "Cvr": [417044., 5726459., DEFAULT_Z],
-    "Cook": [307699., 5384284., DEFAULT_Z],
-    # "Cook": [402390., 5401725., DEFAULT_Z],  # old
+
+Z = 2000.
+# Strike parallel, 40 deg from X-axis
+NORM = [-0.64, -0.76, 0.]
+
+# Pre-defined diagonals to make trench cross sections
+DIAGONALS = {
+    "Kaikoura":   ([226749., 5300535., Z], NORM, True),
+    "Wellington": ([314007., 5426403., Z], NORM, True),
+    "Flatpoint":  ([413092., 5433559., Z], NORM, True),
+    "Castlepoint":([434724., 5471821., Z], NORM, True),
+    "Akitio":     ([436980., 5511241., Z], NORM, True),
+    "Porangahau": ([467051., 5538717., Z], NORM, True),
+    "Elsthorpe":  ([484394., 5581561., Z], NORM, True),
+    "Napier":     ([489374., 5626518., Z], NORM, True),
+    "Mohaka":     ([507922., 5670909., Z], NORM, True),
+    "Mahia":      ([577779., 5667301., Z], NORM, True),
+    "Gisborne":   ([588984., 5720001., Z], NORM, True),
+    "Cvr":        ([417044., 5726459., Z], NORM, True),
+    "Cook":       ([307699., 5384284., Z], NORM, True),
+    "Reyners":    ([314007., 5426403., Z], [-0.7, 0.7, 0], False),
+    "Henrys":     ([314007., 5426403., Z],[-0.9, 0.65, 0], False),
+    "Mahia_r":    ([577779., 5667301., Z], [-0.9, 0.65, 0], False),
+    "Cook_r":     ([307699., 5384284., Z], [-0.28, 0.27, 0], False),
+    "Seamounts":  ([466855, 5538871, Z], [-0.1, 0.095, 0], False),
+    "Tvz":        ([376534.0, 5650985.0, Z], [-0.2, 0.14, 0], False),
+    "Rift":       ([392675., 5716119., Z], [-0.62, 0.78, 0.], False),
 }
-TVZ_POINTS = {
-    "Whanganui": [333381., 5577822., DEFAULT_Z],
-    "Ruapehu": [376534., 5650985., DEFAULT_Z],
-    "Taupo": [419131., 5717691, DEFAULT_Z],
-    "Rotorua": [433851., 5778522., DEFAULT_Z],
-    "White Island": [516003., 5847502., DEFAULT_Z]
+TVZ_ORIGINS = {
+    "Whanganui": [333381., 5577822., Z],
+    "Ruapehu": [376534., 5650985., Z],
+    "Taupo": [419131., 5717691, Z],
+    "Rotorua": [433851., 5778522., Z],
+    "White Island": [516003., 5847502., Z]
 }
 
-DEFAULT_Z = 4000.
+Z = 4000.
 LANDMARKS = {
-    "Ruapehu": [376534., 5650985., DEFAULT_Z],
-    "Taupo": [419131., 5717691, DEFAULT_Z],
-    "Rotorua": [433851., 5778522., DEFAULT_Z],
-    "White Island": [516003., 5847502., DEFAULT_Z],
-    "Whakatane": [498721., 5798783., DEFAULT_Z],
-    "Tarawera": [451842., 5771851., DEFAULT_Z],
-    "Putauaki": [482464., 5783070., DEFAULT_Z]
+    "Ruapehu": [376534., 5650985., Z],
+    "Taupo": [419131., 5717691, Z],
+    "Rotorua": [433851., 5778522., Z],
+    "White Island": [516003., 5847502., Z],
+    "Whakatane": [498721., 5798783., Z],
+    "Tarawera": [451842., 5771851., Z],
+    "Putauaki": [482464., 5783070., Z]
 }
 
 
@@ -1387,7 +1397,7 @@ def plot_2D_surface_projection(fid, origin, normal, choice, offset=1E3,
     clipDisplay.DiffuseColor = color
 
 
-def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
+def depth_slices(fid, slices, preset, save_path=os.getcwd()):
     """
     Main function for creating and screenshotting depth slices (slice plane
     normal/perpendicular to Z axis). Creates a standardized look for the
@@ -1472,8 +1482,7 @@ def make_depth_slices(fid, slices, preset, save_path=os.getcwd()):
         delete_temp_objects(reg_names=["glyph", "point", "contour"])
 
 
-def make_cross_sections(fid, percentages, normal, preset,
-                        save_path=os.getcwd()):
+def cross_sections(fid, percentages, normal, preset, save_path=os.getcwd()):
     """
     Create cross sections normal to the X or Y axes, create screenshots
 
@@ -1592,269 +1601,7 @@ def make_cross_sections(fid, percentages, normal, preset,
         delete_temp_objects(reg_names=["ruler", "text", "contour"])
 
 
-def make_trench_normal(fid, preset, names=None, save_path=os.getcwd()):
-    """
-    Create cross sections of a volume perpendicular to the Hikurangi trench
-    based on user-defined origin locations. Mark the origin locations
-    on the cross section for reference. Take screenshots
-
-    :type depth_cutoff_km: float
-    :param depth_cutoff_km: define where the bottom edge of the cross section
-        will be. defaults to 100km depth
-    :type scale_z: float
-    :param scale_z: scale the Z-axis to exagerrate features
-    """
-    args = parse_args()
-
-    vtk = OpenDataFile(fid)
-    RenameSource("surface", vtk)
-    Show(vtk)
-    ResetCamera()
-    renderView = GetActiveView()
-    renderView.InteractionMode = "2D"
-    Hide(vtk, renderView)
-
-    # Normal is defined as 40deg from X-axis following Eberhart-Phillips
-    normal = [-0.64, -0.76, 0.]
-    # normal = [0.5, 0.9, 0.]  # CVR
-
-    for i, (name, origin) in enumerate(TRENCH_POINTS.items()):
-        if names and name not in names:
-            continue
-        # Alphabetize the cross sections for easier identification
-        ab = string.ascii_uppercase[i]
-        tag = f"t_{ab.lower()}_{name.lower()}"
-
-        # Slice across the given cross section plane
-        slice_vtk = cross_section(vtk=vtk, normal=normal,
-                                  origin=origin, name=name)
-        Hide(slice_vtk, renderView)
-
-        # Cut off depths below a certain range as we are not interested in deep
-        clip_vtk = Clip(slice_vtk)
-        clip_vtk.ClipType = "Plane"
-        clip_vtk.ClipType.Origin = [0., 0., abs(args.depth) * -1E3]
-        clip_vtk.ClipType.Normal = [0., 0., -1.]
-        Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
-
-        if args.contour:
-            contour_lines(clip_vtk, preset, scale=args.zscale)
-
-        # Reset the colorbounds to data range
-        active = GetActiveSource()
-        display = GetDisplayProperties(active, view=renderView)
-        display.RescaleTransferFunctionToDataRange(False, True)
-
-        # Use rulers to define the axis grids w/ tickmarks etc.
-        create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
-                                             xlabel="H", scale=args.zscale,
-                                             depth_cutoff_km=args.depth,
-                                             dz_km=args.dz)
-
-        # Create a reference point based on the landmark origin location
-        mark_surface_point(origin, normal)
-
-        # Plot the interface model of Williams et al. (2013)
-        if args.williams:
-            fid = ("/Users/Chow/Documents/academic/vuw/"
-                   "forest/utils/vtk_files/interface.vtk")
-            plot_2D_surface_projection(fid, origin, normal, choice="normal")
-
-        # Create a mark wherever the coastline intersects this plane
-        if args.outline:
-            fid = ("/Users/Chow/Documents/academic/vuw/"
-                   "forest/utils/vtk_files/coast.vtk")
-            plot_2D_surface_projection(fid, origin, normal, choice="normal",
-                                       offset=1E3, pointsize=4.5,
-                                       color=rgb_colors("k"))
-
-
-        # Annotate landmark location text and filename
-        fid = os.path.splitext(os.path.basename(data_fid))[0]
-        create_text(f"{name} {fid}", [0.2, args.anno],
-                    reg_name="text1", fontsize=int(FONTSIZE))
-
-        # Generate and rescale the colorbar/ colormap
-        vsLUT, cbar = set_colormap_colorbar(vtk,
-                                            position=[0.5, args.anno + 0.01],
-                                            orientation="Horizontal",
-                                            thickness=25, length=.075)
-
-        cbar.TextPosition = "Ticks left/bottom, annotations right/top"
-        rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
-        display = GetDisplayProperties(clip_vtk, view=renderView)
-        display.SetScalarBarVisibility(renderView, True)
-
-        # Reset camera view to be normal to the plane. Specific to this plane
-        renderView.CameraPosition = [-544676., 4552966., -79504.]
-        renderView.CameraFocalPoint = [258266., 5458961., -79504.]
-        renderView.CameraViewUp = [0.0, 0.0, 1.0]
-        renderView.CameraParallelScale = 375000.0
-        Render()
-
-        fid_out = os.path.join(save_path, f"{tag}.png")
-        SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
-                       TransparentBackground=1)
-        remove_whitespace(fid_out)
-
-        # Clean up for next plot
-        Hide(clip_vtk, renderView)
-        delete_temp_objects(reg_names=["ruler", "glyph", "point", "text",
-                                       "contour"])
-
-
-def make_trench_parallel(fid, preset, line=None, save_path=os.getcwd()):
-    """
-    Create cross sections of a volume perpendicular to the Hikurangi trench
-    based on user-defined origin locations. Mark the origin locations
-    on the cross section for reference. Take screenshots
-
-    :type depth_cutoff_km: float
-    :param depth_cutoff_km: define where the bottom edge of the cross section
-        will be. defaults to 100km depth
-    """
-    args = parse_args()
-
-    vtk = OpenDataFile(fid)
-    RenameSource("surface", vtk)
-    Show(vtk)
-    ResetCamera()
-    renderView = GetActiveView()
-    renderView.InteractionMode = "2D"
-    Hide(vtk, renderView)
-
-    # Generate the trench parallel line based on landmark locations. These were
-    # all manually generated by looking at the output figures and setting values
-    y = 0.73  # height of the annotations, should be static for given viewsize
-    points = {"names": [], "origins": [], "annos": []}
-    if line in ["reyners", "henrys", "mahia", "seamounts"]:
-        # Default values
-        normal = [-0.9, 0.65, 0.]
-        origin = TRENCH_POINTS["Wellington"]
-        points["names"] = ["Kaikoura", "Wellington", "Porangahau", 
-                           "Napier", "Mahia"]
-
-        points["annos"] =  [(0.15, y), (0.31, y), (0.525, y), (.65, y),
-                            (.775, y)]
-        
-        # Overwrite default values for specific lines
-        if line == "mahia":
-            origin = TRENCH_POINTS["Mahia"]
-            points["names"] = points["names"][1:]  # drop Kaikoura, out of bound
-            points["annos"] = points["annos"][1:]  # drop Kaikoura anno
-        elif line == "seamounts":
-            normal = [-0.1, 0.095, 0]
-            origin = [466855, 5538871, 0]
-        elif line == "cook":
-            normal = [-0.28, 0.27, 0]
-            origin = [307699., 5384284., 0.]
-        elif line == "reyners":
-            normal = [-0.7, 0.7, 0]  # shallower angle than default
-
-        # Set locations for annotation of landmarks
-        points["origins"] = [TRENCH_POINTS[_]for _ in points["names"]]
-    elif line in ["taupo", "rift"]:
-        if line == "taupo":
-            # Create a line crossing Ruapehu and White Island
-            origin = [376534.0, 5650985.0, 0.0]
-            normal = [-0.2, 0.14, 0.0]
-        elif line == "rift":
-            # Create a line following the Taupo rift, comparing Heise 2010
-            origin = [392675., 5716119., 0.]
-            normal = [-0.62, 0.78, 0.]
-        points["names"] = list(TVZ_POINTS.keys())
-        points["origins"] = list(TVZ_POINTS.values())
-        y = 0.725
-        points["annos"] = [(.5, y), (.6, y), (.7, y), (.75, y), (.9, y)]
-    elif line == "cook":
-        origin = [465288., 5476997., 0.]
-        normal = [-.5, .85, 0.]
-    else:
-        sys.exit("Line not defined")
-
-    # origin = [455763., 5547040., 0.]
-    tag = f"t_parallel_{line}"
-
-    # Slice across the given cross section plane
-    slice_vtk = cross_section(vtk=vtk, normal=normal,
-                              origin=origin, name="parallel")
-    Hide(slice_vtk, renderView)
-
-    # Cut off depths below a certain range as we are not interested in deep
-    clip_vtk = Clip(slice_vtk)
-    clip_vtk.ClipType = "Plane"
-    clip_vtk.ClipType.Origin = [0., 0., abs(args.depth) * -1E3]
-    clip_vtk.ClipType.Normal = [0., 0., -1.]
-    Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
-
-    # Contour the colormap
-    if args.contour:
-        contour_lines(clip_vtk, preset, scale=args.zscale)
-
-    # Plot the interface model of Williams et al as a line
-    if args.williams:
-        fid = ("/Users/Chow/Documents/academic/vuw/"
-               "forest/utils/vtk_files/interface.vtk")
-        plot_2D_surface_projection(fid, origin, normal, choice="parallel")
-
-    # Create a mark wherever the coastline intersects this plane
-    if args.outline:
-        fid = ("/Users/Chow/Documents/academic/vuw/"
-               "forest/utils/vtk_files/coast.vtk")
-        plot_2D_surface_projection(fid, origin, normal, choice="parallel",
-                                   offset=1E3, pointsize=3,
-                                   color=rgb_colors("k"))
-
-    # Reset the colorbounds to data range
-    active = GetActiveSource()
-    display = GetDisplayProperties(active, view=renderView)
-    display.RescaleTransferFunctionToDataRange(False, True)
-
-    # Use rulers to define the axis grids w/ tickmarks etc.
-    create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
-                                         scale=args.zscale, xlabel="H",
-                                         depth_cutoff_km=args.depth,
-                                         dz_km=args.dz, flip=True)
-
-
-    # Annotate landmark location text and filename
-    fid = os.path.splitext(os.path.basename(data_fid))[0]
-    create_text(f"Trench Parallel {line.title()}\n{fid}", [0.35, args.anno],
-                reg_name="text1", fontsize=int(FONTSIZE))
-
-    # Make Glyphs for each of the landmarks
-    for i in range(len(points["names"])):
-        mark_surface_point(points["origins"][i], normal)
-        create_text(s=points["names"][i], position=points["annos"][i],
-                    fontsize=FONTSIZE)
-
-    # Generate and rescale the colorbar/ colormap
-    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.5, args.anno + 0.01],
-                                        orientation="Horizontal", thickness=25,
-                                        length=.1)
-    cbar.TextPosition = "Ticks left/bottom, annotations right/top"
-    rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
-    display = GetDisplayProperties(clip_vtk, view=renderView)
-    display.SetScalarBarVisibility(renderView, True)
-
-    # Reset camera view to be normal to the plane. Specific to this plane
-    renderView.CameraPosition = [1422985., 4461623., -139631.]
-    renderView.CameraFocalPoint = [346611., 5537997., -139631.]
-    renderView.CameraViewUp = [0.0, 0.0, 1.0]
-    renderView.CameraParallelScale = 325507.0
-    Render()
-
-    fid_out = os.path.join(save_path, f"{tag}.png")
-    SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
-                   TransparentBackground=1)
-    remove_whitespace(fid_out)
-
-    # Clean up for next plot
-    Hide(clip_vtk, renderView)
-    delete_temp_objects(reg_names=["ruler", "glyph", "point", "text",
-                                   "contour"])
-
-def make_interface(fid, preset, save_path=os.getcwd()):
+def interface(fid, preset, save_path=os.getcwd()):
     """
     Project the volume  onto an arbitrarily defined 3D surface. In this case the
     surface defines the plate interface model from Charles Williams (2013).
@@ -1905,7 +1652,6 @@ def make_interface(fid, preset, save_path=os.getcwd()):
                                         orientation="Vertical",)
     rescale_colorscale(vsLUT, src=interpolator, vtk=vtk, preset=preset)
     show_colorbar(interpolator)
-    # create_minmax_glyphs(interpolator, glyph_type="Sphere", scale_factor=20000)
 
 
     # Annotate the bottom-right corner to explain this is the interface
@@ -1924,7 +1670,150 @@ def make_interface(fid, preset, save_path=os.getcwd()):
     remove_whitespace(fid_out)
 
     Hide(interpolator, renderView)
+    
 
+def diagonal(fid, preset, origin=None, normal=None, name=None,
+             save_path=os.getcwd()):
+    """
+    Create a diagonal cross section through the domain that cuts through an
+    arbitrary plane defined by an origin point and normal vector. Allows
+    choosing of the viewing direction.
+
+    :type fid: str
+    :param fid: name of the file to cut diagonally
+    :type preset: dict
+    :param preset: colormap controls
+    :type origin: list of float
+    :param origin: origin point to cut the diagonal
+    :type normal: list of float
+    :param normal: normal vector defining the angle cut by the diagonal
+    :type view_pstv: bool
+    :param view_pstv: viewing angle looks in the direction of the +x+y quadrant
+        by default. if False, viewing angle looks in the direction of the
+        -x+y quadrant, e.g.
+
+         -x+y | +x+y
+         _____|_____
+              |
+              |
+    :type name: str
+    :param name: name of the origin point for annotation
+    :type save_path: str
+    :param save_path: path to save figure
+    """
+    args = parse_args()
+
+    # Normal is defined as 40deg from X-axis following Eberhart-Phillips
+    if name is None:
+        origin = args.origin
+        normal = args.normal
+        assert(origin is not None and normal is not None), \
+            "if pre-defined name is not set, origin and normal must be given"
+    else:
+        try:
+            origin, normal, view_pstv = DIAGONALS[name.title()]
+        except KeyError:
+            sys.exit(f"pre-defined origin {name} does not exist")
+
+    tag = f"diagonal_{name.lower()}"
+    # Decide the view angle based on the normal vector
+    if normal[1] > 0:
+        choice = "parallel"
+        flip = True
+    else:
+        choice = "normal"
+        flip = False
+    print(f"{name} {choice}")
+
+    vtk = OpenDataFile(fid)
+    RenameSource("surface", vtk)
+    Show(vtk)
+    ResetCamera()
+    renderView = GetActiveView()
+    renderView.InteractionMode = "2D"
+    Hide(vtk, renderView)
+
+    # Slice across the given cross section plane
+    slice_vtk = cross_section(vtk=vtk, normal=normal, origin=origin, name=name)
+    Hide(slice_vtk, renderView)
+
+    # Cut off depths below a certain range as we are not interested in deep
+    clip_vtk = Clip(slice_vtk)
+    clip_vtk.ClipType = "Plane"
+    clip_vtk.ClipType.Origin = [0., 0., abs(args.depth) * -1E3]
+    clip_vtk.ClipType.Normal = [0., 0., -1.]
+    Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
+
+    if args.contour:
+        contour_lines(clip_vtk, preset, scale=args.zscale)
+
+    # Reset the colorbounds to data range
+    active = GetActiveSource()
+    display = GetDisplayProperties(active, view=renderView)
+    display.RescaleTransferFunctionToDataRange(False, True)
+
+    # Use rulers to define the axis grids w/ tickmarks etc.
+    create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
+                                         xlabel="H", scale=args.zscale,
+                                         depth_cutoff_km=args.depth,
+                                         dz_km=args.dz, flip=flip)
+
+    # Generate and rescale the colorbar/ colormap
+    vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.5, args.anno + 0.01],
+                                        orientation="Horizontal",
+                                        thickness=25, length=.075)
+
+    cbar.TextPosition = "Ticks left/bottom, annotations right/top"
+    rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
+    display = GetDisplayProperties(clip_vtk, view=renderView)
+    display.SetScalarBarVisibility(renderView, True)
+
+    # Create a reference point based on the landmark origin location
+    mark_surface_point(origin, normal)
+
+    # Plot the interface model of Williams et al. (2013)
+    if args.williams:
+        fid = ("/Users/Chow/Documents/academic/vuw/"
+               "forest/utils/vtk_files/interface.vtk")
+        plot_2D_surface_projection(fid, origin, normal, choice)
+
+    # Create a mark wherever the coastline intersects this plane
+    if args.outline:
+        fid = ("/Users/Chow/Documents/academic/vuw/"
+               "forest/utils/vtk_files/coast.vtk")
+        plot_2D_surface_projection(fid, origin, normal, choice=choice,
+                                   offset=1E3, pointsize=4.5,
+                                   color=rgb_colors("k"))
+
+    # Annotate landmark location text and filename
+    fid = os.path.splitext(os.path.basename(data_fid))[0]
+    create_text(f"{name} {fid}", [0.2, args.anno],
+                reg_name="text1", fontsize=int(FONTSIZE))
+
+    # Reset camera view to be normal to the plane. Specific to this plane
+    if choice == "normal":
+        renderView.CameraPosition = [-544676., 4552966., -79504.]
+        renderView.CameraFocalPoint = [258266., 5458961., -79504.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
+        renderView.CameraParallelScale = 375000.0
+    elif choice == "parallel":
+        renderView.CameraPosition = [1422985., 4461623., -139631.]
+        renderView.CameraFocalPoint = [346611., 5537997., -139631.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
+        renderView.CameraParallelScale = 325507.0
+    else:
+        sys.exit("How did you get here?")
+    Render()
+
+    fid_out = os.path.join(save_path, f"{tag}.png")
+    SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
+                   TransparentBackground=1)
+    remove_whitespace(fid_out)
+
+    # Clean up for next plot
+    Hide(clip_vtk, renderView)
+    delete_temp_objects(reg_names=["ruler", "glyph", "point", "text",
+                                   "contour"])
 
 def make_preplot(args):
     """
@@ -2043,12 +1932,13 @@ def parse_args():
     parser.add_argument("-y", "--yslices", action="store_true", default=False,
                         help="create vertical cross sections with the viewing"
                              "plane normal to the Y-axis.")
-    parser.add_argument("-t", "--trench", action="store_true",
-                        help="plot pre-defined cross-sections normal to trench",
+    parser.add_argument("-d", "--diagonal", action="store_true",
+                        help="plot diagonal cross-section with normal and "
+                             "origin arguments",
                         default=False)
-    parser.add_argument("-T", "--trench_names", nargs="+",
-                        help="choose which trench cross sections to make, must"
-                             "match the names defined in TRENCH_POINTS")
+    parser.add_argument("-D", "--diagonals", nargs="+",
+                        help="choose which diagonal cross sections, must"
+                             "match the names defined in DIAGONALS")
     parser.add_argument("-i", "--interface", action="store_true",
                         help="plot projection of model onto plate interface "
                              "of Charles Williams",
@@ -2116,6 +2006,10 @@ def parse_args():
                         help="Choose the line to generate trench parallel "
                              "cross section: 'reyners', 'taupo', 'henrys', "
                              "'mahia'")
+    parser.add_argument("--origin", nargs="+", default=None,
+                        help="Origin for diagonal cross sections")
+    parser.add_argument("--normal", nargs="+", default=None,
+                        help="Normal vector for diagonal cross sections")
 
     return parser.parse_args()
 
@@ -2180,8 +2074,7 @@ if __name__ == "__main__":
             zslices = parse_slice_list(zslices)
             if args.verbose:
                 print(f"\tGenerating Z slices for {zslices}")
-            make_depth_slices(data_fid, zslices, preset=preset,
-                              save_path=save_path)
+            depth_slices(data_fid, zslices, preset=preset, save_path=save_path)
             reset()
 
         # ======================================================================
@@ -2192,7 +2085,7 @@ if __name__ == "__main__":
             xslices = list(range(5, 100, 10))
             if args.verbose:
                 print(f"\tGenerating X-normal slices for {xslices}")
-            make_cross_sections(data_fid, xslices, normal="x", preset=preset,
+            cross_sections(data_fid, xslices, normal="x", preset=preset,
                                 save_path=save_path)
             reset()
 
@@ -2204,39 +2097,27 @@ if __name__ == "__main__":
             yslices = list(range(5, 100, 10))
             if args.verbose:
                 print(f"\tGenerating Y-normal slices for {yslices}")
-            make_cross_sections(data_fid, yslices, normal="y", preset=preset,
+            cross_sections(data_fid, yslices, normal="y", preset=preset,
                                 save_path=save_path)
             reset()
 
         # ======================================================================
-        # TRENCH NORMAL CROSS SECTIONS
+        # DIAGONAL CROSS SECTIONS
         # ======================================================================
-        # Parse the trench names
-        trench_names = []
-        if args.trench_names:
-            trench_names += [_.title() for _ in args.trench_names]
-        if args.trench or args.all:
-            trench_names += TRENCH_POINTS.keys()
-            trench_names.append("Parallel")
+        if args.diagonal:
+            diagonal(data_fid, preset, save_path=save_path)
 
-        if trench_names:
-            if args.verbose:
-                print("\tGenerating trench normal cross sections")
-            make_trench_normal(data_fid, preset, names=trench_names,
-                               save_path=save_path)
-        if "Parallel" in trench_names:
-            if args.verbose:
-                print("\tGenerating trench parallel cross section")
-            make_trench_parallel(data_fid, preset, line=args.line,
-                                 save_path=save_path)
-            reset()
+        # Parse any preset diagonal cross sections
+        diagonal_names = []
+        if args.diagonals or args.all:
+            diagonal_names += DIAGONALS.keys()
 
-        if args.taupo:
+        if args.diagonals:
             if args.verbose:
-                print("\tGenerating Taupo cross section")
-            make_trench_parallel(data_fid, preset, line="taupo",
-                                 save_path=save_path)
-            reset()
+                print("\tGenerating diagonal cross sections")
+            for name in args.diagonals:
+                diagonal(data_fid, preset, name=name, save_path=save_path)
+
 
         # ======================================================================
         # PROJECTION ONTO INTERFACE
@@ -2245,7 +2126,7 @@ if __name__ == "__main__":
             if args.verbose:
                 print("\tGenerating interface projection")
             make_preplot(args)
-            make_interface(data_fid, preset, save_path=save_path)
+            interface(data_fid, preset, save_path=save_path)
             reset()
            
 
