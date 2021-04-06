@@ -78,14 +78,6 @@ DIAGONALS = {
 }
 
 
-TVZ_ORIGINS = {
-    "Whanganui": [333381., 5577822., Z],
-    "Ruapehu": [376534., 5650985., Z],
-    "Taupo": [419131., 5717691, Z],
-    "Rotorua": [433851., 5778522., Z],
-    "White Island": [516003., 5847502., Z]
-}
-
 Z = 4000.
 LANDMARKS = {
     "Ruapehu": [376534., 5650985., Z],
@@ -94,7 +86,8 @@ LANDMARKS = {
     "White Island": [516003., 5847502., Z],
     "Whakatane": [498721., 5798783., Z],
     "Tarawera": [451842., 5771851., Z],
-    "Putauaki": [482464., 5783070., Z]
+    "Putauaki": [482464., 5783070., Z],
+    "Whanganui": [333381., 5577822., Z],
 }
 
 
@@ -121,7 +114,7 @@ class Preset(dict):
     def __init__(self, title="", cmap="Jet", invert=False, center=False, 
                  fmt="%.2f", rnd=10, bounds=False, nlabel=3, nvalues=28,
                  above_range=False, below_range=False, isosurfaces=None,
-                 cdx=None):
+                 cdx=None, scale_units=1):
         """
         :title (str): Label for the colorbar
         :cmap (str): Colormap to define LUT
@@ -158,6 +151,7 @@ class Preset(dict):
         self.below_range = below_range
         self.isosurfaces = isosurfaces
         self.cdx = cdx
+        self.scale_units = scale_units
 
     def __setattr__(self, key, value):
         self[key] = value
@@ -216,6 +210,11 @@ PRESETS = {
         title="Vp [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
         fmt="%.1f", rnd=10, bounds=False, nlabel=3, nvalues=33, cdx=500,
     ),
+    "model_vp_kms": Preset(
+        title="Vp [km/s]", cmap="Rainbow Desaturated", invert=True, center=False,
+        fmt="%.2f", rnd=None, bounds=False, nlabel=3, nvalues=33, cdx=500,
+        scale_units=1E-3
+    ),
     "model_vs": Preset(
         title="Vs [m/s]", cmap="Rainbow Desaturated", invert=True, center=False,
         fmt="%.1f", rnd=10, bounds=False, nlabel=3, nvalues=33, cdx=500,
@@ -223,7 +222,7 @@ PRESETS = {
     "model_vs_kms": Preset(
         title="Vs [km/s]", cmap="Rainbow Desaturated", invert=True, 
         center=False, fmt="%.2f", rnd=None, bounds=False, nlabel=3, nvalues=33, 
-        cdx=500,
+        cdx=500, scale_units=1E-3
     ),
     "gradient_vp_kernel": Preset(
         title="Vp Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
@@ -236,27 +235,27 @@ PRESETS = {
         nlabel=3, nvalues=33
     ),
     "update_vp": Preset(
-        title="Vp Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        title="Vp Update [ln(m28/m00)]", cmap="Blue Orange (divergent)",
         invert=True, center=True, fmt="%.02f", rnd=None, bounds=[-.15,.15],
         nlabel=3, nvalues=33,
     ),
     "update_vs": Preset(
-        title="Vs Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        title="Vs Update [ln(m28/m00)]", cmap="Blue Orange (divergent)",
         invert=True, center=True, fmt="%.02f", rnd=None, bounds=[-.2,.2],
         nlabel=3, nvalues=33,
     ),
     "update_vpvs": Preset(
-        title="Vp/Vs Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
-        invert=True, center=True, fmt="%.02f", rnd=None,
+        title="Vp/Vs Update [ln(m28/m00)]", cmap="Blue Orange (divergent)",
+        invert=True, center=True, fmt="%.02f", rnd=None, scale_units=1,
         bounds=True, nlabel=3, nvalues=33,
     ),
     "update_poissons": Preset(
-        title="Poisson's Update [ln(m/m00)]", cmap="Blue Orange (divergent)",
+        title="Poisson's Update [ln(m28/m00)]", cmap="Blue Orange (divergent)",
         invert=True, center=True, fmt="%.02f", rnd=None,
         bounds=[-.5, .5], nlabel=3, nvalues=33,
     ),
     "update_shear": Preset(
-        title="Shear Modulus Update [ln(m/m00)]",
+        title="Shear Modulus Update [ln(m28/m00)]",
         cmap="Blue Orange (divergent)",
         invert=True, center=True, fmt="%.02f", rnd=None,
         bounds=[-.5, .5], nlabel=3, nvalues=33,
@@ -271,7 +270,7 @@ PRESETS = {
         # cmap="Green-Blue Asymmetric Divergent (62Blbc)", invert=True
         cmap="Yellow - Gray - Blue", invert=False,
         center=False, fmt="%.2f", rnd=None,
-        bounds=[1.55, 2.1], nlabel=4, nvalues=28,
+        bounds=[1.55, 2.1], nlabel=3, nvalues=33,
         isosurfaces=[1.5, 1.6, 1.7, 1.8, 1.9, 2., 2.1, 2.2]
     ),
     "modulus_shear": Preset(
@@ -302,6 +301,13 @@ def normal_to_angle(x, y):
     :return: angle created by the two normals
     """
     return math.atan2(y, x) * 180 / math.pi
+
+
+def convert_coords(data, x0=171312, y0=5286950, scale=1e-3):
+    """
+    Convert landmark locatiosn from UTM60S to a domain with origin at mesh LLC
+    """
+    return [(data[0] - x0) * scale, (data[1] - y0) * scale, data[2] * scale]
 
 
 def remove_whitespace(fid):
@@ -481,7 +487,7 @@ def depth_slice(vtk, depth):
     slice_vtk.SliceType = "Plane"
     slice_vtk.SliceType.Normal = [0., 0., 1.]
     origin = slice_vtk.SliceType.Origin
-    origin = [origin[0], origin[1], abs(depth) * -1E3 * args.uscale]
+    origin = [origin[0], origin[1], abs(depth) * -1E3 * args.coord_scale]
     slice_vtk.SliceType.Origin = origin
 
     # Apply the slice and render the new view
@@ -636,8 +642,8 @@ def create_ruler(point1, point2, label="", graduation=100E3, ticknum=None,
 
     return reg_name
 
-def create_text(s, position, fontsize=None, color=None, bold=False,
-                reg_name="text"):
+def create_text(s, position, fontsize=None, color=None, bold=False, 
+                justification="center", reg_name="text"):
     """
     Create and show a text object at a given position
 
@@ -655,6 +661,8 @@ def create_text(s, position, fontsize=None, color=None, bold=False,
     :type reg_name: str
     :param reg_name: Name to register the ruler, useful for deleting the
         ruler afterwards using e.g. FindSource
+    :type justification: str
+    :param justification: text justification, 'left', 'right', 'center'
     :rtype: tuple
     :return: (text object created, rendered view of the text object)
     """
@@ -667,6 +675,8 @@ def create_text(s, position, fontsize=None, color=None, bold=False,
     textDisplay.Bold = int(bold)
     textDisplay.FontSize = fontsize or FONTSIZE
     textDisplay.Color = color or LINECOLOR
+    textDisplay.Justification = justification.title()
+
 
     return text, reg_name
 
@@ -1099,9 +1109,8 @@ def rescale_colorscale(vsLUT, src, vtk, preset):
 
     # Some fields should be centered on 0 despite the actual data bounds
     if preset.center:
-        vabsmax = max(abs(vmin), abs(vmax))
+        vabsmax = max((abs(vmin), abs(vmax)))
         vmin, vmax = -1 * vabsmax, vabsmax
-
     # If desired, round the colobar bounds to some base value
     if preset.rnd:
         vmin = myround(vmin, preset.rnd)
@@ -1220,12 +1229,12 @@ def set_camera(choice):
     """
     ResetCamera()
     renderView = GetActiveView()
+    camera = GetActiveCamera()
     renderView.InteractionMode = "2D"
     if choice == "z":
-        # renderView.CameraPosition = [403648., 5595153., 1721019.]
-        # renderView.CameraFocalPoint = [403648., 5595153., 2300.0]
-        # renderView.CameraParallelScale = 326545.
-        # renderView.CameraViewUp = [0, 1, 0]
+        # Hard set to the NZNorth model
+        renderView.CameraPosition = [240, 280, 1600]
+        renderView.CameraFocalPoint = [240, 280, 0]
         renderView.CameraViewUp = [0, 1, 0]
     elif choice == "x":
         renderView.CameraPosition = [-1100117., 5629267., -39303.]
@@ -1488,10 +1497,11 @@ def plot_cross_section_surface_trace(src, normal, origin, flip_view,
     Hide(slice_vtk)
 
     x, y, z = get_coordinates(slice_vtk)
+
     if flip_view:
-        ruler_origin = [min(x), min(y), 1E3]
+        ruler_origin = [min(x), min(y), 1]
     else:
-        ruler_origin = [min(x), max(y), 1E3]
+        ruler_origin = [min(x), max(y), 1]
 
     # Use trig to figure out the length of the angled cut
     slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
@@ -1504,8 +1514,8 @@ def plot_cross_section_surface_trace(src, normal, origin, flip_view,
 
     # Create the 'X' axis ruler along the bottom
     create_ruler(point1=ruler_origin, point2=ruler_h,
-                 graduation=tick_spacing_km *1E3,
-                 reg_name="ruler1",  axis_color=rgb_colors("w"), line_width=1.5)
+                 graduation=tick_spacing_km,
+                 reg_name="ruler1",  axis_color=rgb_colors("w"), line_width=5)
 
     Delete(slice_vtk)
 
@@ -1532,6 +1542,31 @@ def mark_point(origin, depth=5000, c="g"):
     glyphDisplay.Opacity = 1.
     glyphDisplay.AmbientColor = rgb_colors(c)
     glyphDisplay.DiffuseColor = rgb_colors(c)
+
+
+def label(s):
+    """
+    Add a text label to depth slices for publication figures, e.g. 'A' or '1'
+    Will be put in the top left corner
+    """
+    create_text(s=f"[{s}]", position=[.2, .85], reg_name="text1",
+                fontsize=int(FONTSIZE*3), color=rgb_colors("w"),
+                justification="center")
+
+
+def features():
+    """
+    Hacked together, text labels on figures showing locations of features
+    """
+    features = {"A": [.675, .6],  # Mahia
+                "B": [.55, .4],  # Pora
+                "C": [.275, .225],  # Cook
+                "D": [.45, .7],  # TVZ
+                "E": [.65, .4]}  # PORA
+    for label, position in features.items():
+        create_text(s=label, position=position, reg_name="text1",
+            fontsize=int(FONTSIZE*2), color=rgb_colors("w"),
+            justification="center")
 
 
 def plot_2D_surface_projection(fid, origin, normal, flip_view, offset=1E3,
@@ -1632,37 +1667,49 @@ def depth_slices(fid, slices, preset, save_path=os.getcwd()):
 
     # Open the model volume
     vtk = OpenDataFile(fid)
-    vtk = scale_input(vtk, scale_units=args.cscale, scale_coords=args.uscale)
+    vtk = scale_input(vtk, scale_units=preset.scale_units, 
+                      scale_coords=args.coord_scale)
 
     RenameSource("surface", vtk)
-    if "surface" in slices:
-        Show(vtk)
+    set_camera("z")
+    Show(vtk)
+    if not "surface" in slices:
+        Hide(vtk)
 
-    # Annotate the depth at the bottom-right corner
-    text, _ = create_text(s="", position=[0.65, 0.86], reg_name="text1",
-                          fontsize=int(FONTSIZE * 1.25), color=FONTCOLOR)
+    # Set camera
 
-    # Annotate the file id at the top-left corner
-    create_text(s=TITLE,  position=[0.23, 0.86], reg_name="text2", 
-                fontsize=int(FONTSIZE * 1.25), color=FONTCOLOR)
+    # Annotate file name and depth in title
+    text, _ = create_text(s=f"", position=[0.19, 0.94], 
+                          reg_name="text1", fontsize=int(FONTSIZE * 1.25), 
+                          color=FONTCOLOR, justification="center")
+
+    # Annotate text for X and Y labels
+    create_text(s=f"X [km]", position=[0.45, 0.075], reg_name="text1", 
+                fontsize=int(FONTSIZE), color=FONTCOLOR, 
+                justification="center")
+    create_text(s=f"Y [km]", position=[0.075, 0.575], reg_name="text1",
+            fontsize=int(FONTSIZE), color=FONTCOLOR,
+            justification="center")
 
     # Create bounding axes with pre-defined tick marks using rulers
     create_ruler_grid_axes_depth_slice(vtk)
 
-    # Set camera
-    set_camera("z")
-    renderView.ResetCamera()
 
     # Sit the colorbar partway down from the top left corner
-    if not args.cbar_orientation or args.cbar_orientation == "vertical":
+    if not args.cbar_orientation or \
+            args.cbar_orientation.lower() in ["horizontal", "h"]:
+        vsLUT, cbar = set_colormap_colorbar(vtk,
+                                            # position=[0.83, 0.6],
+                                            position=[0.6, 0.07],
+                                            length=.15, 
+                                            orientation="Horizontal", 
+                                            thickness=70, 
+                                            text_position="top")
+    elif args.cbar_orientation.lower in ["vertical", "v"]:
         vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.78, 0.6], 
                                             length=.2, orientation="Vertical", 
                                             thickness=80)
-    elif args.cbar_orientation == "horizontal":
-        vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.24, 0.075], 
-                                            length=.2, orientation="Horizontal", 
-                                            thickness=80, 
-                                            text_position="top")
+
 
     if args.surface_traces:
         for name in args.surface_traces:
@@ -1672,7 +1719,7 @@ def depth_slices(fid, slices, preset, save_path=os.getcwd()):
                 print(f"{name} not in DIAGONALS")
                 continue
             plot_cross_section_surface_trace(vtk, normal, origin,
-                                              flip_view=bool(normal[1] > 0))
+                                            flip_view=bool(normal[1] > 0))
 
     # Plot an origin point on the map
     if args.mark:
@@ -1684,7 +1731,7 @@ def depth_slices(fid, slices, preset, save_path=os.getcwd()):
         if slice_ == "surface":
             tag = "z_00surf"
             slice_vtk = vtk
-            text.Text = slice_
+            text.Text = f"{TITLE} [{slice_}]"
 
             # 'Hacky' method to get data range by selecting surface points
             SelectSurfacePoints(Rectangle=[0, 0, renderView.ViewSize[0],
@@ -1704,7 +1751,7 @@ def depth_slices(fid, slices, preset, save_path=os.getcwd()):
             if args.minmax:
                 create_minmax_glyphs(slice_vtk)
             tag = f"z_{slice_:0>2}km"
-            text.Text = tag.replace("_", "=")
+            text.Text = f"{TITLE} [{tag.replace('_', '=')}]"
             rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
 
         if not args.cbar_off:
@@ -1972,7 +2019,7 @@ def diagonal(fid, preset, name=None, save_path=os.getcwd()):
     # Generate and rescale the colorbar/ colormap
     vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.5, args.anno + 0.01],
                                         orientation="Horizontal",
-                                        thickness=25, length=.075)
+                                        thickness=80, length=.15)
 
     cbar.TextPosition = "Ticks left/bottom, annotations right/top"
     rescale_colorscale(vsLUT, src=clip_vtk, vtk=vtk, preset=preset)
@@ -2025,7 +2072,7 @@ def make_preplot(args):
     Convenience function to plot extras such as coastline, srcs, rcvs
     """
     util_dir = "/Users/Chow/Documents/academic/vuw/forest/utils/vtk_files/"
-    if args.uscale != 1:
+    if args.coord_scale != 1:
         util_dir = os.path.join(util_dir, "scaled")
     if args.outline:
         if args.verbose:
@@ -2048,8 +2095,8 @@ def make_preplot(args):
         if args.verbose:
             print(f"\t\tPlotting active fault traces")
         plot_point_cloud(fid=os.path.join(util_dir, "faults.vtk"),
-                         reg_name="faults", point_size=1.25, opacity=0.6,
-                         color=rgb_colors("w"))
+                         reg_name="faults", point_size=2., opacity=1.,
+                         color=LINECOLOR)
     if args.slowslip:
         if args.verbose:
             print(f"\t\tPlotting SSE slip patches")
@@ -2080,6 +2127,11 @@ def make_preplot(args):
         for s, pos in contour_lines.items():
             create_text(s=s, position=pos, fontsize=int(FONTSIZE / 2), 
                         color=rgb_colors("w"))
+    if args.features:
+        features()
+
+    if args.label is not None:
+        label(args.label)
 
 
 def parse_args():
@@ -2103,9 +2155,6 @@ def parse_args():
                         help="Manually set the bounds of the colorbar, "
                              "overriding the default or preset bound values",
                         default=None)
-    parser.add_argument("--cscale", type=float, default=1,
-                        help="Scale the input data by a given value, e.g. to "
-                             "convert m/s to km/s set cscale to 1E-3")
     parser.add_argument("--cbar_orientation", type=str, default=None,
                         help="Select orientation of colorbar, 'horizontal' or "
                              "'vertical'")
@@ -2117,7 +2166,7 @@ def parse_args():
                         help="The default color to use for any plot attributes")
     parser.add_argument("-F", "--fontsize", type=int, default=50,
                         help="The default color fontsize to use for any text.")
-    parser.add_argument("-V", "--viewsize", type=list, default=[2000, 2000],
+    parser.add_argument("-V", "--viewsize", type=list, default=[2100, 2100],
                         help="The default viewing size for all screenshots "
                              "made; controls the resolution as well as the "
                              "relative sizing of objects in the screenshot")
@@ -2163,7 +2212,8 @@ def parse_args():
                              "same as '-xyzit'")
 
     # PLOT EXTRAS
-    parser.add_argument("--uscale", default=1, type=float, help="Scale units")
+    parser.add_argument("--coord_scale", default=1E-3, type=float, 
+                        help="Scale units of coordinate system, e.g. m -> km")
     parser.add_argument("-t", "--title", default=None,
                         help="Title to annotate somewhere on the figure, "
                              "defaults to the name of the file")
@@ -2209,6 +2259,12 @@ def parse_args():
     parser.add_argument("--anno_off", action="store_true", default=False,
                         help="Cross section annotations off, on by default")
 
+    # SPECIFIC PUBLICATION ADDITIONS
+    parser.add_argument("--features", action="store_true", default=False,
+                        help="text labels for features A-E in paper")
+    parser.add_argument("--label", type=str, default=None,
+                        help="labels for multi-panel figures")
+
     # CROSS SECTION FINE TUNE
     parser.add_argument("--depth", type=float, default=60,
                         help="For any vertical cross sections (Y-axis figure "
@@ -2242,12 +2298,18 @@ if __name__ == "__main__":
     FONTSIZE = args.fontsize
     VIEW_SIZE = args.viewsize
 
-
     # Set up the active render view
     renderView = GetActiveViewOrCreate("RenderView")
     renderView.ViewSize = VIEW_SIZE
     renderView.InteractionMode = "2D"
     SetActiveView(renderView)
+
+    # Convert coordinates
+    if args.coord_scale != 1:
+        for key, val in DIAGONALS.items():
+            origin, norm = val
+            DIAGONALS[key] = (convert_coords(origin), norm)
+
 
     for data_fid in args.files:
         if args.verbose:

@@ -16,7 +16,7 @@ convert = 1E-3
 
 # Set constant values for each coordinate
 set_x = None
-set_y = 295.  # Set fixed Y-value, None not set
+set_y = None  # Set fixed Y-value, None not set
 set_z = None
 
 template = "{x:18.6E}{y:18.6E}{z:18.6E}\n"
