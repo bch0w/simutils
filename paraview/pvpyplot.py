@@ -24,7 +24,6 @@ import sys
 import math
 import argparse
 from subprocess import call
-from glob import glob
 from paraview.vtk.numpy_interface import dataset_adapter
 from paraview.simple import (Slice, GetActiveViewOrCreate, RenameSource,
                              Hide3DWidgets, Ruler, Show, Text, Render,
@@ -72,22 +71,10 @@ DIAGONALS = {
     "Seamounts_P":([466855, 5538861, Z], [-0.13, 0.11, 0]),
     "Seamounts_M":([577779, 5667301, Z], [-0.13, 0.11, 0]),
     "Tvz":        ([376534.0, 5650985.0, Z], [-0.2, 0.14, 0]),
-    "Rift":       ([392675., 5716119., Z], [-0.62, 0.78, 0.]),
+    "Rift":       ([463185., 5780787., Z], [-0.1298, 0.08665, 0.]),
+    # "Rift":       ([246758., 5646174., Z], [-0.13, .216, 0.]),
     "Okataina_R": ([463185.0, 5780787.0, Z], [-0.63, 0.44, 0]),
     "Srcrcv":     ([255819.8, 5375745.8, Z], [-0.44, 0.11, 0]),
-}
-
-
-Z = 4000.
-LANDMARKS = {
-    "Ruapehu": [376534., 5650985., Z],
-    "Taupo": [419131., 5717691, Z],
-    "Rotorua": [433851., 5778522., Z],
-    "White Island": [516003., 5847502., Z],
-    "Whakatane": [498721., 5798783., Z],
-    "Tarawera": [451842., 5771851., Z],
-    "Putauaki": [482464., 5783070., Z],
-    "Whanganui": [333381., 5577822., Z],
 }
 
 
@@ -172,19 +159,33 @@ PRESETS = {
         bounds=[1.5, 1.9], nlabel=4, nvalues=28,
     ),
     "perturbation": Preset(
-        title="Perturbation [m/s]", cmap="Cool to Warm (Extended)", 
+        title="Perturbation [m/s]", cmap="Cool to Warm (Extended)",
         invert=True, center=True, fmt="%.1f", rnd=None, bounds=True, nlabel=3,
-        nvalues=21, cdx=50
+        nvalues=11, cdx=50
     ),
-    "resolution": Preset(
-        title="PSF Volume [m^3 s^-2]", cmap="Black, Blue and White", invert=True,
-        center=False, fmt="%.1E", rnd=None, bounds=[0, 3E-5], nlabel=3,
-        nvalues=33, isosurfaces=[1E-5 * _ for _ in list(range(1,9))]
+    "psfv": Preset(
+        title="PSFV [1E-4 m^3 s^2]", cmap="Black, Blue and White", invert=True,
+        center=False, fmt="%.1f", rnd=None, bounds=[0, 3], nlabel=2,
+        nvalues=11, # isosurfaces=[1., 2., 3.],
+        scale_units=1E4, 
     ),
-    "hessian": Preset(
+    # Incorrect finite-difference sign means some PSFVs have to be flipped
+    "psfv_neg": Preset(
+        title="PSFV [1E-5 m^3 s^2]", cmap="Black, Blue and White", invert=True,
+        center=False, fmt="%.1f", rnd=None, bounds=[0, 3], nlabel=2,
+        nvalues=11, # isosurfaces=[1., 2., 3.],
+        scale_units=-1E5, 
+    ),
+    "psf": Preset(
         title="PSF [m^3 s^-2]", cmap="Cool to Warm (Extended)",
         invert=False, center=True, fmt="%.1E", rnd=None, # bounds=False,
         nlabel=3, nvalues=21, bounds=[-1E-8, 1E-8],
+    ),
+    # Incorrect finite-difference sign means some PSFVs have to be flipped
+    "psf_neg": Preset(
+        title="PSF [1E-8 m^3 s^-2]", cmap="Cool to Warm (Extended)",
+        invert=True, center=True, fmt="%.1f", rnd=None,  # bounds=False,
+        nlabel=3, nvalues=33, bounds=[-4, 4], scale_units=-1E8
     ),
     "donna_vpvs": Preset(
         title="Vp/Vs Ratio", cmap="Cool to Warm (Extended)", invert=False,
@@ -282,11 +283,17 @@ PRESETS = {
 }
 
 
-def myround(x, base):
+def myround(x, base, choice=None):
     """
     Round values to the nearest base
     """
-    return int(base * round(float(x) / base))
+    if choice == "up":
+        fx = math.ceil
+    elif choice == "down":
+        fx = math.floor
+    else:
+        fx = round
+    return int(base * fx(float(x) / base))
 
 
 def normal_to_angle(x, y):
@@ -469,6 +476,64 @@ pdo.GetPointData().AddArray(ca)"""
     Hide(progFilt)
 
     return progFilt
+
+
+def clip_domain(vtk, xmin=None, xmax=None, ymin=None, ymax=None, zmin=None,
+                zmax=None, color_by=True):
+    """
+    Clip away unwanted parts of the domain to effectively zoom in on a section
+    of the volume. e.g. clipping the bottom to 30km by setting zmin=30
+
+    :type vtk:
+    :param vtk: opened data file
+    :type depth: float
+    :param depth: depth to clip in the units of the volume
+    :param xmin: clip everything bigger than xmin,  +x direction
+    :param xmax: clip everything smaller than xmax,  -x direction
+    :param ymin: clip everything bigger than ymin, +y direction
+    :param ymax: clip everything smaller than ymax, -y direction
+    :param zmin: clip everything above zmin, +z direction (+Z UP)
+    :param zmax: clip everything below zmax, -z direction (+Z UP)
+    """
+    renderView = GetActiveView()
+
+    def clip_fx(vtk, origin, normal):
+        clip_ = Clip(vtk)
+        clip_.ClipType = "Plane"
+        clip_.ClipType.Origin = origin
+        clip_.ClipType.Normal = normal
+        return clip_
+
+    clip = vtk
+    if xmin:
+        clip = clip_fx(clip, origin=[xmin, 0., 0.], normal=[-1, 0., 0.])
+    if xmax:
+        clip = clip_fx(clip, origin=[xmax, 0., 0.], normal=[1, 0., 0.])
+    if ymin:
+        clip = clip_fx(clip, origin=[0., ymin, 0.], normal=[0., -1., 0.])
+    if ymax:
+        clip = clip_fx(clip, origin=[0., ymax, 0.], normal=[0., 1., 0.])
+    if zmin:
+        clip = clip_fx(clip, origin=[0., 0., zmin], normal=[0., 0., -1])
+    if zmax:
+        clip = clip_fx(clip, origin=[0., 0., zmax], normal=[0., 0., 1])
+
+    # Make sure to se the color of the new clipped domain for lookup table
+    try:
+        quantity = clip.PointData.GetArray(0).Name  # e.g. model_init_vp
+        clipDisplay = Show(clip, renderView, "UnstructuredGridRepresentation")
+        # Tuple required otherwise in ColorBy() otherwise Paraview throws a
+        # > RuntimeError: invalid association string 'NONE'
+        if color_by:
+            ColorBy(clipDisplay, ("POINTS", quantity))
+        else:
+            ColorBy(clipDisplay, None)
+    except AttributeError:
+        pass
+
+    Hide(vtk)
+
+    return clip
 
 
 def depth_slice(vtk, depth):
@@ -677,7 +742,6 @@ def create_text(s, position, fontsize=None, color=None, bold=False,
     textDisplay.Color = color or LINECOLOR
     textDisplay.Justification = justification.title()
 
-
     return text, reg_name
 
 
@@ -697,7 +761,7 @@ def create_cone_glyph(origin, reg_name_point="point", reg_name_glyph="glyph"):
     Show(glyph, renderView, "GeometryRepresentation")
 
 
-def mark_surface_point(origin, normal, color=None, z_value=None,
+def mark_surface_point(origin, normal, color=None, z_value=None, size=10.,
                        reg_name_point="point", reg_name_glyph="glyph"):
     """
     Create a 3D cone glyph used to denote points at the surface
@@ -728,8 +792,9 @@ def mark_surface_point(origin, normal, color=None, z_value=None,
                   registrationName=reg_name_glyph)
     glyph.GlyphType.GlyphType = "Triangle"
     rotate = normal_to_angle(normal[0], normal[1])
-    glyph.GlyphTransform.Rotate = [-90, 90., rotate]
-    glyph.ScaleFactor = 12000.
+    # glyph.GlyphTransform.Rotate = [-90, 90., rotate]
+    glyph.GlyphTransform.Rotate = [90, 90., rotate]
+    glyph.ScaleFactor = size
 
     # Set the look of the displayed glyphs
     glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
@@ -797,10 +862,86 @@ def create_ruler_grid_axes_depth_slice(src, tick_spacing_km=50, top=True,
                      reg_name="ruler_right", fontsize=fontsize)
 
 
-def create_ruler_grid_axes_cross_section(src, normal, tick_spacing_m=50E3,
-                                         depth_cutoff_km=100., scale=5.,
-                                         dz_km=10., xlabel=None,
-                                         flip_view=False):
+# def create_ruler_grid_axes_cross_section(src, normal, tick_spacing_m=50E3,
+#                                          depth_cutoff_km=100., scale=5.,
+#                                          dz_km=10., xlabel=None,
+#                                          flip_view=False):
+#     """
+#     Generate axis grids for cross section plots using rulers, used to define
+#     heights and distances
+#
+#     :type mode: str
+#     :param mode: depending on what plot is being made, different rulers need to
+#         be defined. The available modes are:
+#         x: normal to the X-axis, parallel to the Y-axis, slices are made for
+#             fixed values of X,
+#         y:normal to the Y-axis, parallel to the X-axis, slices are made for
+#             fixed values of Y,
+#         trench_normal: normal to the Hikurangi trench (trench defined as
+#             40deg from X-axis)
+#         trench_parallel: parallel to the Hikurangi trench
+#     """
+#     # In order to set the camera, annotations, etc. in a general fashion,
+#     # we need to determine the corner grid locations of the slice
+#     x, y, z = get_coordinates(src)
+#     ruler_origin = [min(x), max(y), min(z) * scale]  # bottom left
+#
+#     origin
+#
+#     # Vertical scaling is constant for any cross sections
+#     dist_m_v = depth_cutoff_km * 1E3 * args.coord_scale
+#     ruler_v = [min(x), max(y), min(z) + dist_m_v]
+#
+#     # Determine the orientation of the horizontal axis
+#     if normal in ["x", "y"]:
+#         if normal == "x":
+#             axis = y
+#         elif normal == "y":
+#             axis = x
+#
+#         # Create a ruler for axis grid scale
+#         dist_m_h = max(axis) - min(axis)
+#
+#         if normal == "x":
+#             ruler_h = [min(x), max(y) - dist_m_h, min(z) * scale]
+#         elif normal == "y":
+#             ruler_h = [min(x) + dist_m_h, max(y), min(z) * scale]
+#
+#     else:
+#         if flip_view:
+#             # Rulers for trench parallel differ because our viewing angle
+#             # changes which swaps the definition of the positive direction on
+#             # the horizontal axis
+#             ruler_v = [min(x), min(y), min(z) + dist_m_v]
+#             ruler_origin = [min(x), min(y), min(z) * scale]
+#
+#         # Use trig to figure out the length of the angled cut
+#         slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
+#
+#
+#         # Calculate the end points of the hypotenuse based on the side lengths
+#         angle_rad = math.atan(normal[0] / normal[1])
+#         ruler_h = [ruler_origin[0] + slice_length_m * math.cos(angle_rad),
+#                    ruler_origin[1] - slice_length_m * math.sin(angle_rad),
+#                    ruler_origin[2]]
+#
+#     # Create the 'X' axis ruler along the bottom
+#     create_ruler(point1=ruler_origin, point2=ruler_h,
+#                  graduation=tick_spacing_m,
+#                  label=f"{xlabel}={slice_length_m/1E3:.0f}km "
+#                        f"(dh={int(tick_spacing_m * 1E-3)}km)",
+#                  reg_name="ruler1")
+#     # For the vertical axis, make the ruler custom so it matches up with the
+#     # data axis grid
+#     create_ruler(point1=ruler_v, point2=ruler_origin,
+#                  ticknum=int(depth_cutoff_km / dz_km) + 1,
+#                  label=f"Z={depth_cutoff_km}km\n"
+#                        f"{int(scale)}x scale\n"
+#                        f"(dz={int(dz_km)}km)",
+#                  reg_name="ruler2", )
+
+def ruler_axes_cross_section(src, normal, dz=50, dh=50, scale=5.,
+                             flip_view=False):
     """
     Generate axis grids for cross section plots using rulers, used to define
     heights and distances
@@ -821,65 +962,29 @@ def create_ruler_grid_axes_cross_section(src, normal, tick_spacing_m=50E3,
     x, y, z = get_coordinates(src)
     ruler_origin = [min(x), max(y), min(z) * scale]  # bottom left
 
-    # Vertical scaling is constant for any cross sections
-    dist_m_v = depth_cutoff_km * 1E3
-    ruler_v = [min(x), max(y), min(z) + dist_m_v]
+    # Always stop the Z-axis ruler at 0 depth, easiest and intuitive
+    ruler_v = [min(x), max(y), 0]
 
-    # Determine the orientation of the horizontal axis
-    if normal in ["x", "y"]:
-        if normal == "x":
-            axis = y
-        elif normal == "y":
-            axis = x
+    if flip_view:
+        # Rulers for trench parallel differ because our viewing angle
+        # changes which swaps the definition of the positive direction on
+        # the horizontal axis
+        ruler_v = [min(x), min(y), 0]
+        ruler_origin = [min(x), min(y), min(z) * scale]
 
-        # Create a ruler for axis grid scale
-        dist_m_h = max(axis) - min(axis)
+    # Use trig to figure out the length of the angled cut
+    slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
 
-        if normal == "x":
-            ruler_h = [min(x), max(y) - dist_m_h, min(z) * scale]
-        elif normal == "y":
-            ruler_h = [min(x) + dist_m_h, max(y), min(z) * scale]
+    # Calculate the end points of the hypotenuse based on the side lengths
+    angle_rad = math.atan(normal[0] / normal[1])
+    ruler_h = [ruler_origin[0] + slice_length_m * math.cos(angle_rad),
+               ruler_origin[1] - slice_length_m * math.sin(angle_rad),
+               ruler_origin[2]]
 
-    else:
-        if flip_view:
-            # Rulers for trench parallel differ because our viewing angle
-            # changes which swaps the definition of the positive direction on
-            # the horizontal axis
-            ruler_v = [min(x), min(y), min(z) + dist_m_v]
-            ruler_origin = [min(x), min(y), min(z) * scale]
-
-        # Use trig to figure out the length of the angled cut
-        slice_length_m = ((max(y) - min(y)) ** 2 + (max(x) - min(x)) ** 2) ** .5
-
-
-        # Calculate the end points of the hypotenuse based on the side lengths
-        angle_rad = math.atan(normal[0] / normal[1])
-        ruler_h = [ruler_origin[0] + slice_length_m * math.cos(angle_rad),
-                   ruler_origin[1] - slice_length_m * math.sin(angle_rad),
-                   ruler_origin[2]]
-
-    # Use Paraviews grid lines to show depth values only, as arbitrary cross
-    # sections will show the 3D outline of the volume on a 2D plane which
-    # is confusing/ not helpful
-    set_xsection_data_axis_grid(src, camera_parallel=False, dz_km=dz_km,
-                                min_depth_km= min(z) + dist_m_v,
-                                max_depth_km=depth_cutoff_km,
-                                scale=scale)
-
-    # Create the 'X' axis ruler along the bottom
-    create_ruler(point1=ruler_origin, point2=ruler_h,
-                 graduation=tick_spacing_m,
-                 label=f"{xlabel}={slice_length_m/1E3:.0f}km "
-                       f"(dh={int(tick_spacing_m * 1E-3)}km)",
-                 reg_name="ruler1")
-    # For the vertical axis, make the ruler custom so it matches up with the
-    # data axis grid
-    create_ruler(point1=ruler_v, point2=ruler_origin,
-                 ticknum=int(depth_cutoff_km / dz_km) + 1,
-                 label=f"Z={depth_cutoff_km}km\n"
-                       f"{int(scale)}x scale\n"
-                       f"(dz={int(dz_km)}km)",
-                 reg_name="ruler2", )
+    create_ruler(point1=ruler_origin, point2=ruler_h, reg_name="ruler1",
+                 graduation=dh, label="")
+    create_ruler(point1=ruler_v, point2=ruler_origin, label="",
+                 reg_name="ruler2", graduation=dz * scale)
 
 
 def create_minmax_glyphs(src, glyph_type="2D Glyph", glyph_type_2d="Cross",
@@ -924,7 +1029,7 @@ def create_minmax_glyphs(src, glyph_type="2D Glyph", glyph_type_2d="Cross",
     return reg_names
 
 
-def set_depth_slice_data_axis_grid(src, xtitle="", ytitle="", 
+def set_depth_slice_data_axis_grid(src, xtitle="", ytitle="", round_to=50,
                                    spacing_km=100):
     """
     Create the data axis grid that labels the tick marks and axis
@@ -944,8 +1049,27 @@ def set_depth_slice_data_axis_grid(src, xtitle="", ytitle="",
     
     # Figure out how to label the tickmarks based on the edges of domain
     x, y, z = get_coordinates(src)
-    xlabels = list(range(int(min(x)), int(max(x)), spacing_km))
-    ylabels = list(range(int(min(y)) + spacing_km, int(max(y)), spacing_km))
+    # Check if we need to round the scaling values
+    min_x, min_y, max_x, max_y = \
+        int(min(x)), int(min(y)), int(max(x)), int(max(y))
+    if min_x % round_to:
+        min_x = int(myround(min_x, round_to, "up"))
+    if max_x % round_to:
+        max_x = int(myround(max_x, round_to, "down"))
+    if min_y % round_to:
+        min_y = int(myround(min_y, round_to, "up"))
+    if max_y % round_to:
+        max_y = int(myround(max_y, round_to, "down"))
+
+    while max_x < max(x):
+        max_x += spacing_km
+    while max_y < max(y):
+        max_y += spacing_km
+
+    xlabels = list(range(min_x, max_x, spacing_km))
+    # ylabels = list(range(int(min(y)) + spacing_km, int(max(y)), spacing_km))
+    ylabels = list(range(min_y, max_y, spacing_km))
+
     display.DataAxesGrid.XAxisLabels = xlabels 
     display.DataAxesGrid.YAxisLabels = ylabels 
 
@@ -954,22 +1078,15 @@ def set_depth_slice_data_axis_grid(src, xtitle="", ytitle="",
 
 
 
-def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
-                                dz_km=25, camera_parallel=False, scale=1):
+def scale_vertical_grid(source, scale=1, zgrid_km=None, camera_parallel=False):
     """
-    Create a standard looking axis grid for the trench cross sections which
-    puts horizontal lines at pre-determined depths across the entire slice.
+    For cross-sections. Scale the vertical grid (e.g. 2x exagerration), and set
+    grid lines showing corresponding depth values.
 
     :type source: paraview.servermanager.Slice
     :param source: the given slice that we want to make an axis grid for
-    :type min_depth_km: int
-    :param min_depth_km: the top (+Z) of the slice, used to define where to
-        start generating labels
-    :type max_depth_km: int
-    :param max_depth_km: the bottom (-Z) of the slice, used to define where to
-        stop generating labels, not inclusive
-    :type dz_km: int
-    :param dz_km: spacing for the labels
+    :type z_grid_km: list of int
+    :param z_grid_km: [min_z_km, max_z_km, dz_km]
     :type camera_parallel: bool
     :param camera_parallel: turn on the parallel camera projection option,
         useful for when your camera is not facing an orthogonal direction (x, y
@@ -978,10 +1095,6 @@ def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
     renderView = GetActiveView()
     renderView.CameraParallelProjection = int(camera_parallel)
 
-    # Allow for scaling if the Z-axis is exagerrated
-    min_depth_km *= scale
-    max_depth_km *= scale
-    dz_km *= scale
 
     display = GetDisplayProperties(source, view=renderView)
     display.DataAxesGrid.GridAxesVisibility = 1
@@ -1000,13 +1113,14 @@ def set_xsection_data_axis_grid(source, min_depth_km=0, max_depth_km=100,
     display.DataAxesGrid.Scale = [1., 1., scale]
 
     # Ensuring that all the depth values are formatted properly before ranging
-    dz_m = -1 * int(abs(dz_km * 1E3))
-    min_depth_m = int(abs(min_depth_km * 1E3))
-    max_depth_m = -1 * int(abs(max_depth_km * 1E3)) + dz_m
-    zrange = range(min_depth_m, max_depth_m, dz_m)
+    # Create grid lines based on min, max depth values
+    if zgrid_km:
+        min_z, max_z, dz = zgrid_km
+        zrange = range(min_z, max_z + dz, dz)
 
-    display.DataAxesGrid.ZAxisLabels = list(zrange)
-    display.DataAxesGrid.ZLabelFontSize = 1
+        zrange = [_ * scale for _ in zrange]   # need to scale range too
+        display.DataAxesGrid.ZAxisLabels = list(zrange)
+        display.DataAxesGrid.ZLabelFontSize = 1
 
 
 def set_colormap_colorbar(vtk, position, orientation, colormap=None,
@@ -1229,7 +1343,6 @@ def set_camera(choice):
     """
     ResetCamera()
     renderView = GetActiveView()
-    camera = GetActiveCamera()
     renderView.InteractionMode = "2D"
     if choice == "z":
         # Hard set to the NZNorth model
@@ -1251,23 +1364,27 @@ def set_camera(choice):
         renderView.CameraPosition = [401399., 5567959., 1276057.]
         renderView.CameraFocalPoint = [401399., 5567959., -197500.0]
         renderView.CameraViewUp = [0, 1, 0]
-    elif choice == "d":
-        renderView.CameraPosition = [-544676., 4552966., -79504.]
-        renderView.CameraFocalPoint = [258266., 5458961., -79504.]
+    elif choice == "francis":
+        renderView.CameraPosition = [84., 88., -27.]
+        renderView.CameraFocalPoint = [516., 501., -27.]
         renderView.CameraViewUp = [0.0, 0.0, 1.0]
-        renderView.CameraParallelScale = 375000.0
+    elif choice == "tvz":
+        renderView.CameraPosition = [1300., -415., -200.]
+        renderView.CameraFocalPoint = [-300., 766., -200.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
     elif choice == "d_flip":
-        renderView.CameraPosition = [1422985., 4461623., -139631.]
-        renderView.CameraFocalPoint = [346611., 5537997., -139631.]
+        # renderView.CameraPosition = [1422985., 4461623., -139631.]
+        # renderView.CameraFocalPoint = [346611., 5537997., -139631.]
         renderView.CameraViewUp = [0.0, 0.0, 1.0]
-        renderView.CameraParallelScale = 325507.0
+        # renderView.CameraParallelScale = 325507.0
     else:
         sys.exit("Camera choice not found, check script")
 
     Render()
 
 
-def plot_point_cloud(fid, reg_name, point_size=2., color=None, opacity=1.):
+def plot_point_cloud(fid, reg_name, point_size=2., color=None, opacity=1.,
+                     xmin=None, xmax=None, ymin=None, ymax=None):
     """
     Plot a point cloud from an existing .VTK file, used for, e.g., coastlines
     shape outlines, rift zones etc.
@@ -1287,6 +1404,33 @@ def plot_point_cloud(fid, reg_name, point_size=2., color=None, opacity=1.):
     point_cloud = OpenDataFile(fid)
     RenameSource(reg_name, point_cloud)
     Show(point_cloud, renderView)
+
+    # Allow arbitrary clipping of the point cloud, e.g. to cut down coastline
+    # to a specific region
+    if any([xmin, xmax, ymin, ymax]):
+        Hide(point_cloud)
+        def clip_fx(vtk, origin, normal):
+            clip_ = Clip(vtk)
+            clip_.ClipType = "Plane"
+            clip_.ClipType.Origin = origin
+            clip_.ClipType.Normal = normal
+            return clip_
+        if xmin:
+            point_cloud = clip_fx(point_cloud, origin=[xmin, 0., 0.], 
+                                  normal=[-1, 0., 0.])
+        if xmax:
+            point_cloud = clip_fx(point_cloud, origin=[xmax, 0., 0.], 
+                                  normal=[1, 0., 0.])
+        if ymin:
+            point_cloud = clip_fx(point_cloud, origin=[0., ymin, 0.], 
+                                  normal=[0., -1., 0.])
+        if ymax:
+            point_cloud = clip_fx(point_cloud, origin=[0., ymax, 0.], 
+                                  normal=[0., 1., 0.])
+
+
+    RenameSource(reg_name, point_cloud)
+    Show(point_cloud, renderView)
     pcDisplay = GetDisplayProperties(point_cloud, view=renderView)
     pcDisplay.SetScalarBarVisibility(renderView, False)
     pcDisplay.PointSize = point_size
@@ -1294,6 +1438,8 @@ def plot_point_cloud(fid, reg_name, point_size=2., color=None, opacity=1.):
     pcDisplay.AmbientColor = color or LINECOLOR
     pcDisplay.DiffuseColor = color or LINECOLOR
     ColorBy(pcDisplay, None)
+
+    return point_cloud
 
 
 def plot_events(color=None):
@@ -1303,20 +1449,22 @@ def plot_events(color=None):
     """
     renderView = GetActiveView()
     srcs = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
-                         "vtk_files/srcs_d.vtk")
+                         "vtk_files/scaled/srcs_d.vtk")
     RenameSource("srcs", srcs)
     glyph = Glyph(registrationName="srcs_g", Input=srcs,
                   GlyphType="2D Glyph")
     glyph.ScaleArray = ["POINTS", "No scale array"]
-    glyph.ScaleFactor = 10000.
+    glyph.ScaleFactor = 7.  # 10000 not scaled
     glyph.GlyphMode = "All Points"
     glyph.GlyphType.GlyphType = "Circle"
     glyph.GlyphType.Filled = 1
     glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
     glyphDisplay.PointSize = 3.
     glyphDisplay.SetRepresentationType("Surface With Edges")
-    glyphDisplay.LineWidth = 2.0
+    glyphDisplay.LineWidth = 6.0
     glyphDisplay.Opacity = 1.
+    glyphDisplay.Position = [0.0, 0.0, 10.0]
+ 
     if color is None:
         vsLUT = GetColorTransferFunction("Z_Value")
         vsLUT.ApplyPreset("Inferno (matplotlib)")
@@ -1333,12 +1481,12 @@ def plot_stations():
     """
     renderView = GetActiveView()
     rcvs = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
-                         "vtk_files/rcvs.vtk")
+                         "vtk_files/scaled/rcvs.vtk")
     RenameSource("rcvs", rcvs)
     glyph = Glyph(registrationName="rcvs_g", Input=rcvs,
                   GlyphType="2D Glyph")
     glyph.ScaleArray = ["POINTS", "No scale array"]
-    glyph.ScaleFactor = 10000.
+    glyph.ScaleFactor = 10.  # 10000 not scaled
     glyph.GlyphMode = "All Points"
     glyph.GlyphType.GlyphType = "Triangle"
     glyph.GlyphTransform.Rotate = [0.0, 0.0, 180.0]
@@ -1346,8 +1494,9 @@ def plot_stations():
     glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
     glyphDisplay.PointSize = 3.
     glyphDisplay.SetRepresentationType("Surface With Edges")
-    glyphDisplay.LineWidth = 3.0
+    glyphDisplay.LineWidth = 6.0
     glyphDisplay.Opacity = 1.
+    glyphDisplay.Position = [0.0, 0.0, 10.0]
 
 
 def plot_sse_slip_patches():
@@ -1407,16 +1556,15 @@ def plot_srvtk(fid, src_depth=3E3):
     glyphDisplay.SetRepresentationType('Surface With Edges')
 
 
-def plot_landmarks(src=None, color=None):
+def plot_landmarks(src, color=None, glyph_type="Cross", size=10):
     """
     Plot landmark locations as glyphs, src needs to be a dictionary
     with values as lists of floats [x, y, z] denoting the location of the point
-
+    :type src: dict
     """
     if color is None:
         color = LINECOLOR
-    if src is None:
-        src = LANDMARKS
+
     renderView = GetActiveView()
 
     for i, (name, origin) in enumerate(src.items()):
@@ -1426,13 +1574,13 @@ def plot_landmarks(src=None, color=None):
         glyph = Glyph(registrationName=f"Glyph{i}", Input=pointSource,
                       GlyphType="2D Glyph")
         glyph.ScaleArray = ["POINTS", "No scale array"]
-        glyph.ScaleFactor = 10000.
+        glyph.ScaleFactor = size
         glyph.GlyphMode = "All Points"
-        glyph.GlyphType.GlyphType = "Cross"
+        glyph.GlyphType.GlyphType = glyph_type
         glyph.GlyphType.Filled = 1
         glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
         glyphDisplay.PointSize = 3.
-        glyph.GlyphTransform.Rotate = [0.0, 0.0, 45.0]
+        glyph.GlyphTransform.Rotate = [0.0, 0.0, 0.0]
         glyphDisplay.SetRepresentationType("Surface")
         glyphDisplay.LineWidth = 3.0
         glyphDisplay.Opacity = 1.
@@ -1478,8 +1626,7 @@ def plot_checkers(src, slicez=-3000.):
 
 
 def plot_cross_section_surface_trace(src, normal, origin, flip_view,
-                                     tick_spacing_km=50, num_ticks=0, 
-                                     mark_origin=False):
+                                     tick_spacing_km=50, line_width=10.):
     """
     For depth slices, it's useful to visualize the surface trace of a cross
     section for quick reference on how the two views relate. This function
@@ -1515,7 +1662,8 @@ def plot_cross_section_surface_trace(src, normal, origin, flip_view,
     # Create the 'X' axis ruler along the bottom
     create_ruler(point1=ruler_origin, point2=ruler_h,
                  graduation=tick_spacing_km,
-                 reg_name="ruler1",  axis_color=rgb_colors("w"), line_width=5)
+                 reg_name="ruler1",  axis_color=rgb_colors("w"),
+                 line_width=line_width)
 
     Delete(slice_vtk)
 
@@ -1569,8 +1717,9 @@ def features():
             justification="center")
 
 
-def plot_2D_surface_projection(fid, origin, normal, flip_view, offset=1E3,
-                               pointsize=1.5, color=None):
+def plot_2D_surface_projection(fid, origin, normal, flip_view,
+                               scale=1, offset=1E3, pointsize=1.5, color=None,
+                               position=None, **kwargs):
     """
     A hacky method of projecting a 3D surface onto a 2D plane.
 
@@ -1603,19 +1752,20 @@ def plot_2D_surface_projection(fid, origin, normal, flip_view, offset=1E3,
     :type color: list of float
     :param color: color of the interface, in rgb
     """
-    args = parse_args()
     if color is None:
         color = rgb_colors("w")
 
     renderView = GetActiveViewOrCreate('RenderView')
-    interface = OpenDataFile(fid)
+    vtk = OpenDataFile(fid)
 
-    # Remove bottom of mesh
-    clip_0 = clip_bottom(interface, abs(args.depth) * -1E3)
+    # Clip unused parts of the volume
+    if kwargs:
+        vtk = clip_domain(vtk, **kwargs)
+        Hide(vtk)
 
     # Now clip away one side of the cross section
     # Too lazy to do this with trig so just add some km to x and y and pray!
-    clip_1 = Clip(clip_0)
+    clip_1 = Clip(vtk)
     clip_1.ClipType = "Plane"
     if flip_view:
         clip_1.ClipType.Origin = [origin[0] - offset,
@@ -1643,8 +1793,10 @@ def plot_2D_surface_projection(fid, origin, normal, flip_view, offset=1E3,
     clip_2.ClipType.Normal = [_ * -1 for _ in normal]
 
     clipDisplay = Show(clip_2, renderView, "UnstructuredGridRepresentation")
-    clipDisplay.Scale = [1., 1., args.zscale]
+    clipDisplay.Scale = [1., 1., scale]
     clipDisplay.PointSize = pointsize
+    if position:
+        clipDisplay.Position = position
 
     try:
         ColorBy(clipDisplay, None)
@@ -1675,8 +1827,6 @@ def depth_slices(fid, slices, preset, save_path=os.getcwd()):
     Show(vtk)
     if not "surface" in slices:
         Hide(vtk)
-
-    # Set camera
 
     # Annotate file name and depth in title
     text, _ = create_text(s=f"", position=[0.19, 0.94], 
@@ -1709,7 +1859,6 @@ def depth_slices(fid, slices, preset, save_path=os.getcwd()):
         vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.78, 0.6], 
                                             length=.2, orientation="Vertical", 
                                             thickness=80)
-
 
     if args.surface_traces:
         for name in args.surface_traces:
@@ -1827,14 +1976,14 @@ def cross_sections(fid, percentages, normal, preset, save_path=os.getcwd()):
         Hide(slice_vtk, renderView)
 
         # Cut off depths below a certain range as we are not interested in deep
-        clip_vtk = clip_bottom(slice_vtk, abs(args.depth) * -1E3)
+        clip_vtk = clip_bottom(slice_vtk, abs(args.depth_km) * -1E3)
         Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
 
         if args.contour:
             contour_lines(clip_vtk, preset)
 
-        set_xsection_data_axis_grid(clip_vtk, camera_parallel=False,
-                                    min_depth_km=0., max_depth_km=args.depth)
+        scale_vertical_grid(clip_vtk, camera_parallel=False,
+                                    min_depth_km=0., max_depth_km=args.depth_km)
 
         # Reset the colorbounds to data range
         active = GetActiveSource()
@@ -1844,7 +1993,7 @@ def cross_sections(fid, percentages, normal, preset, save_path=os.getcwd()):
         # Use rulers to generate scale bars
         create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
                                              xlabel=parallel, scale=args.zscale,
-                                             depth_cutoff_km=args.depth,
+                                             depth_cutoff_km=args.depth_km,
                                              dz_km=args.dz)
 
         # Annotate distance
@@ -1985,6 +2134,7 @@ def diagonal(fid, preset, name=None, save_path=os.getcwd()):
     flip_view = bool(normal[1] > 0)
 
     vtk = OpenDataFile(fid)
+    # vtk = clip_domain(vtk, xmax=255, ymax=255)
     RenameSource("surface", vtk)
     Show(vtk)
     ResetCamera()
@@ -1998,7 +2148,7 @@ def diagonal(fid, preset, name=None, save_path=os.getcwd()):
 
     # Cut off depths below a certain range as we are not interested in deep
     vtks = []
-    clip_vtk = clip_bottom(slice_vtk, abs(args.depth) * -1E3)
+    clip_vtk = clip_domain(vtk, zmin=-1 * abs(args.depth_km))
     Show(clip_vtk, renderView, "UnstructuredGridRepresentation")
     vtks.append(clip_vtk)
 
@@ -2010,11 +2160,20 @@ def diagonal(fid, preset, name=None, save_path=os.getcwd()):
     display = GetDisplayProperties(active, view=renderView)
     display.RescaleTransferFunctionToDataRange(False, True)
 
+
+    # Use Paraviews grid lines to show depth values only, as arbitrary cross
+    # sections will show the 3D outline of the volume on a 2D plane which
+    # is confusing/ not helpful
+    # !!! Fix this
+    # scale_vertical_grid(src, camera_parallel=False, dz_km=dz_km,
+    #                             min_depth_km= min(z) + dist_m_v,
+    #                             max_depth_km=depth_cutoff_km,
+    #                             scale=scale)
     # Use rulers to define the axis grids w/ tickmarks etc.
-    create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
-                                         xlabel="H", scale=args.zscale,
-                                         depth_cutoff_km=args.depth,
-                                         dz_km=args.dz, flip_view=flip_view)
+    # create_ruler_grid_axes_cross_section(src=clip_vtk, normal=normal,
+    #                                      xlabel="H", scale=args.zscale,
+    #                                      depth_cutoff_km=args.depth_km,
+    #                                      dz_km=args.dz, flip_view=flip_view)
 
     # Generate and rescale the colorbar/ colormap
     vsLUT, cbar = set_colormap_colorbar(vtk, position=[0.5, args.anno + 0.01],
@@ -2027,7 +2186,7 @@ def diagonal(fid, preset, name=None, save_path=os.getcwd()):
     display.SetScalarBarVisibility(renderView, not args.cbar_off)
 
     # Create a reference point based on the landmark origin location
-    mark_surface_point(origin, normal)
+    # mark_surface_point(origin, normal)
 
     # Plot the interface model of Williams et al. (2013)
     if args.williams:
@@ -2132,6 +2291,282 @@ def make_preplot(args):
 
     if args.label is not None:
         label(args.label)
+
+
+# HACKED IN SPECIFIC FIGURE MAKERS
+def manual_depth_slice(fid, preset, save_path=os.getcwd()):
+    """
+    Main function for creating and screenshotting depth slices (slice plane
+    normal/perpendicular to Z axis). Creates a standardized look for the
+    depth slices with scale bar, colorbar and annotations
+    """
+    choice = "tvz"
+    if choice == "tvz":
+        xmin=25
+        xmax=390
+        ymin=275
+        ymax=605
+        depth_km = 5
+        cross_sections = []
+        camera_position = [200, 400, 600]
+        focal_point = [200, 400, -100]
+        title = [0.235, 0.825]
+        xlabel = [0.5, 0.24]
+        ylabel = [0.125, 0.525]
+        cbar = [0.65, 0.22]
+        cbar = [0.6, 0.22]  # PSF
+        cbar_length = .135
+        cbar_thickness = 60
+        FONTSIZE = 50
+        taupo=True
+        spacing_km=100
+        round_to=100
+        ruler_tick_space=25
+        volcanos = {'Ruapehu': [205.222, 364.035, 0],
+                    # 'Ngauruhoe': [205, 363, 0.],
+                    'Tongariro': [212, 380, 0.],
+                    # 'Taupo': [247.81900000000002, 430.741, 0],
+                    # 'Rotorua': [262.539, 491.572, 0],
+                    # 'Reparoa': [270., 460., 0.],
+                    'White Island': [344.69100000000003, 560.552, 0],
+                    # 'Whakatane': [327.409, 511.833, 0],
+                    # 'Tarawera': [280.53000000000003, 484.901, 0],
+                    'Putauaki': [311.152, 496.12, 0],
+                    'Taranaki': [75., 359., 0.]
+                     }
+        cross_sections = ["rift"]
+    if choice == "francis":
+        xmin=250
+        xmax=455
+        ymin=300
+        ymax=505
+        depth_km = 2
+        cross_sections = ["mahia"]
+        camera_position = [400, 400, 300]
+        focal_point = [400, 400, -100]
+        title = [0.2, 0.71]
+        xlabel = [0.35, 0.24]
+        ylabel = [0.1, 0.525]
+        cbar = [0.46, 0.22]
+        cbar_length = .135
+        cbar_thickness = 60
+        FONTSIZE = 50
+        taupo=False
+        spacing_km=100
+        round_to=50
+        ruler_tick_space=50
+
+    args = parse_args()
+
+    # Open the model volume
+    vtk = OpenDataFile(fid)
+    vtk = scale_input(vtk, scale_units=preset.scale_units,
+                      scale_coords=args.coord_scale)
+    # Cook Strait
+    # vtk = clip_domain(vtk, xmax=255, ymax=255)
+    vtk = clip_domain(vtk, xmin=xmin, ymin=ymin, ymax=ymax, xmax=xmax)
+    RenameSource("surface", vtk)
+
+    # Set Camera
+    ResetCamera()
+    renderView = GetActiveView()
+    renderView.InteractionMode = "2D"
+    renderView.CameraPosition = camera_position  # [100, 100, 300]
+    renderView.CameraFocalPoint = focal_point     # [100, 100, 0]
+    renderView.CameraViewUp = [0, 1, 0]
+    Render()
+    Hide(vtk)
+
+    # Modified coastline
+    util_dir = "/Users/Chow/Documents/academic/vuw/forest/utils/vtk_files/scaled/"
+    plot_point_cloud(fid=os.path.join(util_dir, "coast.vtk"),
+                     reg_name="coast", color=LINECOLOR, point_size=5,
+                     xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+    if taupo:
+        plot_point_cloud(fid=os.path.join(util_dir, "taupo.vtk"),
+                         reg_name="taupo", color=LINECOLOR, point_size=5)
+        plot_landmarks(src=volcanos, glyph_type="Triangle", size=12)
+
+    # Annotate file name and depth in title
+    text, _ = create_text(s=f"", position=title,
+                          reg_name="text1", fontsize=int(FONTSIZE * 1.25),
+                          color=FONTCOLOR, justification="center")
+
+    # Annotate text for X and Y labels
+    for s, p in zip(["X [km]", "Y [km]"], [xlabel, ylabel]):
+        create_text(s=s, position=p, reg_name="text1",
+                    fontsize=int(FONTSIZE), color=FONTCOLOR,
+                    justification="center")
+
+
+    # Create bounding axes with pre-defined tick marks using rulers
+    create_ruler_grid_axes_depth_slice(vtk, tick_spacing_km=ruler_tick_space)
+    vsLUT, cbar = set_colormap_colorbar(vtk, position=cbar, length=cbar_length,
+                                        orientation="Horizontal",
+                                        thickness=cbar_thickness,
+                                        text_position="top")
+
+
+    for name in cross_sections:
+        origin, normal = DIAGONALS[name.title()]
+        plot_cross_section_surface_trace(vtk, normal, origin,
+                                         flip_view=bool(normal[1] > 0),
+                                         line_width=5.)
+
+
+    # Generate slices through the volume at desired depth levels
+    slice_ = depth_km
+    slice_vtk = depth_slice(vtk, float(slice_))
+    tag = f"z_{slice_:0>2}km"
+    text.Text = f"{TITLE} [{tag.replace('_', '=')}]"
+    rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
+    show_colorbar(slice_vtk)
+
+    set_depth_slice_data_axis_grid(slice_vtk, spacing_km=spacing_km, 
+                                   round_to=round_to)
+
+    # Save screenshot, hide slice and move on, job done
+    fid_out = os.path.join(save_path, f"{tag}.png")
+    SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
+                   TransparentBackground=1)
+    remove_whitespace(fid_out)
+    Hide(slice_vtk, renderView)
+
+    # Delete the min max value points because they'll change w/ each slice
+    delete_temp_objects(reg_names=["glyph", "point", "contour"])
+
+
+def manual_diagonal(fid, preset, save_path=os.getcwd()):
+    choice = "tvz"
+    if choice == "tvz":
+        # these are defined in the zero-origin coord system
+        origin = [291.873, 493.837, 0]
+        normal = [-.129802, .08665, 0]
+
+        tag = "tvz"
+        flip_view = True
+        xmin=25
+        xmax=390
+        ymin=275
+        ymax=605
+        zmin=-30
+        scale = 3
+        dz = 5
+        dh = 50
+        title = [.9, .8]
+        cbar_position=[.88, .66]
+        cbar_thickness =50
+        cbar_length=.1
+        FONTSIZE = 30
+        xsection_label = "B"
+        xsection_1 = (.32, .8)
+        xsection_2 = (.87, .8)
+        volcanos = {'Ruapehu': [205.222, 364.035, 0],
+                    'Tongariro': [212, 380, 0.],
+                    'White Island': [344., 560.552, 0],
+                    'Putauaki': [311.152, 496.12, 0],
+                     }
+    if choice == "francis":
+        origin = [361., 417, 2]
+        normal = [-.64, -.76, 0]
+        tag = "francis_2004_comp"
+        flip_view = False
+        xmin=250
+        xmax=455
+        ymin=300
+        ymax=505
+        zmin=-20
+        scale = 5
+        dz = 2
+        dh = 20
+        title = [.63, .55]
+        cbar_position=[.63, .4]
+        cbar_thickness =50
+        cbar_length=.1
+        FONTSIZE = 30
+        xsection_label = "B"
+        xsection_1 = (.24, .55)
+        xsection_2 = (.6, .55)
+
+    args = parse_args()
+    vtk = OpenDataFile(fid)
+    vtk = scale_input(vtk, scale_units=preset.scale_units,
+                      scale_coords=args.coord_scale)
+    vtk = clip_domain(vtk, xmin=xmin, ymin=ymin, ymax=ymax, xmax=xmax,
+                      zmin=zmin)
+    RenameSource("surface", vtk)
+
+    ResetCamera()
+    renderView = GetActiveView()
+    Hide(vtk, renderView)
+
+    # Slice across the given cross section plane
+    slice_vtk = cross_section(vtk=vtk, normal=normal, origin=origin, name="cs")
+    Show(slice_vtk, renderView, "UnstructuredGridRepresentation")
+
+    # Reset the colorbounds to data range
+    active = GetActiveSource()
+    display = GetDisplayProperties(active, view=renderView)
+    display.RescaleTransferFunctionToDataRange(False, True)
+
+    text, _ = create_text(s=TITLE, position=title,
+                          reg_name="text1", fontsize=int(FONTSIZE * 1.25),
+                          color=FONTCOLOR, justification="center")
+
+    # A--A'
+    text, _ = create_text(s=f"{xsection_label}", position=xsection_1,
+                          reg_name="text1", fontsize=int(FONTSIZE * 1.25),
+                          color=FONTCOLOR, justification="center")
+    text, _ = create_text(s=f"{xsection_label}'", position=xsection_2,
+                          reg_name="text1", fontsize=int(FONTSIZE * 1.25),
+                          color=FONTCOLOR, justification="center")
+
+    # Use rulers to define the axis grids w/ tickmarks etc.
+    ruler_axes_cross_section(src=slice_vtk, normal=normal, scale=scale,
+                             dz=dz, dh=dh, flip_view=flip_view)
+
+    scale_vertical_grid(slice_vtk, scale=scale, zgrid_km=[zmin, 0, dz])
+
+    # Generate and rescale the colorbar/ colormap
+    vsLUT, cbar = set_colormap_colorbar(vtk, position=cbar_position,
+                                        orientation="Vertical",
+                                        text_position="left",
+                                        thickness=cbar_thickness,
+                                        length=cbar_length, fontsize=FONTSIZE)
+
+    rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
+    display = GetDisplayProperties(slice_vtk, view=renderView)
+    display.SetScalarBarVisibility(renderView, not args.cbar_off)
+
+    if choice == "tvz":
+        for origin_ in volcanos.values():
+            mark_surface_point(origin_, normal, size=10., z_value=10)
+
+
+    # Plot the interface model of Williams et al. (2013)
+    fid = ("/Users/Chow/Documents/academic/vuw/"
+           "forest/utils/vtk_files/scaled/interface.vtk")
+    plot_2D_surface_projection(fid, origin, normal, flip_view=flip_view,
+                               scale=scale, zmin=zmin, offset=1,
+                               pointsize=2, color_by=False)
+    fid = ("/Users/Chow/Documents/academic/vuw/"
+           "forest/utils/vtk_files/scaled/coast.vtk")
+    plot_2D_surface_projection(fid, origin, normal, flip_view=flip_view,
+                               scale=scale, offset=1,
+                               pointsize=4.5, color=rgb_colors("k"),
+                               position=[0., 0., 0], xmin=xmin, xmax=xmax,
+                               ymin=ymin, ymax=ymax, zmin=zmin,
+                               color_by=False)
+
+
+    # Reset camera view to be normal to the plane. Specific to this plane
+    set_camera(choice)
+
+
+    fid_out = os.path.join(save_path, f"{tag}.png")
+    SaveScreenshot(fid_out, renderView, ImageResolution=VIEW_SIZE,
+                   TransparentBackground=1)
+    remove_whitespace(fid_out)
 
 
 def parse_args():
@@ -2264,9 +2699,19 @@ def parse_args():
                         help="text labels for features A-E in paper")
     parser.add_argument("--label", type=str, default=None,
                         help="labels for multi-panel figures")
+    parser.add_argument("--xlabel", type=int, default=1,
+                        help="xlabel for depth slices, 0 for off, 1 for on")
+    parser.add_argument("--ylabel", type=int, default=1,
+                        help="ylabels for depth slices, 0 for off, 1 for on")
+
+    parser.add_argument("--manualz", action="store_true", default=False,
+                        help="Make hardcoded figures")
+    parser.add_argument("--manuald", action="store_true", default=False,
+                        help="Make hardcoded figures")
+
 
     # CROSS SECTION FINE TUNE
-    parser.add_argument("--depth", type=float, default=60,
+    parser.add_argument("--depth_km", type=float, default=60,
                         help="For any vertical cross sections (Y-axis figure "
                              "normal to Z axis of volume), define the depth"
                              "cutoff of the screenshot as usually were not "
@@ -2303,13 +2748,13 @@ if __name__ == "__main__":
     renderView.ViewSize = VIEW_SIZE
     renderView.InteractionMode = "2D"
     SetActiveView(renderView)
+    Render()
 
     # Convert coordinates
     if args.coord_scale != 1:
         for key, val in DIAGONALS.items():
             origin, norm = val
             DIAGONALS[key] = (convert_coords(origin), norm)
-
 
     for data_fid in args.files:
         if args.verbose:
@@ -2331,7 +2776,6 @@ if __name__ == "__main__":
         else:
             TITLE = args.title
 
-
         # ======================================================================
         # ASSIGN PRESET VALUES
         # ======================================================================
@@ -2347,6 +2791,15 @@ if __name__ == "__main__":
         preset = PRESETS[preset_key]
         if args.bounds is not None:
             preset.bounds = parse_bounds(args.bounds)
+
+        # ======================================================================
+        # PUBLICATION FIGURES HACKED IN
+        # ======================================================================
+        if args.manuald:
+            manual_diagonal(data_fid, preset=preset, save_path=save_path)
+        if args.manualz:
+            manual_depth_slice(data_fid, preset=preset, save_path=save_path)
+
 
         # ======================================================================
         # DEPTH SLICES
