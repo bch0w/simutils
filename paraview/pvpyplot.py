@@ -61,13 +61,20 @@ DIAGONALS = {
     "Gisborne":   ([588984., 5720001., Z], NORM),
     "Cvr":        ([417044., 5726459., Z], NORM),
     "Cook":       ([307699., 5384284., Z], NORM),
+    "Psf_Cook":   ([307699., 5384284., Z], [-.45, -.45, 0]),
+    "Psf_Cook_R": ([307699., 5384284., Z], [-0.45, 0.45, 0]),
     "Okataina":   ([463185., 5780787.0, Z], NORM),
     "Strait":     ([270065., 5402644., Z], [-0.4, -0.49, 0]),
     "Reyners":    ([314007., 5426403., Z], [-0.7, 0.7, 0]),
     "Henrys":     ([314007., 5426403., Z],[-0.9, 0.65, 0]),
     "Mahia_R":    ([577779., 5667301., Z], [-0.9, 0.65, 0]),
     "Cook_R":     ([307699., 5384284., Z], [-0.28, 0.27, 0]),
-    "Strait_R":   ([273419., 5377033., Z], [-0.49, 0.40, 0]),
+    # "Strait_R":   ([273419., 5377033., Z], [-0.49, 0.40, 0]),
+    "Strait_R":   ([307699., 5384284., Z], [-0.25, 0.186, 0]),
+    "Csfaults":   ([326337., 5409422., 0], [-0.324, 0.527, 0.0]),  # GOOD
+    "Cspert_R":   ([307699., 5384284., Z], [-0.45, -0.45, 0.]),
+    # "Csfaults":   ([316337., 5359422., 0], [-0.325, 0.325, 0.0]),  # DEEP
+    "Csfaults_R": ([307699., 5384284., 0], [-0.527, -0.324, 0.0]),
     "Seamounts_P":([466855, 5538861, Z], [-0.13, 0.11, 0]),
     "Seamounts_M":([577779, 5667301, Z], [-0.13, 0.11, 0]),
     "Tvz":        ([376534.0, 5650985.0, Z], [-0.2, 0.14, 0]),
@@ -91,6 +98,7 @@ def rgb_colors(c):
             "b": [0., 0., 1.], "g": [0., 1., 0.], "y": [1., 1., 0.],
             "o": [1., .5, 0.], "c": [0., 1., 1.], "gray": [.5, .5, .5],
             "pink": [255., 0., 255.], "darkgray": [64., 64., 64.],
+            "darkpurple":[102., 0., 104.],
             }[c]
 
 class Preset(dict):
@@ -167,14 +175,14 @@ PRESETS = {
         title="PSFV [1E-4 m^3 s^2]", cmap="Black, Blue and White", invert=True,
         center=False, fmt="%.1f", rnd=None, bounds=[0, 3], nlabel=2,
         nvalues=11, # isosurfaces=[1., 2., 3.],
-        scale_units=1E4, 
+        scale_units=1,
     ),
     # Incorrect finite-difference sign means some PSFVs have to be flipped
     "psfv_neg": Preset(
-        title="PSFV [1E-5 m^3 s^2]", cmap="Black, Blue and White", invert=True,
-        center=False, fmt="%.1f", rnd=None, bounds=[0, 3], nlabel=2,
-        nvalues=11, # isosurfaces=[1., 2., 3.],
-        scale_units=-1E5, 
+        title="PSFV [1E-6 m^3 s^2]", cmap="Black, Blue and White", invert=True,
+        center=False, fmt="%.1f", rnd=None, bounds=[0, 10], nlabel=2,
+        nvalues=21, # isosurfaces=[1., 2., 3.],
+        scale_units=-1E6,
     ),
     "psf": Preset(
         title="PSF [m^3 s^-2]", cmap="Cool to Warm (Extended)",
@@ -231,9 +239,9 @@ PRESETS = {
         nlabel=3, nvalues=33
     ),
     "gradient_vs_kernel": Preset(
-        title="Vs Gradient [m^-2 s^2]", cmap="Cool to Warm (Extended)",
-        invert=True, center=True, fmt="%.1E", rnd=None, bounds=True,
-        nlabel=3, nvalues=33
+        title="Vs Grad. [1E-7 m^-2 s^2]", cmap="Cool to Warm (Extended)",
+        invert=True, center=True, fmt="%.0f", rnd=None, bounds=[-5,5],
+        nlabel=3, nvalues=33, scale_units=1E7, 
     ),
     "update_vp": Preset(
         title="Vp Update [ln(m28/m00)]", cmap="Blue Orange (divergent)",
@@ -242,7 +250,7 @@ PRESETS = {
     ),
     "update_vs": Preset(
         title="Vs Update [ln(m28/m00)]", cmap="Blue Orange (divergent)",
-        invert=True, center=True, fmt="%.02f", rnd=None, bounds=[-.2,.2],
+        invert=True, center=True, fmt="%.02f", rnd=None, bounds=[-.15,.15],
         nlabel=3, nvalues=33,
     ),
     "update_vpvs": Preset(
@@ -271,7 +279,7 @@ PRESETS = {
         # cmap="Green-Blue Asymmetric Divergent (62Blbc)", invert=True
         cmap="Yellow - Gray - Blue", invert=False,
         center=False, fmt="%.2f", rnd=None,
-        bounds=[1.55, 2.1], nlabel=3, nvalues=33,
+        bounds=[1.55, 2.1], nlabel=4, nvalues=33,
         isosurfaces=[1.5, 1.6, 1.7, 1.8, 1.9, 2., 2.1, 2.2]
     ),
     "modulus_shear": Preset(
@@ -324,20 +332,31 @@ def remove_whitespace(fid):
     call([f"convert {fid} -fuzz 1% -trim +repage {fid}"], shell=True)
 
 
-def project_point_trench_normal(point):
+def project_point_trench_normal(point, origin=None, normal=None):
     """
     Project a point onto the trench normal which is defined by:
     normal = [-.7, .7., 0]
     origin = [455763., 5547040., 0.]
     or in math terms: -.7x + .7y + 0z = 3563893
 
+    TO DO:
+    make this generalized for a given normal, origin
+
     .. note::
         Assuming the plane normal is parallel to the Z-axis so that the Z point
         remains unchanged.
     """
+    # if normal is None:
+    #     normal == [-.7, .7, 0.]
+    # if origin is None:
+    #     origin = [455763, 5547040., 0.]
+    #
+    # NX, NY, NZ = normal
+    # OX, OY, OZ = origin
+
     D = 3563893
     x, y, z = point
-    t = (D + .7 * (x - y)) / (2 * .7 **2)
+    t = (D + .7 * (x - y)) / (2 * .7 ** 2)
     x0 = x - .7 * t
     y0 = y + .7 * t
 
@@ -1125,7 +1144,8 @@ def scale_vertical_grid(source, scale=1, zgrid_km=None, camera_parallel=False):
 
 def set_colormap_colorbar(vtk, position, orientation, colormap=None,
                           title=None, fontsize=None, color=None, thickness=None,
-                          length=None, text_position="top"):
+                          length=None, text_position="top",
+                          justification="Left"):
     """
     Set the color transfer function based on preset values.
     Then, create a colorbar to match the colormap
@@ -1180,6 +1200,7 @@ def set_colormap_colorbar(vtk, position, orientation, colormap=None,
     cbar.LabelFontSize = fontsize or FONTSIZE
     cbar.TitleColor = color or FONTCOLOR
     cbar.LabelColor = color or FONTCOLOR
+    cbar.TitleJustification = justification
 
     # !!! This doesnt work as expected?
     if text_position in ["top", "right"]:
@@ -1342,6 +1363,7 @@ def set_camera(choice):
     :return:
     """
     ResetCamera()
+    camera = GetActiveCamera()
     renderView = GetActiveView()
     renderView.InteractionMode = "2D"
     if choice == "z":
@@ -1372,6 +1394,26 @@ def set_camera(choice):
         renderView.CameraPosition = [1300., -415., -200.]
         renderView.CameraFocalPoint = [-300., 766., -200.]
         renderView.CameraViewUp = [0.0, 0.0, 1.0]
+    elif choice == "cook":
+        renderView.CameraPosition = [2000., -1600., -200.]
+        renderView.CameraFocalPoint = [155., 122., -200.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
+        renderView.CameraParallelScale = 400
+    elif choice == "cook_r":
+        renderView.CameraPosition = [-1165., -623., -200.]
+        renderView.CameraFocalPoint = [267., 252., -200.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
+        renderView.CameraParallelScale = 400
+    elif choice == "along_strike":
+        renderView.CameraPosition = [1683., -1170., -200.]
+        renderView.CameraFocalPoint = [214., 298., -200.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
+        renderView.CameraParallelScale = 500
+    elif choice in ["wellington_as", "flatpoint_as"]:
+        renderView.CameraPosition = [-592., -766., -200.]
+        renderView.CameraFocalPoint = [489., 518., -200.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
+        renderView.CameraParallelScale = 500
     elif choice == "d_flip":
         # renderView.CameraPosition = [1422985., 4461623., -139631.]
         # renderView.CameraFocalPoint = [346611., 5537997., -139631.]
@@ -1383,7 +1425,7 @@ def set_camera(choice):
     Render()
 
 
-def plot_point_cloud(fid, reg_name, point_size=2., color=None, opacity=1.,
+def plot_point_cloud(fid, reg_name="", point_size=2., color=None, opacity=1.,
                      xmin=None, xmax=None, ymin=None, ymax=None):
     """
     Plot a point cloud from an existing .VTK file, used for, e.g., coastlines
@@ -1442,28 +1484,39 @@ def plot_point_cloud(fid, reg_name, point_size=2., color=None, opacity=1.,
     return point_cloud
 
 
-def plot_events(color=None):
+def plot_events(fid=None, color=None, type="Circle", size=3, position=None,
+                linewidth=6., show="All Points", filled=1, opacity=1,
+                representation_type="Surface With Edges", max_number=None):
     """
     Plot FOREST INVERSION event locations (VTK file) as 2D circles normal to
     the Z axis
     """
     renderView = GetActiveView()
-    srcs = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
-                         "vtk_files/scaled/srcs_d.vtk")
+    if fid is None:
+        fid = ("/Users/Chow/Documents/academic/vuw/forest/utils/" 
+               "vtk_files/scaled/srcs_d.vtk")
+    srcs = OpenDataFile(fid)
+    Hide(srcs)
     RenameSource("srcs", srcs)
     glyph = Glyph(registrationName="srcs_g", Input=srcs,
                   GlyphType="2D Glyph")
+    if max_number is not None:
+        glyph.MaximumNumberOfSamplePoints = max_number
+
     glyph.ScaleArray = ["POINTS", "No scale array"]
-    glyph.ScaleFactor = 7.  # 10000 not scaled
-    glyph.GlyphMode = "All Points"
-    glyph.GlyphType.GlyphType = "Circle"
-    glyph.GlyphType.Filled = 1
+    glyph.ScaleFactor = size  # 10000 not scaled
+    glyph.GlyphMode = show
+    glyph.GlyphType.GlyphType = type
+    glyph.GlyphType.Filled = filled
     glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
-    glyphDisplay.PointSize = 3.
-    glyphDisplay.SetRepresentationType("Surface With Edges")
-    glyphDisplay.LineWidth = 6.0
-    glyphDisplay.Opacity = 1.
-    glyphDisplay.Position = [0.0, 0.0, 10.0]
+    glyphDisplay.PointSize = size
+    glyphDisplay.SetRepresentationType(representation_type)
+    glyphDisplay.LineWidth = linewidth
+    glyphDisplay.Opacity = opacity
+    if position is None:
+        glyphDisplay.Position = [0.0, 0.0, 10.0]
+    else:
+        glyphDisplay.Position = position
  
     if color is None:
         vsLUT = GetColorTransferFunction("Z_Value")
@@ -1474,29 +1527,36 @@ def plot_events(color=None):
         glyphDisplay.DiffuseColor = color
 
 
-def plot_stations():
+def plot_stations(fid=None, type="Triangle", size=3, position=None,
+                  linewidth=6., show="All Points", filled=1, opacity=1,
+                  representation_type="Surface With Edges"):
     """
     Plot FOREST inversion station locations (VTK file) as 2D diamonds normal
     to the Z axis
     """
     renderView = GetActiveView()
-    rcvs = OpenDataFile("/Users/Chow/Documents/academic/vuw/forest/utils/"
-                         "vtk_files/scaled/rcvs.vtk")
+    if fid is None:
+        fid = ("/Users/Chow/Documents/academic/vuw/forest/utils/"
+               "vtk_files/scaled/rcvs.vtk")
+    rcvs = OpenDataFile(fid)
     RenameSource("rcvs", rcvs)
     glyph = Glyph(registrationName="rcvs_g", Input=rcvs,
                   GlyphType="2D Glyph")
     glyph.ScaleArray = ["POINTS", "No scale array"]
-    glyph.ScaleFactor = 10.  # 10000 not scaled
-    glyph.GlyphMode = "All Points"
-    glyph.GlyphType.GlyphType = "Triangle"
+    glyph.ScaleFactor = size  # 10000 not scaled
+    glyph.GlyphMode = show
+    glyph.GlyphType.GlyphType = type
     glyph.GlyphTransform.Rotate = [0.0, 0.0, 180.0]
-    glyph.GlyphType.Filled = 1
+    glyph.GlyphType.Filled = filled
     glyphDisplay = Show(glyph, renderView, "GeometryRepresentation")
-    glyphDisplay.PointSize = 3.
-    glyphDisplay.SetRepresentationType("Surface With Edges")
-    glyphDisplay.LineWidth = 6.0
-    glyphDisplay.Opacity = 1.
-    glyphDisplay.Position = [0.0, 0.0, 10.0]
+    glyphDisplay.PointSize = size
+    glyphDisplay.SetRepresentationType(representation_type)
+    glyphDisplay.LineWidth = linewidth
+    glyphDisplay.Opacity = opacity
+    if position is None:
+        glyphDisplay.Position = [0.0, 0.0, 10.0]
+    else:
+        glyphDisplay.Position = position
 
 
 def plot_sse_slip_patches():
@@ -2299,14 +2359,95 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
     Main function for creating and screenshotting depth slices (slice plane
     normal/perpendicular to Z axis). Creates a standardized look for the
     depth slices with scale bar, colorbar and annotations
+    DOMAIN BOUNDS:
+    x: [0, 462.156005859375]
+    y: [0, 617.1300048828125]
+    z: [-400., 2.2788798809051514]
     """
-    choice = "tvz"
-    if choice == "tvz":
+    args = parse_args()
+    choice = "volumetric"
+    if choice in ["volumetric", "updates"]:
+        xmin=0
+        xmax=462.156
+        ymin=0
+        ymax=616.130
+        depth_km = int(args.depth_km)
+        camera_position = [(xmax+xmin)/2, (ymax+ymin)/2-20, 600]
+        focal_point =[(xmax+xmin)/2, (ymax+ymin)/2-20, 0]
+        title = [0.23, 0.88]
+        xlabel = [0.475, 0.11]
+        ylabel = [0.125, 0.53]
+        cbar = [0.6, 0.1]  # PSF .6 .1
+        cbar_length = .135
+        cbar_thickness = 60
+        # cbar_length = .2
+        # cbar_thickness = 80
+        FONTSIZE = 50
+        spacing_km=100
+        round_to=100
+        ruler_tick_space=25
+        cross_sections = []
+        # cross_sections = ["Csfaults", "Cspert_R"]
+        # cross_sections = []
+        earthquakes = False
+        faults=True
+        cbar_justification="Right"
+    elif choice == "along_strike":
+        xmin=0
+        xmax=462.156
+        ymin=0
+        ymax=616.130
+        depth_km = 10
+        camera_position = [(xmax+xmin)/2, (ymax+ymin)/2-20, 600]
+        focal_point =[(xmax+xmin)/2, (ymax+ymin)/2-20, 0]
+        title = [0.23, 0.88]
+        xlabel = [0.475, 0.11]
+        ylabel = [0.125, 0.53]
+        cbar = [0.4, 0.1]  # PSF .6 .1
+        # cbar_length = .135
+        # cbar_thickness = 60
+        cbar_length = .5
+        cbar_thickness = 80
+        FONTSIZE = 50
+        spacing_km=100
+        round_to=100
+        ruler_tick_space=25
+        cross_sections = ["Reyners", "Wellington"]#, "Flatpoint"]
+        # cross_sections = ["Csfaults", "Cspert_R"]
+        # cross_sections = []
+        earthquakes = False
+        faults=True
+        cbar_justification="Right"
+    elif choice == "cook":
+        xmin=0
+        xmax=305
+        ymin=1
+        ymax=305
+        depth_km = 5
+        camera_position = [(xmax+xmin)/2, (ymax+ymin)/2-20, 600]
+        focal_point =[(xmax+xmin)/2, (ymax+ymin)/2-20, 0]
+        title = [0.25, 0.80]
+        xlabel = [0.475, 0.21]
+        ylabel = [0.125, 0.505]
+        cbar = [0.6, 0.2]  # PSF
+        cbar_length = .135
+        cbar_thickness = 60
+        FONTSIZE = 50
+        spacing_km=100
+        round_to=100
+        ruler_tick_space=25
+        cross_sections = []
+        # cross_sections = ["psf_cook", "psf_cook_r", "Csfaults"]
+        cross_sections = ["Csfaults_R"]
+        earthquakes = False
+        faults=False
+        cbar_justification="Right"
+    elif choice == "tvz":
         xmin=25
         xmax=390
         ymin=275
         ymax=605
-        depth_km = 5
+        depth_km = 10
         cross_sections = []
         camera_position = [200, 400, 600]
         focal_point = [200, 400, -100]
@@ -2318,7 +2459,6 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
         cbar_length = .135
         cbar_thickness = 60
         FONTSIZE = 50
-        taupo=True
         spacing_km=100
         round_to=100
         ruler_tick_space=25
@@ -2335,7 +2475,8 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
                     'Taranaki': [75., 359., 0.]
                      }
         cross_sections = ["rift"]
-    if choice == "francis":
+        cbar_justification="Left"
+    elif choice == "francis":
         xmin=250
         xmax=455
         ymin=300
@@ -2355,6 +2496,8 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
         spacing_km=100
         round_to=50
         ruler_tick_space=50
+        cbar_justification="Left"
+
 
     args = parse_args()
 
@@ -2382,10 +2525,42 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
     plot_point_cloud(fid=os.path.join(util_dir, "coast.vtk"),
                      reg_name="coast", color=LINECOLOR, point_size=5,
                      xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
-    if taupo:
+    if choice=="tvz":
         plot_point_cloud(fid=os.path.join(util_dir, "taupo.vtk"),
                          reg_name="taupo", color=LINECOLOR, point_size=5)
         plot_landmarks(src=volcanos, glyph_type="Triangle", size=12)
+
+    elif choice == "cook":
+        if faults:
+            plot_point_cloud(fid=os.path.join(util_dir, "faults.vtk"),
+                             reg_name="faults", point_size=2, opacity=1.,
+                             xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
+                             color=LINECOLOR)
+        if earthquakes:
+            # fid= ("/Users/Chow/Documents/academic/vuw/data/events/"
+            #       "chamberlain_kaikoura/chamberlain_filtered_utm60s_converted.vtk")
+            # plot_events(fid, color=rgb_colors("k"), size=3, type="Cross",
+            #             linewidth=.1, filled=0, representation_type="Surface",
+            #             opacity=1.)
+            fid= ("/Users/Chow/Documents/academic/vuw/data/events/"
+                  "geonet_cook_strait/cook_strait_events_0z_converted.vtk")
+            plot_events(fid, color=rgb_colors("pink"), size=2.2,
+                        position=[0,0,20], linewidth=2)
+            # plot_point_cloud(fid, color=rgb_colors("g"), point_size=8,
+            #                  xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+    elif choice in ["volumetric", "updates"]:
+        plot_events(color=rgb_colors("g"), size=8.)
+        plot_stations(size=8.)
+        if choice == "updates":
+            features()
+            create_text(s=f"[{args.label}]", position=[.24, .82], 
+                        reg_name="text1",
+                        fontsize=int(FONTSIZE * 2), color=rgb_colors("k"),
+                        justification="center")
+        elif choice == "volumetric":
+            create_text(s=f"[{args.label}]", position=[.24, .82], reg_name="text1",
+                        fontsize=int(FONTSIZE * 2), color=rgb_colors("k"),
+                        justification="center")
 
     # Annotate file name and depth in title
     text, _ = create_text(s=f"", position=title,
@@ -2404,7 +2579,8 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
     vsLUT, cbar = set_colormap_colorbar(vtk, position=cbar, length=cbar_length,
                                         orientation="Horizontal",
                                         thickness=cbar_thickness,
-                                        text_position="top")
+                                        text_position="top",
+                                        justification=cbar_justification)
 
 
     for name in cross_sections:
@@ -2422,6 +2598,9 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
     rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
     show_colorbar(slice_vtk)
 
+    display = GetDisplayProperties(slice_vtk, view=renderView)
+    display.SetScalarBarVisibility(renderView, not args.cbar_off)
+
     set_depth_slice_data_axis_grid(slice_vtk, spacing_km=spacing_km, 
                                    round_to=round_to)
 
@@ -2437,8 +2616,94 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
 
 
 def manual_diagonal(fid, preset, save_path=os.getcwd()):
+    args = parse_args()
     choice = "tvz"
-    if choice == "tvz":
+    if choice in ["flatpoint_as", "wellington_as"]:
+        # these are defined in the zero-origin coord system
+        if choice == "wellington_as":
+            origin, normal = DIAGONALS["Wellington"]
+            title = [.71, .7]
+            cbar_position = [.71, .58]
+            xsection_label = "C"
+            xsection_1 = (.3, .71)
+            xsection_2 = (.675, .71)
+        elif choice == "flatpoint_as":
+            origin, normal = DIAGONALS["Flatpoint"]
+            title = [.79, .7]
+            cbar_position = [title[0], .58]
+            xsection_label = "B"
+            xsection_1 = (.235, title[1])
+            xsection_2 = (.75, title[1])
+        tag = choice
+        flip_view = False
+        xmin=0
+        xmax=462.156
+        ymin=0
+        ymax=616.130
+        zmin = -60
+        scale = 2
+        dz = 10
+        dh = 50
+        cbar_thickness = 50
+        cbar_length = .08
+        FONTSIZE = 30
+        interface_pointsize = 2
+    elif choice == "along_strike":
+        # these are defined in the zero-origin coord system
+        origin, normal = DIAGONALS["Reyners"]
+        tag = "along_strike"
+        flip_view = True
+        xmin=0
+        xmax=462.156
+        ymin=0
+        ymax=616.130
+        zmin = -60
+        scale = 2
+        dz = 10
+        dh = 50
+        title = [.8, .7]
+        cbar_position = [.8, .58]
+        cbar_thickness = 50
+        cbar_length = .08
+        FONTSIZE = 30
+        xsection_label = "A"
+        xsection_1 = (.15, .71)
+        xsection_2 = (.76, .71)
+        interface_pointsize = 2
+    elif choice in ["cook", "cook_r"]:
+        # these are defined in the zero-origin coord system
+        if choice == "cook":
+            origin, normal = DIAGONALS["Csfaults"]
+            xsection_1 = (.28, .76)
+            xsection_2 = (.7, xsection_1[1])
+            title = [.725, .76]
+            cbar_position = [title[0], title[1] - .12]
+            flip_view = True
+            xsection_label = "B"
+
+        elif choice == "cook_r":
+            origin, normal = DIAGONALS["Csfaults_R"]
+            xsection_1 = (.28, .76)
+            xsection_2 = (.7, xsection_1[1])
+            title = [.73, .76]
+            cbar_position = [title[0], title[1] - .12]
+            flip_view = False
+            xsection_label = "A"
+
+        tag = "cook_strait"
+        xmin=0
+        xmax=305
+        ymin=1
+        ymax=305
+        zmin=-30
+        scale = 3
+        dz = 10
+        dh = 50
+        cbar_thickness =50
+        cbar_length=.08
+        FONTSIZE = 30
+        interface_pointsize = 2
+    elif choice == "tvz":
         # these are defined in the zero-origin coord system
         origin = [291.873, 493.837, 0]
         normal = [-.129802, .08665, 0]
@@ -2466,7 +2731,8 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
                     'White Island': [344., 560.552, 0],
                     'Putauaki': [311.152, 496.12, 0],
                      }
-    if choice == "francis":
+        interface_pointsize = 2
+    elif choice == "francis":
         origin = [361., 417, 2]
         normal = [-.64, -.76, 0]
         tag = "francis_2004_comp"
@@ -2487,7 +2753,9 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
         xsection_label = "B"
         xsection_1 = (.24, .55)
         xsection_2 = (.6, .55)
+        interface_pointsize =2
 
+    print(f"{choice}\nORIGIN: {origin}\nNORMAL: {normal}")
     args = parse_args()
     vtk = OpenDataFile(fid)
     vtk = scale_input(vtk, scale_units=preset.scale_units,
@@ -2547,8 +2815,10 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
     fid = ("/Users/Chow/Documents/academic/vuw/"
            "forest/utils/vtk_files/scaled/interface.vtk")
     plot_2D_surface_projection(fid, origin, normal, flip_view=flip_view,
-                               scale=scale, zmin=zmin, offset=1,
-                               pointsize=2, color_by=False)
+                               scale=scale, offset=1,
+                               xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
+                               zmin=zmin, pointsize=interface_pointsize,
+                               color_by=False)
     fid = ("/Users/Chow/Documents/academic/vuw/"
            "forest/utils/vtk_files/scaled/coast.vtk")
     plot_2D_surface_projection(fid, origin, normal, flip_view=flip_view,
