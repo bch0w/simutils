@@ -243,8 +243,10 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
                 # this will give a percent difference rather than absolute diff
                 if method == "pct":
                     difference /= a
-            if method == "divide":
+            elif method == "divide":
                 difference = a / b
+            elif method == "add":
+                difference = a + b
             # Take the natural log of the the quotient of a and b, this gives
             # to first order approximation, the percent difference. Yoshi said
             # Albert Tarantola said, "always view models in log space"
@@ -259,6 +261,69 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
             differences.append(difference)
         except ValueError:
             print("value error")
+
+    # Write out the differences to a new file
+    if write:
+        # Replace the name of the data so paraview identifies it differently
+        old_value = header_dict_a["scalars"]
+        scalars_line = header_dict_a["scalars_line"]
+        # Kinda ugly but e.g. model_0001_vp -> model_0001_log
+        new_value = "_".join(old_value.split("_")[:-1] + [method])
+        model_a[scalars_line] = model_a[scalars_line].replace(old_value, 
+                                                              new_value)
+
+        with open(write, "w") as f:
+            f.writelines(model_a[:header_dict_a["data_line"]])
+            for diff in differences:
+                if diff == 0:
+                    f.write("{:13.5f}    \n".format(float(diff)))
+                elif abs(diff) > 1:
+                    f.write("{:13.5f}    \n".format(float(diff)))
+                else:
+                    f.write("{:13.10f}    \n".format(float(diff)))
+            # Paraview will sometimes get stuck in a loop if there is no newline
+            # at the end of the file
+            f.write("\n")
+
+    return differences
+
+
+def manipulate_vtk(model_a_fid, c, method="subtract", write=None):
+    """
+    read each model and scan line by line, add, subtract, multiply, divide
+
+    :type model_?: str
+    :param model_?: name of the model file
+    :type c: float
+    :param c: value to manipulate vtk file with
+    :type path: str
+    :param path: path holding the models to be read in
+    :type write: str
+    :param write: name of the output file to be written
+    :rtype differences: list
+    :return differences: list of the differences in values between a and b
+    """
+    # read files
+    model_a, header_dict_a = read_file(model_a_fid)
+
+    # parse through models together and separate by len of line, skip header
+    start = header_dict_a["data_line"]
+    # Convert from strings to floats
+    differences = np.array(list(map(float, model_a[start:-1])))
+    c = float(c)
+
+    if method == "subtract":    
+        differences -= c
+    elif method == "divide":
+        differences /= c
+    elif method == "multiply": 
+        differences *= c
+    elif method == "add":
+        differences += c
+    elif method == "norm":
+        import ipdb;ipdb.set_trace()
+        c = max([abs(max(differences)), abs(min(differences))])
+        differences /= c
 
     # Write out the differences to a new file
     if write:
@@ -332,7 +397,7 @@ if __name__ == "__main__":
 
         # Choose which method for picking files to diff. Allow both string and
         # index choosing of method
-        available_pick = ["auto", "select", "select_one"]
+        available_pick = ["auto", "select", "select_one", "constant"]
         pick_method = input(f"Selection method? {available_pick}: ")
         try:
             pick_method = available_pick[int(pick_method)]
@@ -341,7 +406,11 @@ if __name__ == "__main__":
             pass
 
         # Choose which method for diff'ing files, allow string and index choice
-        available_diff = ["log", "poissons", "divide", "pct", "subtract", "mu"]
+        if pick_method != "constant":
+            available_diff = ["log", "poissons", "divide", "pct", "subtract", 
+                              "mu", "add"]
+        else:
+            available_diff = ["add", "subtract", "divide", "multiply", "norm"]
         diff_method = input(f"Method? {available_diff}: ")
         try:
             diff_method = available_diff[int(diff_method)]
@@ -353,16 +422,26 @@ if __name__ == "__main__":
         pick_method = "select_one"
         diff_method = "log"
 
-    if pick_method != "auto":
-        print_header(diff_method)
 
-    # Dynamic file picking
-    model_a, model_b, fid_out = pick_files(basepath, pick_method, globchoice, 
-                                           diff_method)
+    if pick_method != "constant":
+        if pick_method != "auto":
+            print_header(diff_method)
 
-    # Difference VTK files
-    for a, b, f in zip(model_a, model_b, fid_out):
-        print(f"diff {a} and {b} with '{diff_method}'... {f}")
-        differences = difference_vtk(a, b, write=f, method=diff_method)
+        # Dynamic file picking
+        model_a, model_b, fid_out = pick_files(basepath, pick_method, globchoice, 
+                                               diff_method)
+
+        # Difference VTK files
+        for a, b, f in zip(model_a, model_b, fid_out):
+            print(f"diff {a} and {b} with '{diff_method}'... {f}")
+            differences = difference_vtk(a, b, write=f, method=diff_method)
+    else:
+        # model_a = input("model_a fid: ")
+        # constant = input("constant: ")
+        # fid_out = input("fid_out: ")
+        model_a = "VSP_300ms.vtk"
+        constant = 300
+        fid_out = "VSP_300ms_div.vtk"
+        manipulate_vtk(model_a, constant, diff_method, fid_out)
 
 
