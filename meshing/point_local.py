@@ -56,8 +56,8 @@ def perturb(data, origin, radii, sign, window, **kwargs):
         # Temporary arrays to define the perturbation along a given axis
         range_ = np.arange(o - r, o + r, space)
         if "std" in kwargs:
-            kwargs["std"] = std / space
-        print(kwargs['std'])  # !!!
+            # gaussian std is a fraction of the radii for given dir
+            kwargs["std"] = 0.4 * r / space
         prtrb_ = window(len(range_), **kwargs)
 
         # For each coordinate, we multiple all applicable values by the given
@@ -174,7 +174,7 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
 
     apply_idx = [apply_dict[_] for _ in apply_to]
 
-    for fid in files:
+    for j, fid in enumerate(files):
         print(fid.split("/")[-1])
         _, data = xyz_reader(fid, save=True)
         data_out = data.copy()
@@ -233,6 +233,14 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
         np.save(fid_out, data_out)
         write_xyz(header, data_out, fid_out)
 
+        # this is going to get written thrice but too lazy to fix
+        if j == 0:
+            print("writing config files")
+            for i, (name, values) in enumerate(anomalies.items()):
+                with open(f"{name}_cfg.txt", "w") as f:
+                    for key, val in values.items():
+                        f.write(f"{key}: {val}")
+
 
 if __name__ == "__main__":
     # Each anomaly should have three keys: origin, radii, sign
@@ -245,20 +253,20 @@ if __name__ == "__main__":
 
     anomalies = {
             "mahia": 
-                {"origin": [578000., 5668000., -12E3],
-                 "radii": [6E3, 6E3, 6E3],
+                {"origin": [578000., 5668000., -11E3],
+                 "radii": [4.4E3, 4.4E3, 1.25E3],
                  "sign": 1},
             # "porangahau": 
             #     {"origin": [466855., 5538861., -10E3],
             #      "radii": [7.5E3, 7.5E3, 5E3],
-            #      "sign": 1},
+            #      asign": 1},
             # "cook_strait": 
-            #     {"origin": [307699., 5384284., 0.],
-            #      "radii": [25E3, 25E3, 10E3],
+            #     {"origin": [307699., 5384284., -3E3],
+            #      "radii": [20E3, 20E3, 3E3],
             #      "sign": -1},
             # "okataina": 
-            #     {"origin": [463185., 5780787., 0.,],
-            #      "radii": [10E3, 10E3, 5E3],
+            #     {"origin": [463185., 5780787., -1E3,],
+            #      "radii": [5E3, 5a3, 5E3],
             #      "sign": -1},
             # "whakamaru":
             #     {"origin": [427595., 5741709., 0.],
@@ -266,11 +274,11 @@ if __name__ == "__main__":
             #      "sign": -1},
                 }
     kwargs = {"window": signal.gaussian,
-              "std": 3E3
+              "std": True
               }
-    files = [# "tomography_model_mantle.xyz",
+    files = ["tomography_model_mantle.xyz",
              "tomography_model_crust.xyz",
-             # "tomography_model_shallow.xyz"
+             "tomography_model_shallow.xyz"
              ]
     main(anomalies, files, **kwargs)
 
