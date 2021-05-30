@@ -143,7 +143,7 @@ def plot_origin(data, origin, name=None, choice="vs"):
             plt.gca().set_aspect(1)
         plt.colorbar()
         plt.grid()
-        plt.savefig(f"{name}_{i}_{choice}.png")
+        plt.savefig(f"output/{name}_{i}_{choice}.png")
         plt.close()
 
     # if input("Acceptable?: "):
@@ -158,6 +158,8 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
     Apply point local perturbations at given points to the given velocity model
     Kwargs passed to scipy signal function underlying perturb function
     """
+    if not os.path.exists("output"):
+        os.makedirs("output")
     apply_dict = {"vp": 3, "vs": 4, "rho": 5, "qp": 6, "qs": 7}
 
     # Default values determining which values to manipulate with perturbation
@@ -214,8 +216,8 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
             plot_origin(data_out, origin, name, choice="vs")
 
         # Apply the offset values after all perturbations have been added
-        for apply, zeroval in zip(apply_to, zero_values):
-            idx = apply_dict[apply]
+        for apply_, zeroval in zip(apply_to, zero_values):
+            idx = apply_dict[apply_]
             if mode == "apply":
                 offset = data[:, idx]
             else:
@@ -224,20 +226,18 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
 
         # Finalize by saving the data into new files for SPECFEM
         print("writing new .xyz file")
-
         header = parse_data_to_header(data_out)
         fid_ = os.path.basename(fid)
-        base, ext = os.path.splitext(fid_)
-        fid_out = f"{base}_ploc{ext}"
+        fid_out = os.path.join("output", fid)
 
-        np.save(fid_out, data_out)
+        # np.save(fid_out, data_out)  # I delete these anyways
         write_xyz(header, data_out, fid_out)
 
         # this is going to get written thrice but too lazy to fix
         if j == 0:
             print("writing config files")
             for i, (name, values) in enumerate(anomalies.items()):
-                with open(f"{name}_cfg.txt", "w") as f:
+                with open(f"output/{name}_cfg.txt", "w") as f:
                     for key, val in values.items():
                         f.write(f"{key}: {val}")
 
@@ -252,26 +252,34 @@ if __name__ == "__main__":
     # underlying model. There is no checking involved to determine if correct
 
     anomalies = {
-            "mahia": 
-                {"origin": [578000., 5668000., -11E3],
-                 "radii": [4.4E3, 4.4E3, 1.25E3],
-                 "sign": 1},
+            # "mahia": 
+            #     {"origin": [578000., 5668000., -12E3],
+            #      "radii": [30E3, 30E3, 7E3],
+            #      "sign": 1},
             # "porangahau": 
-            #     {"origin": [466855., 5538861., -10E3],
-            #      "radii": [7.5E3, 7.5E3, 5E3],
-            #      asign": 1},
+            #     {"origin": [466855., 5538861., -15E3],
+            #      "radii": [15E3, 15E3, 5E3],
+            #      "sign": 1},
             # "cook_strait": 
             #     {"origin": [307699., 5384284., -3E3],
-            #      "radii": [20E3, 20E3, 3E3],
+            #      "radii": [20E3, 20E3, 7E3],
             #      "sign": -1},
             # "okataina": 
-            #     {"origin": [463185., 5780787., -1E3,],
-            #      "radii": [5E3, 5a3, 5E3],
+            #     {"origin": [463185., 5780787., -3E3],
+            #      "radii": [15E3, 15E3, 7E3],
             #      "sign": -1},
             # "whakamaru":
             #     {"origin": [427595., 5741709., 0.],
             #      "radii": [20E3, 20E3, 10E3],
             #      "sign": -1},
+            # "intraplate":
+            #     {"origin": [509140., 5515069., -17.5E3],
+            #      "radii": [30E3, 30E3, 10E3],
+            #      "sign": -1},
+            "taranaki":
+                {"origin": [246758., 5646174., -3E3],
+                 "radii": [20E3, 20E3, 7E3],
+                 "sign": -1},
                 }
     kwargs = {"window": signal.gaussian,
               "std": True
