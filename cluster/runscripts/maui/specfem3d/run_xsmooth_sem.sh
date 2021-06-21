@@ -28,6 +28,17 @@ SGMAV=10000.
 DIR_IN="SMOOTH/"
 DIR_OUT=${DIR_IN}
 USE_GPU=".false"
+
+# ==============================================================================
+# Example usage:
+#
+# $ cd path/to/specfem/workdir
+# $ mkdir SMOOTH
+# $ cd SMOOTH
+# $ ln -s ../OUTPUT_FILES/DATABASES_MPI/*vs.bin .
+# $ cd ..
+# $ sbatch run_xsmooth_sem.sh
+#
 # ==============================================================================
 
 # Get the number of processors from Par_file, ignore comments
