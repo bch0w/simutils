@@ -264,22 +264,55 @@ if __name__ == "__main__":
             #     {"origin": [307699., 5384284., -3E3],
             #      "radii": [20E3, 20E3, 7E3],
             #      "sign": -1},
+            # "lg_cook": 
+            #     {"origin": [317155., 5362128., -3E3],
+            #      "radii": [40E3, 40E3, 10E3],
+            #      "sign": -1},
             # "okataina": 
-            #     {"origin": [463185., 5780787., -3E3],
+            #     {"origin": [440915., 5775292., -3E3],
             #      "radii": [15E3, 15E3, 7E3],
+            #      "sign": -1},
+            # "south_tvz": 
+            #     {"origin": [418171.,5746769., 0],
+            #      "radii": [20E3, 20E3, 15E3],
+            #      "sign": -1},
+            "neg_pos": 
+                {"origin": [427587.,5675437., -5E3],
+                 "radii": [20E3, 20E3, 12E3],
+                 "sign": 1},
+            #"sm_taupo": 
+            #    {"origin": [404105.,5702640., -4E3],
+            #     "radii": [20E3, 20E3, 12E3],
+            #     "sign": 1},
+            # "taupo": 
+            #     {"origin": [404105.,5702640., 0],
+            #      "radii": [30E3, 30E3, 15E3],
+            #      "sign": 1},
+            # "tvz_deeper": 
+            #     {"origin": [441230.,5776443., 0],
+            #      "radii": [30E3, 30E3, 15E3],
+            #      "sign": -1},
+            # "tvz": 
+            #     {"origin": [441230.,5776443., -3E3],
+            #      "radii": [20E3, 20E3, 7E3],
             #      "sign": -1},
             # "whakamaru":
             #     {"origin": [427595., 5741709., 0.],
-            #      "radii": [20E3, 20E3, 10E3],
+            #      "radii": [20E3, 20E3, 10E3],a
             #      "sign": -1},
             # "intraplate":
             #     {"origin": [509140., 5515069., -17.5E3],
             #      "radii": [30E3, 30E3, 10E3],
             #      "sign": -1},
-            "taranaki":
-                {"origin": [246758., 5646174., -3E3],
-                 "radii": [20E3, 20E3, 7E3],
-                 "sign": -1},
+            # "aboveintra":
+            #     {"origin": [509140., 5515069., -5E3],
+            #      "radii": [20E3, 20E3, 7E3],
+            #      "sign": -1},
+            # "taranaki":
+            #     {"origin": [246758., 5646174., -3E3],
+            #      "radii": [20E3, 20E3, 7E3],
+            #      "sign": -1},
+            
                 }
     kwargs = {"window": signal.gaussian,
               "std": True
