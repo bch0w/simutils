@@ -11,6 +11,11 @@
 #SBATCH --time=02:30:00
 #SBATCH --output=smooth_sem_%j.out
 
+# note: runtime is dependent on the size of the smoothing Gaussian, i.e.
+#   larger radii = longer runtime. from experience, if sigma < 10km, set 
+#   time ~= 30min for a start. add 30 min for every additional 5km to sigma.
+#   trial and error required
+# 
 # ==============================================================================
 # INPUT PARAMETERS
 # ==============================================================================
