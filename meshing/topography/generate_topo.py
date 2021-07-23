@@ -7,8 +7,6 @@ https://topex.ucsd.edu/WWW_html/srtm30_plus.html (9.3.21 last access)
 .. note::
     Underlying topography files should be in .nc (NetCDF) format, these will be
     converted to numpy arrays internally
-
-
 """
 import os
 import sys
@@ -112,7 +110,7 @@ def cut_topography(data, x_or_lon_min, x_or_lon_max, y_or_lat_min,
     return data
 
 
-def interpolate_points(data, x_min, x_max, y_min, y_max, spacing_m):
+def interpolate_points(data, x_min, x_max, y_min, y_max, spacing_m, plot=False):
     """
     Interpolates data to a regular grid, based on mesh dimensions
 
@@ -144,6 +142,12 @@ def interpolate_points(data, x_min, x_max, y_min, y_max, spacing_m):
 
     # Interpolate the topography data
     interp_vals = griddata(points=points, values=values, xi=(x_grid, y_grid))
+
+    if plot:
+        import matplotlib.pyplot as plt
+        plt.imshow(interp_vals)
+        plt.gca().invert_yaxis()
+        plt.show()
 
     # Create the ndarray by creating column vectors and mushing em together
     z_out = interp_vals.flatten()
@@ -295,16 +299,16 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
 
 if __name__ == "__main__":
     # Set parameters here
-    tag = "topo_utm60s_hackfish"
-    utm_projection = -60
+    tag = "topo_utm59s_south"
+    utm_projection = -59
     method = "meshfem"
     coords = "latlon"
     buffer_m = 10E3  # add some wiggle room if the bounds are precise
     if coords == "latlon":
-        lat_min = -41.75
-        lat_max = -34.30
-        lon_min = 172.5
-        lon_max = -179.
+        lat_min = -47.5
+        lat_max = -40.
+        lon_min = 165
+        lon_max = 176.
         x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
         x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
     elif coords == "xyz":
@@ -323,7 +327,8 @@ if __name__ == "__main__":
 
     # Load the topography file to be interpolated, can use multiple files if
     # your domain extends beyond a single file
-    path = "/Users/Chow/Documents/academic/vuw/data/carto/topography/srtm30p/*"
+    path = ("/Users/Chow/Documents/academic/vuw/data/carto/topography/srtm30p/"
+            "*.nc")
     srtm_files = glob(path)
 
     main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m)
