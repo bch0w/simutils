@@ -1,7 +1,7 @@
 {
 	"tag": "hackfish",
     "dir_name": "./created/hackfish/8sec",
-    "lat_min": -41.65,
+    "lat_min": -41.75,
     "lat_max": -34.3,
     "lon_min": 172.5,
     "lon_max": -179.0,
@@ -9,20 +9,20 @@
     "mesh_depth_km": 400.0,
     "mesh_top_km": -2.67,
     "doubling_layers": [
-        30, 70
+        30, 50
     ],
     "interfaces": [
-        30
+        10, 30
     ],
     "interface_fids": [
-        "interface_30.dat"
+        "interface_10.dat",
+        "interface_20.dat"
     ],
     "regions": [
        8, 50
     ],
-    "nproc": 120,
-    "topo": "nznorth_ext",
-    "grid_space_top_hv": [6, 3.0],
+    "nproc": 160,
+    "grid_space_top_hv": [6, 1.0],
     "shortest_period_s": 10,
     "vs_min_km_per_s": 1.0,
     "vp_max_km_per_s": 9.3,

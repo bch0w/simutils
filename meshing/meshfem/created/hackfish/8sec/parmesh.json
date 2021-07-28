@@ -21,7 +21,6 @@
        8, 50
     ],
     "nproc": 120,
-    "topo": "nznorth_ext",
     "grid_space_top_hv": [6, 3.0],
     "shortest_period_s": 10,
     "vs_min_km_per_s": 1.0,

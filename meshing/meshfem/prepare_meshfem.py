@@ -546,7 +546,7 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
 
 
 def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
-                     fids=[]):
+                     fids=[], topo="default"):
     """
     Write the interfaces.dat file as well as the corresponding flat interface
     layers. Topo will need to be written manually
@@ -572,9 +572,18 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
     # Template for setting a flat layer
     flat_layer = f".false. 2 2 {lon_min:.1f}d0 {lat_min:.1f}d0 180.d0 180.d0"
 
-    # Hardcoded topo layer, CHANGE THIS
+    # Hardcoded topo layers define the structure of the underlying 
+    # single-column topography file that must be generated externally    
     topo_fid = "interface_topo.dat"
-    topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0"
+    logger.info(f"Setting topography to '{topo}' pointing to file '{topo_fid}'")
+    if topo == "nznorth":
+        topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0"
+    elif topo == "nzsouth": 
+        topo = ".true. 899 859 38192d0 -5288202d0 1000.00d0 1000.00d0"
+    elif topo == "nznorth_ext":
+        topo = ".true. 763 850 115822.d0 5358185.d0 1000.00d0 1000.00d0"
+    else:
+        topo = flat_layer
 
     # Write to a new file
     logger.info("WRITING interfaces.dat")
@@ -721,7 +730,13 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
 
         # Format the interfaces file
         if pars["interfaces"]:
-            write_interfaces(template=interfaces_template, 
+            # Choice to set topography line in interface, which defines the
+            # structure of the single-column topography file
+            if pars["topo"]:
+                topo = pars["topo"] 
+            else:
+                topo = "default"
+            write_interfaces(template=interfaces_template, topo=topo 
                              dir_name=pars["dir_name"], layers=layers, 
                              interfaces=pars["interfaces"],
                              lat_min=pars["lat_min"], lon_min=pars["lon_min"],

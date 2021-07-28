@@ -56,8 +56,8 @@ def perturb(data, origin, radii, sign, window, **kwargs):
         # Temporary arrays to define the perturbation along a given axis
         range_ = np.arange(o - r, o + r, space)
         if "std" in kwargs:
-            kwargs["std"] = std / space
-        print(kwargs['std'])  # !!!
+            # gaussian std is a fraction of the radii for given dir
+            kwargs["std"] = 0.4 * r / space
         prtrb_ = window(len(range_), **kwargs)
 
         # For each coordinate, we multiple all applicable values by the given
@@ -143,7 +143,7 @@ def plot_origin(data, origin, name=None, choice="vs"):
             plt.gca().set_aspect(1)
         plt.colorbar()
         plt.grid()
-        plt.savefig(f"{name}_{i}_{choice}.png")
+        plt.savefig(f"output/{name}_{i}_{choice}.png")
         plt.close()
 
     # if input("Acceptable?: "):
@@ -158,6 +158,8 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
     Apply point local perturbations at given points to the given velocity model
     Kwargs passed to scipy signal function underlying perturb function
     """
+    if not os.path.exists("output"):
+        os.makedirs("output")
     apply_dict = {"vp": 3, "vs": 4, "rho": 5, "qp": 6, "qs": 7}
 
     # Default values determining which values to manipulate with perturbation
@@ -174,7 +176,7 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
 
     apply_idx = [apply_dict[_] for _ in apply_to]
 
-    for fid in files:
+    for j, fid in enumerate(files):
         print(fid.split("/")[-1])
         _, data = xyz_reader(fid, save=True)
         data_out = data.copy()
@@ -214,8 +216,8 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
             plot_origin(data_out, origin, name, choice="vs")
 
         # Apply the offset values after all perturbations have been added
-        for apply, zeroval in zip(apply_to, zero_values):
-            idx = apply_dict[apply]
+        for apply_, zeroval in zip(apply_to, zero_values):
+            idx = apply_dict[apply_]
             if mode == "apply":
                 offset = data[:, idx]
             else:
@@ -224,14 +226,20 @@ def main(anomalies, files, mode="return", apply_to=None, zero_values=None,
 
         # Finalize by saving the data into new files for SPECFEM
         print("writing new .xyz file")
-
         header = parse_data_to_header(data_out)
         fid_ = os.path.basename(fid)
-        base, ext = os.path.splitext(fid_)
-        fid_out = f"{base}_ploc{ext}"
+        fid_out = os.path.join("output", fid)
 
-        np.save(fid_out, data_out)
+        # np.save(fid_out, data_out)  # I delete these anyways
         write_xyz(header, data_out, fid_out)
+
+        # this is going to get written thrice but too lazy to fix
+        if j == 0:
+            print("writing config files")
+            for i, (name, values) in enumerate(anomalies.items()):
+                with open(f"output/{name}_cfg.txt", "w") as f:
+                    for key, val in values.items():
+                        f.write(f"{key}: {val}")
 
 
 if __name__ == "__main__":
@@ -244,33 +252,74 @@ if __name__ == "__main__":
     # underlying model. There is no checking involved to determine if correct
 
     anomalies = {
-            "mahia": 
-                {"origin": [578000., 5668000., -12E3],
-                 "radii": [6E3, 6E3, 6E3],
-                 "sign": 1},
+            # "mahia": 
+            #     {"origin": [578000., 5668000., -12E3],
+            #      "radii": [30E3, 30E3, 7E3],
+            #      "sign": 1},
             # "porangahau": 
-            #     {"origin": [466855., 5538861., -10E3],
-            #      "radii": [7.5E3, 7.5E3, 5E3],
+            #     {"origin": [466855., 5538861., -15E3],
+            #      "radii": [15E3, 15E3, 5E3],
             #      "sign": 1},
             # "cook_strait": 
-            #     {"origin": [307699., 5384284., 0.],
-            #      "radii": [25E3, 25E3, 10E3],
+            #     {"origin": [307699., 5384284., -3E3],
+            #      "radii": [20E3, 20E3, 7E3],
+            #      "sign": -1},
+            # "lg_cook": 
+            #     {"origin": [317155., 5362128., -3E3],
+            #      "radii": [40E3, 40E3, 10E3],
             #      "sign": -1},
             # "okataina": 
-            #     {"origin": [463185., 5780787., 0.,],
-            #      "radii": [10E3, 10E3, 5E3],
+            #     {"origin": [440915., 5775292., -3E3],
+            #      "radii": [15E3, 15E3, 7E3],
+            #      "sign": -1},
+            # "south_tvz": 
+            #     {"origin": [418171.,5746769., 0],
+            #      "radii": [20E3, 20E3, 15E3],
+            #      "sign": -1},
+            "neg_pos": 
+                {"origin": [427587.,5675437., -5E3],
+                 "radii": [20E3, 20E3, 12E3],
+                 "sign": 1},
+            #"sm_taupo": 
+            #    {"origin": [404105.,5702640., -4E3],
+            #     "radii": [20E3, 20E3, 12E3],
+            #     "sign": 1},
+            # "taupo": 
+            #     {"origin": [404105.,5702640., 0],
+            #      "radii": [30E3, 30E3, 15E3],
+            #      "sign": 1},
+            # "tvz_deeper": 
+            #     {"origin": [441230.,5776443., 0],
+            #      "radii": [30E3, 30E3, 15E3],
+            #      "sign": -1},
+            # "tvz": 
+            #     {"origin": [441230.,5776443., -3E3],
+            #      "radii": [20E3, 20E3, 7E3],
             #      "sign": -1},
             # "whakamaru":
             #     {"origin": [427595., 5741709., 0.],
-            #      "radii": [20E3, 20E3, 10E3],
+            #      "radii": [20E3, 20E3, 10E3],a
             #      "sign": -1},
+            # "intraplate":
+            #     {"origin": [509140., 5515069., -17.5E3],
+            #      "radii": [30E3, 30E3, 10E3],
+            #      "sign": -1},
+            # "aboveintra":
+            #     {"origin": [509140., 5515069., -5E3],
+            #      "radii": [20E3, 20E3, 7E3],
+            #      "sign": -1},
+            # "taranaki":
+            #     {"origin": [246758., 5646174., -3E3],
+            #      "radii": [20E3, 20E3, 7E3],
+            #      "sign": -1},
+            
                 }
     kwargs = {"window": signal.gaussian,
-              "std": 3E3
+              "std": True
               }
-    files = [# "tomography_model_mantle.xyz",
+    files = ["tomography_model_mantle.xyz",
              "tomography_model_crust.xyz",
-             # "tomography_model_shallow.xyz"
+             "tomography_model_shallow.xyz"
              ]
     main(anomalies, files, **kwargs)
 

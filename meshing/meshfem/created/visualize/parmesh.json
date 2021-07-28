@@ -1,0 +1,26 @@
+{
+	"tag": "visualize",
+    "dir_name": "./created/visualize",
+    "lat_min": -42.5,
+    "lat_max": -37.0,
+    "lon_min": 173.0,
+    "lon_max": 178.5,
+    "utm_projection": -60,
+    "mesh_depth_km": 100.0,
+    "mesh_top_km": -2.67,
+    "doubling_layers": [
+    ],
+    "interfaces": [
+    ],
+    "interface_fids": [
+    ],
+    "regions": [
+       8, 50
+    ],
+    "nproc": 80,
+    "grid_space_top_hv": [4, 4],
+    "shortest_period_s": 6.0,
+    "vs_min_km_per_s": 1.2,
+    "vp_max_km_per_s": 9.3,
+    "top_vertical_element_ratio": 1.0
+}

@@ -3,7 +3,7 @@
 #SBATCH --job-name=combine_vol_data_vtk
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --account=nesi00263
+#SBATCH --account=gns03247
 #SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
@@ -49,7 +49,7 @@ NPROC_END=`expr $NPROC - 1`
 
 # Set the paths for Specfem to search
 DIR_IN="./SUM"
-DIR_OUT="./SUM"
+DIR_OUT=${DIR_IN}
 mkdir -p ${DIR_OUT}
 
 # If no quantity is specified, grab everything in the sum folder
@@ -58,7 +58,7 @@ then
     for f in ${DIR_IN}/proc000000_*.bin;
     do
         # Cut out the kernel quantity name from the filename
-        QUANTITY=`echo ${f:18} | cut -d'.' -f 1`
+        QUANTITY=`echo ${f:17} | cut -d'.' -f 1`
 
         # Run the binary
         echo "xcombine_vol_data_vtk ${NPROC_START} ${NPROC_END} for ${QUANTITY}"
