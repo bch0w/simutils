@@ -53,9 +53,9 @@ def plot(tr, fp):
 if __name__ == "__main__":
     # ====================================
     # DEFINE PARAMETERS HERE
-    tmin = 4
+    tmin = 6
     tmax = 30
-    windows = {"Z": [200, 220],}
+    windows = {"Z": [235, 245],}
     half_duration = .7
     # =====================================
 

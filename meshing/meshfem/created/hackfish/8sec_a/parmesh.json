@@ -9,10 +9,10 @@
     "mesh_depth_km": 400.0,
     "mesh_top_km": -2.67,
     "doubling_layers": [
-        50, 70
+        30, 50
     ],
     "interfaces": [
-        40, 65
+        28, 45
     ],
     "interface_fids": [
         "interface_1.dat",
@@ -22,10 +22,10 @@
     "regions": [
        8, 50
     ],
-    "nproc": 120,
+    "nproc": 80,
     "topo": "nznorth_ext",
-    "grid_space_top_hv": [10, 4],
-    "shortest_period_s": 12,
+    "grid_space_top_hv": [8, 2.5],
+    "shortest_period_s": 10,
     "vs_min_km_per_s": 1.0,
     "vp_max_km_per_s": 9.3,
     "top_vertical_element_ratio": 1.0

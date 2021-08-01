@@ -6,10 +6,10 @@
 #-----------------------------------------------------------
 
 # coordinates of mesh block in latitude/longitude and depth in km
-LATITUDE_MIN                    = -47.5d0
-LATITUDE_MAX                    = -40.0d0
-LONGITUDE_MIN                   = 165.0d0
-LONGITUDE_MAX                   = 176.0d0
+LATITUDE_MIN                    = -41.6d0
+LATITUDE_MAX                    = -34.3d0
+LONGITUDE_MIN                   = 172.5d0
+LONGITUDE_MAX                   = -179.0d0
 DEPTH_BLOCK_KM                  = 400.0d0
 UTM_PROJECTION_ZONE             = -60
 SUPPRESS_UTM_PROJECTION         = .false.
@@ -42,8 +42,8 @@ USE_REGULAR_MESH                = .false.
 # Only for irregular meshes, number of doubling layers and their position
 NDOUBLINGS                      = 2
 # NZ_DOUBLING_1 is the parameter to set up if there is only one doubling layer
-NZ_DOUBLING_1                   = 18
-NZ_DOUBLING_2                   = 20
+NZ_DOUBLING_1                   = 36
+NZ_DOUBLING_2                   = 39
 
 
 #-----------------------------------------------------------
@@ -104,8 +104,8 @@ NMATERIALS                      = 3
 NREGIONS                        = 3
 # define the different regions of the model as :
 # NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-1     128   1     160   1     20    1    
-1     128   1     160   21    28    2    
-1     128   1     160   29    30    3    
+1     128   1     160   1     36    1    
+1     128   1     160   37    48    2    
+1     128   1     160   49    52    3    
 
 
