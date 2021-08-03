@@ -22,7 +22,7 @@
     "regions": [
        8, 50
     ],
-    "nproc": 120,
+    "nproc": 40,
     "topo": "nznorth_ext",
     "grid_space_top_hv": [10, 4],
     "shortest_period_s": 12,

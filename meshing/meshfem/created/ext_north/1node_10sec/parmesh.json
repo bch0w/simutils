@@ -1,10 +1,10 @@
 {
-	"tag": "south_island",
-    "dir_name": "./created/south_island",
-    "lat_min": -47.5,
-    "lat_max": -40.0,
-    "lon_min": 165.0,
-    "lon_max": 176.0,
+	"tag": "hackfish",
+    "dir_name": "./created/hackfish/8sec",
+    "lat_min": -41.65,
+    "lat_max": -34.3,
+    "lon_min": 172.5,
+    "lon_max": -179.0,
     "utm_projection": -60,
     "mesh_depth_km": 400.0,
     "mesh_top_km": -2.67,
@@ -12,7 +12,7 @@
         50, 70
     ],
     "interfaces": [
-        48, 65
+        40, 65
     ],
     "interface_fids": [
         "interface_1.dat",
@@ -22,11 +22,11 @@
     "regions": [
        8, 50
     ],
-    "nproc": 80,
-    "topo": "nzsouth",
-    "grid_space_top_hv": [8, 5],
-    "shortest_period_s": 10.0,
-    "vs_min_km_per_s": 1.2,
+    "nproc": 40,
+    "topo": "nznorth_ext",
+    "grid_space_top_hv": [10, 4],
+    "shortest_period_s": 12,
+    "vs_min_km_per_s": 1.0,
     "vp_max_km_per_s": 9.3,
     "top_vertical_element_ratio": 1.0
 }

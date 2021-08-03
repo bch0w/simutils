@@ -22,10 +22,10 @@
     "regions": [
        8, 50
     ],
-    "nproc": 80,
+    "nproc": 40,
     "topo": "nzsouth",
-    "grid_space_top_hv": [8, 5],
-    "shortest_period_s": 10.0,
+    "grid_space_top_hv": [12, 4],
+    "shortest_period_s": 12.0,
     "vs_min_km_per_s": 1.2,
     "vp_max_km_per_s": 9.3,
     "top_vertical_element_ratio": 1.0
