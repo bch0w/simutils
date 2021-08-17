@@ -11,11 +11,22 @@ from scipy import interpolate
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from PIL import Image
+from pyproj import Proj
+
+
+# COORDINATE CONVERSION CONSTANTS
+UTM_ZONE = -60 
+XMIN = 171312.
+XMAX = 633468.
+YMIN = 5286952.
+YMAX = 5904085.
+
 
 
 def read(fid):
     """
     Simple read and parse of the XYZ data files using numpy
+    :return: lon, lat, z
     """
     data = np.loadtxt(fid)
     assert(data.shape[1] == 3), ".xyz file is in the wrong format"
@@ -48,6 +59,36 @@ def time_step(fid, dt=1):
         print("file name does not adhere to expected format")
     return float(step * dt)
 
+
+def convert_coords(lon, lat, utm_zone=None):
+    """
+    Convert from the native Lat/Lon coordinate system into UTM 60S coordinates
+    This only needs to be done for the first file because the remaining files
+    are assumed to follow the same coordinate points.
+    """
+    if utm_zone is None:
+        utm_zone = UTM_ZONE
+
+    if utm_zone < 0:
+        south=True
+    elif utm_zone > 0:
+        south = False
+
+    projection = Proj(proj="utm", zone=abs(utm_zone), south=south, 
+                      ellps="WGS84", preserve_units=False)
+    x, y = projection(lon, lat, inverse=False)
+
+    # Zero out the origin
+    x -= XMIN
+    y -= YMIN
+
+    # Convert units of m to km
+    x /= 1E3
+    y /= 1E3
+
+    return x, y
+
+
 def plot(ax, x, y, z, min_val=None, max_val=None, show=True, save=False, 
          **kwargs):
     """
@@ -74,29 +115,38 @@ def plot(ax, x, y, z, min_val=None, max_val=None, show=True, save=False,
         tcf = ax.tricontourf(x, y, z, **kwargs) 
 
     # Colorbar
-    cbar = plt.colorbar(tcf, label=kwargs["cbar_title"], shrink=0.5,aspect=8, 
+    cbar = plt.colorbar(tcf, label=cbar_title, shrink=0.5,aspect=8, 
                         pad=.03, ticks=[0, max_val/2, max_val])
     cbar.ax.yaxis.set_offset_position("left")
     # cbar.ax.set_yticklabels(["0", "2", ">4"])
+    # Mark where the min value threshold is set
+    cbar.ax.plot([0, 1], [min_val, min_val], "cyan")
+
     cbar.update_ticks()
 
     # Accoutrement
-    plt.xlabel("Longitude")
-    plt.ylabel("Latitude", rotation=90)
     for axis in ["top", "bottom", "left", "right"]:
         ax.spines[axis].set_linewidth(2)
 
 
-def srcrcv(source=None, receiver=None):
+def srcrcv(source=None, receiver=None, convert=False):
     """
     Plot the source and receiver as simple markers
     """
     if source:
-        plt.scatter(source[0], source[1], marker="*", s=70, color="k", 
-                    linewidth=1, edgecolors="k")
+        if convert:
+            x, y = convert_coords(source[0], source[1])
+        else:
+            x, y = source
+        plt.scatter(x, y, marker="*", s=100, color="k", linewidth=1, 
+                    edgecolors="k")
     if receiver:
-        plt.scatter(receiver[0], receiver[1], marker="v", s=50, color="w", 
-                    linewidth=1.5, edgecolors="k")
+        if convert:
+            x, y = convert_coords(receiver[0], receiver[1])
+        else:
+            x, y = receiver
+        plt.scatter(x, y, marker="v", s=100, color="w", linewidth=1.5, 
+                    edgecolors="k")
 
 
 def gif(path, duration, fid_out="output.gif"):
@@ -116,31 +166,55 @@ def gif(path, duration, fid_out="output.gif"):
         run(call.split(" "))
 
 
-def nznorth_extras(f, ax, text=None, faults=None):
+def nznorth_extras(f, ax, text=None, faults=None, xy=None, coord="xy"):
     """
     Plot extra features on NZNorth such as labels, coastline, bathymetry,
     whatever
+    :type coord: str
+    :param coord: can be 'xy' (UTM 60S) or 'latlon' (WGS84)
     """
-    # Plot coastline for NZ ATOM North
-    coast_fid = ("/Users/Chow/Documents/academic/vuw/data/carto/coastline/"
-                 "extras/coast_latlon.txt")
-    lat, lon = np.loadtxt(coast_fid).T
-    plt.scatter(lon, lat, c="k", s=.005, marker=".")
+    base_dir = "/Users/Chow/Documents/academic/vuw/data/carto/"
+    if xy is None:
+        if coord == "latlon":
+            coast_fid = os.path.join(base_dir, "coastline/coast_latlon.txt")
+            xy = np.loadtxt(coast_fid).T
+            y, x = xy
+        elif coord == "xy":
+            coast_fid = os.path.join(base_dir, 
+                                     "coastline/coast_nznorth_utm60.txt")
+            xy = np.loadtxt(coast_fid).T
+            x, y = xy
+            # Zero origin and convert coordinates
+            for i, (val, min_) in enumerate(zip(xy, [XMIN, YMIN])):
+                xy[i] = (val - min_) * 1E-3
+    else:
+        x, y = xy
+       
+    if coord == "latlon":
+        xlabel = "Latitude"
+        ylabel = "Longitude"
+        xtext, ytext = (178.4, -42.4)
+    elif coord == "xy":
+        xlabel = "X [km]"
+        ylabel = "Y [km]"
+        xtext, ytext = (450, 10)
 
+    plt.scatter(x, y, c="k", s=.05, marker=".")
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel, rotation=90)
     if text:
-        plt.text(x=178.4, y=-42.4, s=text, color="k", fontsize=10, 
+        plt.text(x=xtext, y=ytext, s=text, color="k", fontsize=10, 
                  verticalalignment="bottom", horizontalalignment="right")
+    
+    # Plot the trench
+    trench = os.path.join(base_dir, "trench", "hikurangi_trench_utm60s.txt")
+    xt, yt, _  = np.loadtxt(trench).T
+    # Zero origin based on coastline file
+    xt = (xt - XMIN) * 1E-3
+    yt = (yt - YMIN) * 1E-3
+    plt.plot(xt, yt, c="k", linewidth=1)
 
-    # Plot active faults
-    # if not faults:
-    #     faults_fid = ("/Users/Chow/Documents/academic/vuw/data/carto/"
-    #               "fault_coordinates/forest_mesh_gns_active_faults.txt")
-    #     faults = np.loadtxt(faults_fid).T
-
-    # f, lat, lon = faults
-    # for f_ in np.unique(f):
-    #     idx = np.where(f == f_)
-    #     plt.plot(lon[idx], lat[idx], c="k", linewidth=.5)
+    return xy
 
 
 if __name__ == "__main__":
@@ -148,9 +222,10 @@ if __name__ == "__main__":
     # ACTIONS
     make_pngs = 1
     make_gif = 0
+    trial_run = 0
     # =========================================================================
     # PARAMETER SET HERE
-    choice = "2018p130600"
+    choice = "2016p105478"
     input_path = f"./inputs/{choice}/norm_vel"
     output_path = "./simulation"
     gif_fid = "sim_mov.gif"
@@ -159,7 +234,7 @@ if __name__ == "__main__":
     dt = .0125
     normalized = True
     gif_duration_ms = 200  # milliseconds
-    trial = 0
+    convert = True
     if choice == "2018p130600":
         max_val = 4E-5
         source = [176.300, -39.949]  # 2018p130600
@@ -181,6 +256,13 @@ if __name__ == "__main__":
         text = ("2016p881118\n"
                 "2016-11-22T00:19:42Z\n"
                 "M5.5, 29km depth")
+    elif choice == "adj_2016p105478":
+        max_val = 1.E-11
+        source = [173.075, -42.068]  # 2016p105478
+        receiver = [176.981, -38.616]  # NZ.PUZ
+        text = ("2016p105478\n"
+                "2016-02-09T00:39:00Z\n"
+                "M5.7, 48km depth")
 
     # =========================================================================
     # Controls on colorbar
@@ -188,24 +270,22 @@ if __name__ == "__main__":
         kwargs = {"cmap": "gist_heat_r",
                   "norm": plt.Normalize(0, max_val), 
                   "levels": 101,
-                  "cbar_title": "norm of velocity [m/s]"
                   }
+        cbar_title = "norm of velocity [m/s]"
     else:
         # For single component 
         kwargs = {"cmap": "seismic", 
                   "norm": plt.Normalize(-1 * max_val, max_val), 
                   "levels": 100,
-                  "cbar_title": "z velocity [m/s]"
                   }
+        cbar_title = "z comp. velocity [m/s]"
 
     files = []
     # Test files to sample random data points to get an idea of relative amps
-    if trial:
-        files = ["gmt_movie_000080.xyz",
-                 "gmt_movie_005600.xyz",
-                 "gmt_movie_010000.xyz",
-                 "gmt_movie_019680.xyz",]
-        files = [os.path.join(input_path, _) for _ in files]
+    if trial_run:
+        files = find(input_path, file_ext)
+        n = int(len(files))
+        files = [files[0], files[40], files[int(n/3)], files[int(2*n/3)], files[-1]]
     # =========================================================================
 
     # Prep the file system
@@ -215,14 +295,21 @@ if __name__ == "__main__":
         files = find(input_path, file_ext)
         
     # Make the .png files
-    faults = None
+    xy = None
+    if convert:
+        x_utm, y_utm = True, True
+    else:
+        x_utm, y_utm = None, None
     if make_pngs:
         ts_max = time_step(files[-1], dt=dt)
-        for file_ in files:
+        for i, file_ in enumerate(files):
             # Set up the plot
             ts = time_step(file_, dt=dt)
             x, y, z = read(file_)
-
+            if x_utm is not None:
+                if i == 0:
+                    x_utm, y_utm = convert_coords(x, y)
+                x, y = x_utm, y_utm
 
             f, ax = plt.subplots(1)
             ax.set_aspect(1)
@@ -230,12 +317,14 @@ if __name__ == "__main__":
 
             # Plot that ish
             plot(ax, x, y, z, min_val=min_val, max_val=max_val,  **kwargs)
-            srcrcv(source, receiver)
-            faults = nznorth_extras(f, ax, text, faults)
+            srcrcv(source, receiver, convert=convert)
+            xy = nznorth_extras(f, ax, text, xy=xy)
 
             plt.title(f"t={ts:6.2f} s")
-            plt.xlim([173, 178.5])
-            plt.ylim([-42.5, -37])
+            plt.xlim([x.min(), x.max()])
+            plt.ylim([y.min(), y.max()])
+            # plt.xlim([173, 178.5])
+            # plt.ylim([-42.5, -37])
 
             # Clean up the end
             fid_out = os.path.join(output_path, 
