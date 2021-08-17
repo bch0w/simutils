@@ -13,9 +13,11 @@ import matplotlib.pyplot as plt
 # Parameters
 dt = 1  # seconds
 t_offset = 20  # to ensure that the origin time is 0 and not a negative number
-trial = False
+trial = 0
 component = "Z"
 input_files = glob(f"./inputs/input_wav/??.???.HX{component}.semd")
+obs_waveform = ("/Users/Chow/Documents/academic/vuw/tomo/mkmovies/inputs/"
+                "2018p130600/NZ_KNZ/nz_puz_z.ascii")
 assert(len(input_files) == 1)
 input_file = input_files[0]
 print(input_file)
@@ -23,6 +25,11 @@ print(input_file)
 # Read in the 2 column ascii and set offset
 time, data = np.loadtxt(input_file).T
 time += t_offset
+
+if obs_waveform:
+    otime, odata = np.loadtxt(obs_waveform).T
+else:
+    otime, odata = None, None
 
 # Loop through times and plot consecutive
 idx = []
@@ -39,9 +46,14 @@ for t in np.arange(time.min(), time.max(), dt):
 
     # Plot the progressive waveform and a tracking marker
     f, ax = plt.subplots(1, figsize=[6, 3.])
-    plt.plot(time[idx], data[idx], c="r", linewidth=2, zorder=1)
+    plt.plot(time[idx], data[idx], c="r", linewidth=2, zorder=9, 
+             label="synthetic")
     plt.scatter(time[tstep], data[tstep], marker="o", linewidth=1, c="k",
                 zorder=10)
+
+    # Plot observed seismogram in the background
+    if otime is not None:
+        plt.plot(otime, odata, c="k", linewidth=1, zorder=8, label="observed")
 
     # Make sure all the plots look the same
     plt.xlim([time.min(), time.max()])
@@ -49,8 +61,8 @@ for t in np.arange(time.min(), time.max(), dt):
     plt.ylim([-1 * data_max, data_max])
     plt.xlabel("time [s]")
     plt.ylabel("displacement [m]")
+    plt.legend()
     plt.title(os.path.basename(input_file))
-
 
     ax.tick_params(which="major", length=5, width=1.5, direction="in",
                    bottom=True, top=True, left=True, right=True)

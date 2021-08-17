@@ -194,9 +194,9 @@ PRESETS = {
     # Zeroth Moment
     "zm": Preset(
         title="PSF [1E-6 $s^{3}m^{-1}$]", cmap="Black, Blue and White", invert=True,
-        center=False, fmt="%.1f", rnd=None, bounds=[0, 2.5], nlabel=2,
-        nvalues=21, isosurfaces=[.2],
-        scale_units=1E6,
+        center=False, fmt="%.1f", rnd=None, bounds=[0, 5], nlabel=2,
+        nvalues=21, isosurfaces=[.8],
+        scale_units=1E7,
     ),
     # Incorrect finite-difference sign means some PSFVs have to be flipped
     "psfv_neg": Preset(
@@ -2881,9 +2881,9 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
         a=1/0
     elif choice in ["volumetric"]:
         # these are defined in the zero-origin coord system
-        origin, normal = DIAGONALS["Porangahau"]; flip_view=False; choice="Porangahau"  # camera to 500
+        # origin, normal = DIAGONALS["Porangahau"]; flip_view=False; choice="Porangahau"  # camera to 500
         # origin, normal = DIAGONALS["Napier"]; flip_view=False; choice="Napier"
-        # origin, normal = DIAGONALS["Reyners"]; flip_view=True; choice="along_strike"
+        origin, normal = DIAGONALS["Reyners"]; flip_view=True; choice="along_strike"
         tag = choice
         xmin=0
         xmax=462.156
