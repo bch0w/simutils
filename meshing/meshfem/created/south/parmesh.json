@@ -1,0 +1,32 @@
+{
+	"tag": "south_island",
+    "dir_name": "./created/south_island",
+    "lat_min": -47.5,
+    "lat_max": -40.0,
+    "lon_min": 165.0,
+    "lon_max": 176.0,
+    "utm_projection": -60,
+    "mesh_depth_km": 400.0,
+    "mesh_top_km": -2.67,
+    "doubling_layers": [
+        50, 70
+    ],
+    "interfaces": [
+        48, 65
+    ],
+    "interface_fids": [
+        "interface_1.dat",
+        "interface_2.dat"
+    ],
+    "interface_increase": 2,
+    "regions": [
+       8, 50
+    ],
+    "nproc": 40,
+    "topo": "nzsouth",
+    "grid_space_top_hv": [12, 4],
+    "shortest_period_s": 12.0,
+    "vs_min_km_per_s": 1.2,
+    "vp_max_km_per_s": 9.3,
+    "top_vertical_element_ratio": 1.0
+}

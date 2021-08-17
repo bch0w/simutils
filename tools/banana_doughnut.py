@@ -34,14 +34,20 @@ def preprocess(st_original, tmin, tmax, half_duration=None):
     return st
 
 
-def plot(tr, fp):
+def plot(tr, fp, window):
     """
     Simple plot to visualize the waveform cut and the resulting adjoint source
     """
     # Plot up the resulting waveform before time reversing
     plt.plot(tr.times() + float(tr.stats.starttime), tr.data/tr.data.max(), 
              c="k", label=tr.get_id())
-    plt.plot(fp[::-1, 0], fp[:, 1]/fp[:, 1].max(), c="r", 
+    start, end = [int((_ - float(tr.stats.starttime)) / tr.stats.delta) 
+                            for _ in window]
+    plt.plot((tr.times() + float(tr.stats.starttime))[start:end],
+             (tr.data/tr.data.max())[start:end], c="r", label="window")
+
+    # Plot the adjoint source up and shifted away from the actual seismogram
+    plt.plot(fp[::-1, 0], fp[:, 1]/fp[:, 1].max() + 2, c="r", 
              label=f"Adjoint Source")
     plt.xlabel("time [s]")
     plt.ylabel("amplitude")
@@ -53,9 +59,9 @@ def plot(tr, fp):
 if __name__ == "__main__":
     # ====================================
     # DEFINE PARAMETERS HERE
-    tmin = 4
+    tmin = 6
     tmax = 30
-    windows = {"Z": [200, 220],}
+    windows = {"Z": [210, 215],}
     half_duration = .7
     # =====================================
 
@@ -85,5 +91,5 @@ if __name__ == "__main__":
         fp = traveltime_adjoint_source(tr=tr, time_window=window, zeros=zeros,
                                        reverse=True, save=fid_out)
         if not zeros:
-            plot(tr, fp) 
+            plot(tr, fp, window) 
         
