@@ -8,14 +8,14 @@
 #SBATCH --clusters=maui
 #SBATCH --partition=nesi_research
 #SBATCH --hint=nomultithread
-#SBATCH --time=00:30:00
+#SBATCH --time=02:30:00
 #SBATCH --output=smooth_sem_%j.out
 
 # Kernel to smooth and smoothing parameters must be specified by user
-KERNEL="vs"
-SGMAH=17500.
-SGMAV=4000.
-DIR_IN="SUM/"
+KERNEL="vs_kernel"
+SGMAH=20000.
+SGMAV=10000.
+DIR_IN="SMOOTH/"
 DIR_OUT=${DIR_IN}
 USE_GPU=".false"
 

@@ -375,7 +375,8 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z):
     layers = []
     for i in range(len(all_interfaces) - 1):
         j = i + 1
-        grid_space_vert = grid_space_z * 3 ** i
+        grid_space_vert = grid_space_z * 2 ** i
+        # grid_space_vert = grid_space_z * 3 ** i  # original
         num_layers = (all_interfaces[j] - all_interfaces[i]) / grid_space_vert
         layers.append(myround(num_layers, 1, "near"))
         logger.info(f"\t{layers[i]} layers of {grid_space_vert}km between "
