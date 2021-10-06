@@ -348,7 +348,8 @@ def calculate_nelements(nex_x, nex_y, layers, doubling_layers):
     return nelements
 
 
-def interface_layers(top_of_mesh, depth, interfaces, grid_space_z):
+def interface_layers(top_of_mesh, depth, interfaces, grid_space_z, 
+                     interface_increase=2):
     """
     Determine the number of elements in the vertical direction (depth) based on
     the desired grid spacing at the top of the mesh, the desired depth of the
@@ -362,6 +363,9 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z):
     :param interfaces: interfaces for vertical tripling layers
     :type grid_space_z: float
     :param grid_space_z: desired vertical grid spacing at the top of the mesh
+    :type interface_increase: int
+    :param interface_increase: the amount to multiply vertical element spacing 
+        at each interface
     :rtype layers: list of float
     :return: number of elements in each layer corresponding to each desired
         interface. layers start counting from the bottom of the mesh
@@ -375,8 +379,8 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z):
     layers = []
     for i in range(len(all_interfaces) - 1):
         j = i + 1
-        grid_space_vert = grid_space_z * 2 ** i
-        # grid_space_vert = grid_space_z * 3 ** i  # original
+        grid_space_vert = grid_space_z * interface_increase ** i
+        # grid_space_vert = grid_space_z * 3 ** i  # ORIGINAL
         num_layers = (all_interfaces[j] - all_interfaces[i]) / grid_space_vert
         layers.append(myround(num_layers, 1, "near"))
         logger.info(f"\t{layers[i]} layers of {grid_space_vert}km between "
@@ -397,7 +401,7 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z):
 
 
 def approx_element_number(depth_km, layers_from_top, top, bottom, 
-                          grid_space_top):
+                          grid_space_top, interface_increase=2):
     """
     Return an approximate element number based on the depth, the grid space
     at the top of the mesh, and the known vertical tripling layers.
@@ -406,6 +410,9 @@ def approx_element_number(depth_km, layers_from_top, top, bottom,
 
     :type depth_km: float
     :param depth_km: depth of the requested element, depth increase positive
+    :type interface_increase: int
+    :param interface_increase: the amount to multiply vertical element spacing
+        at each interface
     
     :rtype: int
     :return: approximate element
@@ -438,15 +445,17 @@ def approx_element_number(depth_km, layers_from_top, top, bottom,
                 return element
             else:
                 element -= 1
-        # The next layer means vertical tripling
-        grid_space_vertical *= 3
+        # The next layer means vertical increase (two-fold, three-fold etc.)
+        # grid_space_vertical *= 3  # ORIGINAL
+        grid_space_vertical *= interface_increase 
 
     logger.warning("You weren't supposed to see this... sorry, goodbye")
     sys.exit()
 
 
 def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
-                                   nex_eta, top, bottom, grid_space_z):
+                                   nex_eta, top, bottom, grid_space_z,
+                                   interface_increase=2):
     """
     Define the string that gives the doubling layers which control the
     horizontal doubling of element area, as well as the strings that define
@@ -468,7 +477,8 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
         elem_num = approx_element_number(depth_km=dl, 
                                          layers_from_top=layers_from_top, 
                                          top=top, bottom=bottom,
-                                         grid_space_top=grid_space_z)
+                                         grid_space_top=grid_space_z,
+                                         interface_increase=interface_increase,)
         # This isnt necessary, matched interface and doubling layers is good
         # if elem_num in cumulative_layers:
         #     logger.info("\t!!! doubling layer matches interface layer, "
@@ -526,7 +536,8 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
         nz_end = approx_element_number(depth_km=reg, 
                                        layers_from_top=layers_from_top, 
                                        top=top, bottom=bottom,
-                                       grid_space_top=grid_space_z)
+                                       grid_space_top=grid_space_z,
+                                       interface_increase=interface_increase)
         
         regions_out += regions_template.format(nex_begin="1",
                                                nex_xi=nex_xi,
@@ -547,7 +558,7 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
 
 
 def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
-                     fids=[]):
+                     fids=[], topo="default"):
     """
     Write the interfaces.dat file as well as the corresponding flat interface
     layers. Topo will need to be written manually
@@ -573,12 +584,20 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
     # Template for setting a flat layer
     flat_layer = f".false. 2 2 {lon_min:.1f}d0 {lat_min:.1f}d0 180.d0 180.d0"
 
-    # Hardcoded topo layer, CHANGE THIS
+    # Hardcoded topo layers define the structure of the underlying 
+    # single-column topography file that must be generated externally    
     topo_fid = "interface_topo.dat"
-    topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0"
+    logger.info(f"\tsetting topography to '{topo}', points to '{topo_fid}'")
+    if topo == "nznorth":
+        topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0"
+    elif topo == "nzsouth": 
+        topo = ".true. 899 859 38192d0 -5288202d0 1000.00d0 1000.00d0"
+    elif topo == "nznorth_ext":
+        topo = ".true. 763 850 115822.d0 5358185.d0 1000.00d0 1000.00d0"
+    else:
+        topo = flat_layer
 
     # Write to a new file
-    logger.info("WRITING interfaces.dat")
     with open(os.path.join(dir_name, "interfaces.dat"), "w") as f:
         f.write("# number of interfaces\n")
         f.write(" {ninterfaces}\n".format(ninterfaces=len(interfaces) + 1))
@@ -608,7 +627,8 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
                 f.write("-{}\n".format(abs(int(interface * 1E3))))
 
 
-def pprint_mesh_stats(interfaces, doublings, regions, dx, dy, dz, top):
+def pprint_mesh_stats(interfaces, doublings, regions, dx, dy, dz, top,
+                      interface_increase=2):
     """
     A printing function that shows element numbers, sizes and doubling layers
     and interfaces, to get an idea of what the mesh will look like without
@@ -629,8 +649,9 @@ def pprint_mesh_stats(interfaces, doublings, regions, dx, dy, dz, top):
         if i == layers_nz:
             msg += "\n\t\tTop of Mesh"
         if i in interfaces:
-            msg += "\n\t\tInterface (vertical tripling)"
-            dz *= 3
+            msg += f"\n\t\tInterface (vertical x{interface_increase})"
+            # dz *= 3  # ORIGINAL
+            dz *= interface_increase
         if i in doublings:
             msg += "\n\t\tDoubling (horizontal doubling)"
             dx *= 2
@@ -685,7 +706,8 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
         # Interfaces control tripling in height of elements
         layers = interface_layers(
             top_of_mesh=pars["mesh_top_km"], depth=pars["mesh_depth_km"],
-            interfaces=pars["interfaces"], grid_space_z=grid_space_v
+            interfaces=pars["interfaces"], grid_space_z=grid_space_v,
+            interface_increase=pars["interface_increase"]
                                                )
 
         # Write out the specific format for doubling, materials and regions
@@ -700,7 +722,8 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
         # Print the mesh stats for easier qualification of mesh
         pprint_mesh_stats(interfaces=layers, doublings=nz, regions=regions,
                           dx=dx, dy=dy, dz=grid_space_v, 
-                          top=pars["mesh_top_km"])
+                          top=pars["mesh_top_km"],
+                          interface_increase=pars["interface_increase"])
 
         # Format the template Mesh_Par_file
         logger.info("WRITING Mesh_Par_file")
@@ -722,7 +745,16 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
 
         # Format the interfaces file
         if pars["interfaces"]:
-            write_interfaces(template=interfaces_template, 
+            logger.info("WRITING interfaces.dat")
+            # Choice to set topography line in interface, which defines the
+            # structure of the single-column topography file
+            try:
+                topo = pars["topo"] 
+            except KeyError:
+                logger.warning("\n!!! WARNING. UPDATED PARAMETER 'topo' "
+                               "NOT FOUND. SETTING DEFAULT !!!\n")
+                topo = "default"
+            write_interfaces(template=interfaces_template, topo=topo,
                              dir_name=pars["dir_name"], layers=layers, 
                              interfaces=pars["interfaces"],
                              lat_min=pars["lat_min"], lon_min=pars["lon_min"],

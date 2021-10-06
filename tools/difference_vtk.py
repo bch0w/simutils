@@ -436,12 +436,9 @@ if __name__ == "__main__":
             print(f"diff {a} and {b} with '{diff_method}'... {f}")
             differences = difference_vtk(a, b, write=f, method=diff_method)
     else:
-        # model_a = input("model_a fid: ")
-        # constant = input("constant: ")
-        # fid_out = input("fid_out: ")
-        model_a = "VSP_300ms.vtk"
-        constant = 300
-        fid_out = "VSP_300ms_div.vtk"
+        model_a = input("model_a fid: ")
+        constant = input("constant: ")
+        fid_out = input("fid_out: ")
         manipulate_vtk(model_a, constant, diff_method, fid_out)
 
 

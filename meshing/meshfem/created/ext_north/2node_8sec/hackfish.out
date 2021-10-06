@@ -1,0 +1,133 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'tag': 'hackfish', 'dir_name': './created/hackfish/8sec', 'lat_min': -41.65, 'lat_max': -34.3, 'lon_min': 172.5, 'lon_max': -179.0, 'utm_projection': -60, 'mesh_depth_km': 400.0, 'mesh_top_km': -2.67, 'doubling_layers': [30, 50], 'interfaces': [28, 45], 'interface_fids': ['interface_1.dat', 'interface_2.dat'], 'interface_increase': 2, 'regions': [8, 50], 'nproc': 80, 'topo': 'nznorth_ext', 'grid_space_top_hv': [8, 2.5], 'shortest_period_s': 10, 'vs_min_km_per_s': 1.0, 'vp_max_km_per_s': 9.3, 'top_vertical_element_ratio': 1.0}
+
+PARAMETERS FOR: hackfish
+	tag: hackfish
+	dir_name: ./created/hackfish/8sec
+	lat_min: -41.65
+	lat_max: -34.3
+	lon_min: 172.5
+	lon_max: -179.0
+	utm_projection: -60
+	mesh_depth_km: 400.0
+	mesh_top_km: -2.67
+	doubling_layers: [30, 50]
+	interfaces: [28, 45]
+	interface_fids: ['interface_1.dat', 'interface_2.dat']
+	interface_increase: 2
+	regions: [8, 50]
+	nproc: 80
+	topo: nznorth_ext
+	grid_space_top_hv: [8, 2.5]
+	shortest_period_s: 10
+	vs_min_km_per_s: 1.0
+	vp_max_km_per_s: 9.3
+	top_vertical_element_ratio: 1.0
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 8
+	MIN GRID SPACE VERTICAL: 2.5
+CALCULATING NUMBER OF PROCESSORS
+	short direction is x
+	NPROC_X = 8
+	NPROC_Y = 10
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 128
+	NEX_Y = 160
+	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
+		NEX_X: 128 -> 128
+	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
+		NEX_Y: 160 -> 160
+	DX = 5.8044km
+	DY = 5.1127km
+CALCULATING NUMBER OF VERTICAL TRIPLING LAYERS (interfaces)
+	12 layers of 2.5km between -2.67km and 28km
+	3 layers of 5.0km between 28km and 45km
+	36 layers of 10.0km between 45km and 400.0km
+	NLAYERS = 3
+	NELEMENTS_Z = 52
+	LAYER SIZE FROM BOTTOM = [36, 3, 13]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	depth 50km is approx element 36 at depth 54.83km
+	depth 30km is approx element 39 at depth 34.83km
+	NDOUBLING LAYERS = [36, 39]
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 3
+	depth 50km is approx element 36 at depth 54.83km
+	depth 8km is approx element 48 at depth 9.83km
+	depth -2.67km is top of mesh -2.67km
+	REGION STARTING ELEMENT = [52, 48, 36]
+MESH HAS THE APPROXIMATE FORM
+	52/01; Z~= -2.67km
+		Top of Mesh
+		Region 1 begins
+		dx=5.80, dy=5.11, dz=2.5
+	51/02; Z~= -5.17km
+	50/03; Z~= -7.67km
+	49/04; Z~=-10.17km
+	48/05; Z~=-12.67km
+		Region 2 begins
+		dx=5.80, dy=5.11, dz=2.5
+	47/06; Z~=-15.17km
+	46/07; Z~=-17.67km
+	45/08; Z~=-20.17km
+	44/09; Z~=-22.67km
+	43/10; Z~=-25.17km
+	42/11; Z~=-27.67km
+	41/12; Z~=-30.17km
+	40/13; Z~=-32.67km
+	39/14; Z~=-35.17km
+		Interface (vertical x2)
+		Doubling (horizontal doubling)
+		dx=11.61, dy=10.23, dz=5.0
+	38/15; Z~=-40.17km
+	37/16; Z~=-45.17km
+	36/17; Z~=-50.17km
+		Interface (vertical x2)
+		Doubling (horizontal doubling)
+		Region 3 begins
+		dx=23.22, dy=20.45, dz=10.0
+	35/18; Z~=-60.17km
+	34/19; Z~=-70.17km
+	33/20; Z~=-80.17km
+	32/21; Z~=-90.17km
+	31/22; Z~=-100.17km
+	30/23; Z~=-110.17km
+	29/24; Z~=-120.17km
+	28/25; Z~=-130.17km
+	27/26; Z~=-140.17km
+	26/27; Z~=-150.17km
+	25/28; Z~=-160.17km
+	24/29; Z~=-170.17km
+	23/30; Z~=-180.17km
+	22/31; Z~=-190.17km
+	21/32; Z~=-200.17km
+	20/33; Z~=-210.17km
+	19/34; Z~=-220.17km
+	18/35; Z~=-230.17km
+	17/36; Z~=-240.17km
+	16/37; Z~=-250.17km
+	15/38; Z~=-260.17km
+	14/39; Z~=-270.17km
+	13/40; Z~=-280.17km
+	12/41; Z~=-290.17km
+	11/42; Z~=-300.17km
+	10/43; Z~=-310.17km
+	09/44; Z~=-320.17km
+	08/45; Z~=-330.17km
+	07/46; Z~=-340.17km
+	06/47; Z~=-350.17km
+	05/48; Z~=-360.17km
+	04/49; Z~=-370.17km
+	03/50; Z~=-380.17km
+	02/51; Z~=-390.17km
+	01/52; Z~=-400.17km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+	setting topography to 'nznorth_ext', points to 'interface_topo.dat'
+WRITING INTERACE interface_1.dat
+WRITING INTERACE interface_2.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	APPRX_NUM_ELEM = 346880
