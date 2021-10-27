@@ -1,6 +1,6 @@
 {
 	"tag": "south_island",
-    "dir_name": "./created/south_island",
+    "dir_name": "./created/south",
     "lat_min": -47.5,
     "lat_max": -40.0,
     "lon_min": 165.0,

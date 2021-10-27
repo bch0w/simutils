@@ -292,14 +292,12 @@ def convert_nzatom_north_xyz_2_geocsv():
     will require adjustments.
     """
     # !!! Set the files here
-    path_in = "/Users/Chow/Documents/academic/vuw/data/tomo_files/birch_m11"
-    input_files = ["tomography_model_mantle.xyz", 
-                   "tomography_model_crust.xyz",
-                   "tomography_model_shallow.xyz"]
-
+    path_in = "./"
+    input_files = ["tomography_model_mantle.xyz"]#, 
+                   #"tomography_model_crust.xyz",
+                   #"tomography_model_shallow.xyz"]
     input_files = [os.path.join(path_in, _) for _ in input_files]
-    path_out = ("/Users/Chow/Documents/academic/vuw/data/tomo_files/"
-                "nzatom/north")
+    path_out = "./"
 
 
     # Start em up boys
