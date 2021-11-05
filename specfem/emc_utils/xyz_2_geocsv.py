@@ -296,7 +296,6 @@ def convert_nzatom_north_xyz_2_geocsv():
     input_files = ["tomography_model_mantle.xyz"]#, 
                    #"tomography_model_crust.xyz",
                    #"tomography_model_shallow.xyz"]
-
     input_files = [os.path.join(path_in, _) for _ in input_files]
     path_out = "./"
 
@@ -354,5 +353,75 @@ def convert_nzatom_north_xyz_2_geocsv():
         conv.close()
 
 
+def convert_nzwide_north_xyz_2_geocsv():
+    """
+    MAIN function for convering NZAtom_north to GeoCSV file that is formatted to
+    match the IRIS emc-tools converters. Can be used as a template for future
+    conversions but some of the header information and maybe data information
+    will require adjustments.
+    """
+    # !!! Set the files here
+    path_in = "/Users/Chow/Documents/academic/vuw/data/tomo_files/nznorth19"
+    input_files = ["tomography_model_mantle.xyz", 
+                   "tomography_model_crust.xyz",
+                   "tomography_model_shallow.xyz"]
+
+    input_files = [os.path.join(path_in, _) for _ in input_files]
+    path_out = ("/Users/Chow/Documents/academic/vuw/data/tomo_files/nzatom/"
+                "initial")
+
+    # Start em up boys
+    conv = Converter(delimiter=",", fmt="%.3f", path_out=path_out)
+
+    # Set the values defined by the xyz file. 
+    # NOTE: Order matters here, must match the order in which the data appears 
+    # in each data line of the input .xyz file! e.g., here it is:
+    # x,y,z,lat,lon,vp,vs,rho,qp,qs
+    conv.append(std_name="x", long_name="x_axis_utm", unit="m", grid=True)
+    conv.append(std_name="y", long_name="y_axis_utm", unit="m", grid=True)
+    conv.append(std_name="depth", long_name="z_axis_utm", unit="m", grid=True)
+
+    # Having lat/lon headers means we will need to run convert_coordinates()
+    # BEFORE writing header information. These values are not in the original
+    # .xyz file
+    conv.append(std_name="lat", long_name="latitude", unit="degrees_north")
+    conv.append(std_name="lon", long_name="longitude", unit="degrees_east")
+
+    # Standard seismic tomography model data
+    conv.append(std_name="vp", long_name="p_velocity", unit="m/s")
+    conv.append(std_name="vs", long_name="s_velocity", unit="m/s")
+    conv.append(std_name="rho", long_name="density", unit="kg/m^3")
+    conv.append(std_name="qp", long_name="p_attenuation", unit="count")
+    conv.append(std_name="qs", long_name="s_attenuation", unit="count")
+
+    # Local paths to the tomography .xyz files
+    for fid in input_files:
+        conv.set_fids(fid)
+        conv.read_xyz()
+
+        # Convert the UTM60S coordinates to Lat/Lon and insert into the fields
+        conv.convert_coordinates(epsg_in=32760, epsg_out=4326,
+                                 x_in=conv.data[:,0], y_in=conv.data[:,1],
+                                 choice="insert", insert=3)
+
+        conv.write_header(
+                prepend="# title: New Zealand Wide Velocity Model v2.2- "
+                        "North Island\n"
+                        "# id: nz_wide2p2_eberhart_phillips_etal_2020\n"
+                        "# author_name: Donna Eberhart-Phillips et al.\n"
+                        "# attribution: DOI:10.5281/zenodo.3779523\n"
+                        "# reference_ellipsoid: WGS 84\n"
+                        "# geodetic_datum: UTM 60S / EPSG 32760\n"
+                        "# unit_of_measure: m\n"
+                        "# center_coordinates: 495732.01, 5572241.58\n"
+                        "# vertical_positive: up\n",
+                append=None
+                        )
+
+        conv.write_data()
+        conv.close()
+
+
 if __name__ == "__main__":
-    convert_nzatom_north_xyz_2_geocsv()
+    convert_nzwide_north_xyz_2_geocsv()
+    # convert_nzatom_north_xyz_2_geocsv()

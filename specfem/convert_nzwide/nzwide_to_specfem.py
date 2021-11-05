@@ -8,6 +8,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
+from scipy.ndimage.filters import gaussian_filter
 from pyproj import Proj
 
 
@@ -146,10 +147,11 @@ class Converter():
         self.data.x = x
         self.data.y = y
 
-    def regularize(self, dx=1E3, dy=1E3, method="linear"):
+    def regularize(self, dx=1E3, dy=1E3, method="linear", sigma=0.7):
         """
         Convert the irregular node spacing of NZwide into a regular grid
         """
+        print(f"regularizing onto uniform grid")
         for z in sorted(np.unique(self.data.z))[::-1]:
             idx = np.where(self.data.z == z)[0]
 
@@ -167,8 +169,21 @@ class Converter():
             for key in ["vs", "vp", "rho", "qp", "qs"]:
                 zi = griddata((self.data.x, self.data.y), self.data[key], 
                               (xi, yi), method=method)
-                self.plot_contour(xi, yi, zi, z, key)
+
+                # Smooth the interpolated array
+                print(f"smoothing {key} with gaussian sigma={sigma}")
+                zi = gaussian_filter(zi, sigma=sigma)
+
+                self.plot_contour(xi, yi, zi, self.data[key], key)
                 a=1/0
+
+    def nearest_node(self, x0, y0):
+        """
+        Smoothing will depend on the nearest node. More smoothing for isolated
+        nodes. This function simply finds the nearest node value.
+        """
+
+
 
     def plot_coast(self):
         """
@@ -221,21 +236,8 @@ class Converter():
             plt.xlabel("Longitude")
             plt.ylabel("Latitude")
 
-        # plt.title(f"NZWide2.2 ({choice}) at Z={unique_z.max()/1E3}km")
-        plt.title(f"NZWide2.2 nodes at Z={unique_z.max()/1E3}km")
-
-        # DELETE
-        xlim = [171312, 633468]
-        ylim = [5286950, 5904080]
-        xlim = [_/1e3 for _ in xlim]
-        ylim = [_/1e3 for _ in ylim]
-        kwargs = {"zorder": 15, "c": "r", "linewidth": 2}
-        plt.plot([xlim[0], xlim[0]], [ylim[0], ylim[1]], **kwargs)
-        plt.plot([xlim[1], xlim[1]], [ylim[0], ylim[1]], **kwargs)
-        plt.plot([xlim[0], xlim[1]], [ylim[0], ylim[0]], **kwargs)
-        plt.plot([xlim[0], xlim[1]], [ylim[1], ylim[1]], **kwargs)
-    
-        # plt.colorbar(label=choice)
+        plt.title(f"NZWide2.2 ({choice}) at Z={unique_z.max()/1E3}km")
+        plt.colorbar(label=choice)
         plt.gca().set_aspect(1)
         self.plot_coast()
         self.set_axes(plt.gca())
@@ -271,11 +273,14 @@ if __name__ == "__main__":
     lon_max = 176.25
     z_min = None
     z_max = 400000
+    utm_zone = -59
+    sigma = 0.7
 
     # Run 
     conv = Converter(vel_fid, qp_fid, qs_fid)
     conv.convert_data()
-    # conv.cut(lat_min, lat_max, lon_min, lon_max, z_min, z_max)
-    conv.convert_coords()
+    conv.convert_coords(utm_zone=utm_zone)
+    conv.regularize(method=interp_method, sigma=sigma)
+
     conv.plot_xyz(coord="xy", choice="sf_vp")
-    # conv.regularize(method=interp_method)
+    # conv.cut(lat_min, lat_max, lon_min, lon_max, z_min, z_max)

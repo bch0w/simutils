@@ -81,6 +81,7 @@ DIAGONALS = {
     "Seamounts": ([475000, 5538861, Z], [-0.13, 0.11, 0]),
     "Seamounts_P":([466855, 5538861, Z], [-0.13, 0.11, 0]),
     "Seamounts_M":([577779, 5667301, Z], [-0.13, 0.11, 0]),
+    "Offshore":   ([503818, 5516524, Z], [-0.82, 0.57, 0]),
     "Tvz":        ([376534.0, 5650985.0, Z], [-0.2, 0.14, 0]),
     "Tvzpsf":    ([441230.0, 5776443.0, Z], [-0.125, 0.065, 0]),
     "Tvz_Rift1":   ([376534.3, 5650985.4, Z], [-0.13, 0.08, 0.0]),  # JGR Paper
@@ -251,6 +252,11 @@ PRESETS = {
     ),
     "model_vs_kms": Preset(
         title="Vs [km/s]", cmap="Rainbow Desaturated", invert=True, 
+        center=False, fmt="%.2f", rnd=None, bounds=False, nlabel=3, nvalues=33, 
+        cdx=500, scale_units=1E-3
+    ),
+    "model_vs_kms_seismic": Preset(
+        title="Vs [km/s]", cmap="Cool to Warm (Extended)", invert=True, 
         center=False, fmt="%.2f", rnd=None, bounds=False, nlabel=3, nvalues=33, 
         cdx=500, scale_units=1E-3
     ),
@@ -1512,6 +1518,11 @@ def set_camera(choice):
         renderView.CameraFocalPoint = [318., 269., -150.]
         renderView.CameraViewUp = [0.0, 0.0, 1.0]
         renderView.CameraParallelScale = 350
+    elif choice == "Offshore":
+        renderView.CameraPosition = [950., -211., -71.]
+        renderView.CameraFocalPoint = [-704., 1066., -71.]
+        renderView.CameraViewUp = [0.0, 0.0, 1.0]
+        renderView.CameraParallelScale = 350
     elif choice == "tvz_strike":
         renderView.CameraPosition = [-689., -1531., -150.]
         renderView.CameraFocalPoint = [231., 308., -150.]
@@ -1901,6 +1912,10 @@ def features():
                 "C": [.34, .235],  # Cook
                 "D": [.51, .67],  # TVZ
                 "E": [.61, .4]}  # PORA
+    # FOR MS2 REVISIONS
+    features = {"M": [.67, .585],  # Mahia
+                "P": [.54, .43],  # Pora
+                "O": [.61, .4]}  # PORA
     for label, position in features.items():
         create_text(s=label, position=position, reg_name="text1",
             fontsize=int(FONTSIZE*1.5), color=rgb_colors("w"),
@@ -2558,7 +2573,8 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
         ruler_tick_space=25
         cross_sections = []
         # cross_sections = ["Csfaults", "Cspert_R"]
-        cross_sections = ["Reyners", "Porangahau"]
+        # cross_sections = ["Reyners", "Porangahau"]
+        cross_sections = ["Offshore"]
         # cross_sections = []
         earthquakes = False
         faults=True
@@ -2778,8 +2794,8 @@ def manual_depth_slice(fid, preset, save_path=os.getcwd()):
             # plot_point_cloud(fid, color=rgb_colors("g"), point_size=8,
             #                  xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
     elif choice in ["volumetric", "updates"]:
-        plot_events(color=rgb_colors("g"), size=8.)
-        plot_stations(size=12.)
+        # plot_events(color=rgb_colors("g"), size=8.)
+        # plot_stations(size=12.)
         if choice == "updates":
             features()
     elif choice == "seamounts":
@@ -2872,6 +2888,7 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
     DDD
     """
     pert_origin = None
+    points = None
     args = parse_args()
     if args.choice is not None:
         choice = args.choice
@@ -2883,7 +2900,9 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
         # these are defined in the zero-origin coord system
         # origin, normal = DIAGONALS["Porangahau"]; flip_view=False; choice="Porangahau"  # camera to 500
         # origin, normal = DIAGONALS["Napier"]; flip_view=False; choice="Napier"
-        origin, normal = DIAGONALS["Reyners"]; flip_view=True; choice="along_strike"
+        # origin, normal = DIAGONALS["Reyners"]; flip_view=True; choice="along_strike"
+        
+        origin, normal = DIAGONALS["Offshore"]; flip_view=True; choice="Offshore"
         tag = choice
         xmin=0
         xmax=462.156
@@ -2893,6 +2912,9 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
         scale = 2
         dz = 10
         dh = 50
+        zmin = -20; scale = 5; dz=5  # OFFSHORE ONLY
+        points = {"pora": [291.9, 247.3, 0],
+                  "mahia": [405.64, 378.69, 0]}
         title = [.8, .7]
         cbar_position = [.8, .51]
         cbar_thickness = 50
@@ -2902,9 +2924,10 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
         xsection_1 = (.15, .71)
         xsection_2 = (.76, .71)
         interface_pointsize = 2
+        
     elif choice in ["Porangahau", "Mahia", "Seamounts", "Napier", 
                     "Intraplate", "Above", "Mahia_Psf"]:
-        origin, normal = DIAGONALS[choice]
+        origin, normal = DIAGONALS[choice.capitalize()]
         xmin=175
         xmax=462.156
         ymin=100
@@ -3281,6 +3304,10 @@ def manual_diagonal(fid, preset, save_path=os.getcwd()):
     rescale_colorscale(vsLUT, src=slice_vtk, vtk=vtk, preset=preset)
     display = GetDisplayProperties(slice_vtk, view=renderView)
     display.SetScalarBarVisibility(renderView, not args.cbar_off)
+
+    if points:
+        for origin_ in points.values():
+            mark_surface_point(origin_, normal, size=10., z_value=10)
 
     if choice == "tvz":
         for origin_ in volcanos.values():
