@@ -219,8 +219,8 @@ SOURCE_PREFIX: CMTSOLUTION
 #    additional smoothing task time as a multiple of TASKTIME
 
 # ==============================================================================
-SMOOTH_H: 10000.0
-SMOOTH_V: 5000.0
+SMOOTH_H: 0.
+SMOOTH_V: 0.
 TASKTIME_SMOOTH: 1
 
 # ==============================================================================
@@ -296,7 +296,7 @@ LBFGSTHRESH: 0.0
 BEGIN: 1
 END: 1
 RESUME_FROM: 
-STOP_AFTER:
+STOP_AFTER: line_search
 CASE: synthetic
 SAVEMODEL: True
 SAVEGRADIENT: True

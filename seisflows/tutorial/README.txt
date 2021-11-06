@@ -91,26 +91,39 @@ STEP 2: Directory setup
 
 ################################################################################
 
-(1) We can use the CLI to create a new SF3 working directory. You can choose 
-your own (empty) directory to follow along. 
+(1) We can use the CLI to create a new SF3 working directory. Let's make our own 
+(empty) directory to follow along. 
 
-   $ cd /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/
+   $ cd /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/tutorial/
+   $ mkdir work
+   $ cd work
    $ seisflows setup
 
-(2) A file named 'parameters.yaml' has been created. This is an ASCII par file
-that controls everything within SF3 and will be your main point of control over
-how SF3 runs inversions, submits jobs, and generally interacts with the cluster
+(2) A file named 'parameters.yaml' (par file) has been created. This is an 
+ASCII file that will be your main point of control over SF3. 
 
-(3) If you open 'parameters.yaml' you will see a few modules which define each
-of the main components of SF3. To view the available module choices defined
-by SF3 we can run the modules command
+(3) If you open 'parameters.yaml' you will see a few modules which define the 
+main components of SF3. 
 
+    $ cat parameters.yaml
+
+Each of these modules controls a separate functionality of SF3, for example the
+'preprocess' module controls how observed and synthetic waveforms are compared.
+
+To view the available module choices defined by SF3, run the modules command
+    
     $ seisflows modules
 
+NOTE: You can see that each module is split into seisflows3 and seisflows3-super.
+The 'seisflows3' modules are the base or default package modules, the 
+'seisflows3-super' modules are more specific packages which supercede the base
+modules. For example when running SF3 on Maui, we choose the 'maui' module
+which inherits attributes from the 'slurm_lg' system.
+
 (4) Because we're working on Maui and interested in performing an inversion 
-(or just only the first part of an inversion), we need to change some of the 
-default module choices in the 'parameters.yaml' file. Using a text editor, 
-set the module choices to:
+we need to change some of the default module choices in the par file. 
+
+Using a text editor, set the module choices to:
 
 WORKFLOW: inversion
 SOLVER: specfem3d
@@ -119,33 +132,30 @@ OPTIMIZE: LBFGS
 PREPROCESS: pyatoa
 POSTPROCESS: base
 
-(4) Now we can run the 'configure' command which will automatically fill in the
-remainder of the parameter file based on the choices we've set for our modules
+(4) Now run 'configure' to auto fill in the par file based on our module choices.
 
     $ seisflows configure
 
-(5) Open up the 'parameters.yaml' file again and you will see that the configure
-command has set up the entire SeisFlows3 parameter file with docstrings
-explaining what each of the parameters does. 
+(5) Open up the 'parameters.yaml' file again to see the completed par file.
+Commented areas contain docstrings explaining what each of the parameters does. 
 
-Note: Parameters that need to be filled in by the user are denoted with
+NOTE: Parameters that need to be filled in by the user are denoted with
  '!!! REQUIRED PARAMETER !!!'
-For a general user, these parameters will need to be filled in based on their 
-specific cluster, problem, and intended outcome. 
 
-(6) To save some time, I have pre filled a parameters.yaml file, you can see 
+    $ cat parameters.yaml
+
+(6) To save some time, I have pre-filled a parameters.yaml file, you can see 
 which values have been set to what by using vimdiff
 
-    $ vimdiff parameters.yaml TUTORIAL/parameters_complete.yaml
+    $ vimdiff parameters.yaml ../utils/parameters.yaml
 
-(7) Let's use this pre-filled parameter file to save time
+(7) The utils directory which contains this parameters.yaml file has material
+we'll need to run our inversion, so lets copy it into our working directory and 
+then use the pre-filled parameter file.
 
-    $  cp -f TUTORIAL/parameters.yaml .
+    $ rsync -av ../utils . 
+    $ cp -f utils/parameters.yaml .
 
-Great, the main, critical component of SeisFlows3, the parameters.yaml file is 
-now complete. There are two more components that we require to run SeisFlows3,
-the DATA/ directory, and the MODEL/ directory.
-    
 
 ################################################################################
 
@@ -168,61 +178,49 @@ directory which contains (among other things):
 These files are distributed by SeisFlows3 to each of the SPECFEM3D working 
 directories under the hood.
 
-* One key difference is that SeisFlows3 requires N number of CMTSOLUTION files,
-where N is the number of earthquakes you want to simulate in parallel. N should
+* One key difference is that SeisFlows3 requires N CMTSOLUTION files,
+where N is the number of sources you want to simulate in parallel. N should
 also match the parameters.yaml value: NTASK
 
 You can check NTASK with the following command
 
     $ seisflows par NTASK
 
-* Each CMTSOLUTION file should be different, and have a suffix to distinguish
-themselves from one another. One example would be to use earthquake IDs from
-the organization you collect your earthquakes from, another example would be 
-numerical ordering (e.g., CMTSOLUTION_001, CMTSOLUTION_002, ..., CMTSOLUTION_N)
+* Each CMTSOLUTION file should be different, and have a unique suffix. E.g., use 
+earthquake IDs, or numerical ordering (e.g., CMTSOLUTION_001, CMTSOLUTION_002, 
+..., CMTSOLUTION_N)
 
-! NOTE: The following steps are not necessary for the tutorial, they are just 
-used to describe the SPECFEM3D directory structure
+(1) The data, and true and initial models for this problem are already generated
 
-(1) For this example problem, the data and initial model have already been 
-generated to keep things simple. We'll have a look to see the different parts.
+    $ ls -l utils/specfem3d
 
-    $ ls -l TUTORIAL/specfem3d
+In this example we will perform a synthetic inversion starting from a 
+homogeneous halfspace (hh) initial model, and trying to recover a layered
+halfspace true model
 
-(2) Here we have a slimmed down version of a SPECFEM3D working directory, which
-only requires a file for the compiled binaries (bin/) and the DATA/ directory
+(2) The DATA/ directory already contains all the files (a) -- (c)
     
-    $ ls -l TUTORIAL/specfem3d/DATA
+    $ ls -l utils/specfem3d/DATA
 
-! NOTE: Whatever is in this DATA directory (defined as PATHS.SPECFEM_DATA in 
-the parameters.yaml file) will get copied into all the SeisFlows working 
-directories (scales by number of events). So if you have large files, e.g., 
-*.xyz files from an external tomography model that are not necessary for the
-inversion, you may want to create a separate DATA/ directory that doesn't 
-contain these files to avoid unncessary storage requirements.
+NOTE: Whatever is in this DATA directory will get copied into all the SeisFlows 
+working so don't keep large files here (e.g., tomo files). You can check the 
+location of the data directory with
 
-(3) Here we see the DATA/ directory has parts (a)--(c) as mentioned above, as 
-well as the directory meshfem3D_files
+    $ seisflows par specfem_data
 
-    $ ls -l TUTORIAL/specfem3d/DATA/meshfem3D_files
+(3) Within the DATA/ directory we also have the mesh files which defines a
+North Island, NZ domain with ~30k elements.
 
-(4) These mesh files define the structured grid and velocity model used for
-this example. The mesh defines the North Island of New Zealand split up into
-N=40 chunks. The velocity model is a simple 1D layered halfspace, based
-on the velocity model in Ristau (2008).
+    $ ls -l utils/specfem3d/DATA/meshfem3D_files
 
-(5) We have already generated the DATABASES_MPI/ files which define the velocity
-model in terms of the SPECMFEM3D binary (.bin) files. You can see those here:
+(4) We have also provvided the DATABASES_MPI/ files which define the starting
+velocity model in terms of the Specfem3D binary (.bin) files. 
 
-    
-    $ ls -l TUTORIAL/specfem3d/OUTPUT_FILES/DATABASES_MPI
+    $ ls -l utils/specfem3d/OUTPUT_FILES_HH/DATABASES_MPI
 
-(6) We have also generated a target model which is identical to the initial 
-model except all the velocity (vp, vs) values are reduced by 30%. We will
-be using SeisFlows to attempt to recover the velocity changes between
-the initial and final models
+The layered halfspace has a similar directory
 
-* So now that we have our initial model and data, we can start our inversion
+    $ ls -l utils/specfem3d/OUTPUT_FILES_LAYERED/DATABASES_MPI
 
 
 ################################################################################
@@ -237,24 +235,17 @@ all the different directories
 * To initiate SeisFlows we can use the init command, to see what it does we
 can run with the -h (help) flag (i.e., $ sf init -h)
 
-(1) The init command essentially runs the SeisFlows workflow up to the point
-where the master job is submitted, allowing the user to see the working 
-directory without interacting with the cluster. Let's run it:
+(1) The init command starts a SeisFlows workflow but does not submit any jobs.
 
     $ sf init
     $ ls output
 
-(2) You can see that the 'init' command created the output/ directory which 
-contains .p (pickle) files, and .json (ascii) files. These files represent
-the state of the SeisFlows workflow: all of tits initiated modules, and the
-paths and parameters that are set by the User.
+(2) 'init' created the output/ directory which contains .p (pickle) files, and 
+.json (ascii) files. These files represent the state of the SeisFlows workflow. 
+
+You can see the parameter json file matches our input yaml file
 
     $ cat output/seisflows_parameters.json
-
-(3) If we open the parameters file we can see all the information that was 
-listed in our parmameters.yaml file, which are accessed by SeisFlows to
-control how it operates
-
 
 ################################################################################
 
@@ -263,18 +254,15 @@ STEP 5: DEBUG MODE (OPTIONAL)
 ################################################################################
 
 * One of the most important tools in SeisFlows is its debug mode. This 
-interactive iPython environment lets you explore an active workflow, run
-individual functions/commands, and debug errors.
+interactive IPython environment lets you explore an active workflow/
 
 (1) Activate the debug mode, and when prompted type 'n' to get to iPython
 
     $ sf debug
     > n
 
-(2) We are now in the usual IPython environment, except that the entire 
-SeisFlows architecture is loaded into memory. We can explore the entire system,
-but for now just as an example we'll just have a look at paths, parameters
-and loaded modules
+(2) In this IPython environment, the entire SeisFlows architecture is loaded 
+into memory. We won't do anything yet, but just to see we can look at some vars
 
     > print(PAR)   # parameters are stored in a dict object
     > print(PATH)  # paths are also stored as dicts
@@ -284,10 +272,8 @@ and loaded modules
     In [6]: workflow
     Out[6]: <seisflows3.workflow.inversion.Inversion at 0x2aab3bb20550>
 
-(3) We will use debug mode more in later tutorials. Any changes made here are
-temporary unless saved using the 'workflow.checkpoint()' command, or if a 
-function which writes to memory is called. To exit just type exit() at each
-iPython prompt
+(3) We will use debug mode more in later tutorials. To exit just type exit() at 
+each IPython prompt
 
     In [7]: exit()
     > exit()
@@ -296,7 +282,7 @@ iPython prompt
 command to get rid of all the created SeisFlows components
 
     $ sf clean
-
+    > y
 
 ################################################################################
 
@@ -323,13 +309,12 @@ logs. NOTE: ctrl+c to quit the tail command
 
     $ tail -f *log
 
-* The output-%a.log file is the stdout where SeisFlows will tell you where it
-is in the workflow. These correspond to various modules and functions within
-the source code
+(4) The inversion will likely take some time (<1 hr) but should proceed 
+automatically until it completes one iteration. 
 
-(4) The inversion will likely take some time, in the meantime we can explore
-the directory that the workflow has created
+While it runs, we can have a look at a completed example
 
+    $ cd ../example
 
 ################################################################################
 
@@ -341,10 +326,11 @@ STEP 7: UNDERSTANDING THE SEISFLOWS WORKING DIRECTORY
 to keep track of the workflow and all the data generated. It should look
 something like this:
 
-(seisflows) [ancil] chowbr@w-mauivlab01 [examples] $ ls
+(seisflows) [ancil] chowbr@w-mauivlab01 [example] $ ls
 error-14907303.log  output/              output.logs/  output.stats/     scratch/
-logs.old/           output-14907303.log  output.optim  parameters.yaml@  TUTORIAL/
+logs.old/           output-14907303.log  output.optim  parameters.yaml@  utils
 
+Descriptions of the file structure:
 
 (a) output-*.log
     ASCII text file where SeisFlows will print out status updates as it step 
@@ -382,4 +368,126 @@ logs.old/           output-14907303.log  output.optim  parameters.yaml@  TUTORIA
     The location of all the large, temporary working files required to run the 
     workflow. Each of the SeisFlows modules has its own directory in scratch/
 
-    (1) 
+    Many of these files are cleaned after each iteration.
+
+    (1) evalfunc 
+    Whenever SF3 evalutes the misfit/objective function, it stores temporary
+    files here, these include the model being evaluated, and waveform residuals
+
+    (2) evalgrad
+    Whenever SF3 evalutes the gradient, it stores temporary files here,
+    including event and misfit kernels, and the model being evaluated
+
+    (3) optimize
+    SF3 stores optimization algorithm information here as numpy .npy files.
+    These include the current model, perturbed model, search direction, 
+    gradient, and misfit.
+
+    (4) preprocess
+    SF3 stores waveform information here. If using the 'Pyatoa' preprocess 
+    module, Pyatoa will store ASDFDataSets, processing logs (ASCII), and
+    waveform figures + maps as .pdf files.
+
+    (5) solver
+    Each individual event gets its own directory in the solver scratch directory
+    Each of these directories is simply a SPECFEM3D working directory, 
+    containing the model databases, specfem binaries, and DATA/ directory.
+
+    The 'mainsolver' is simply the first alphabetical directory, and is 
+    typically used for SPECFEM tasks that don't need to be run by all of the 
+    processes (e.g., smoothing)
+
+    (6) system
+    Any system-dependent files go here, for SLURM systems this is empty
+
+################################################################################
+
+STEP 8: ANALYZING THE INVERSION
+
+################################################################################
+
+* Once the inversion finishes running we can look at the completed directory
+to understand how the inversion progressed
+
+    $ cd ../work
+
+(1) First we look at the output log 
+
+    $ cat output*log
+
+We can see that the inversion ran a forward and adjoint simulation, computed a
+search direction with L-BFGS, and performed a line search with 2 trial steps
+
+Within the line search we can see that the model was perturbed in order to
+reduce the misfit.
+
+We have also stopped the inversion before the 'finalize' function could be run, 
+which means we can look at the scratch/ directory in a state before some temp
+files are removed
+
+(2) If we check the evalgrad directory we can see what temporary files SF3
+saves while calculating gradient information
+
+    $ ls scratch/evalgrad
+
+If we look closer we can see SF3 is saving the .bin kernel files. These are 
+large files SF3 deletes them after each iteration
+
+    $ ls scratch/evalgrad/gradient
+
+(3) Pyatoa will save figures and preprocessing logs as text files. We can look 
+at the logs here but you will need to use rsync to view the .pdfs on 
+your own machine, or use a program like 'evince' when on Maui 
+(since we are ssh'd from maui, maui ancil cannot access the display)
+
+    $ cat scratch/preprocess/logs/i01s00_2013p617227.log
+
+The Pyatoa log file is event dependent and contains processing information
+for each station 
+
+(4) Now we will finish the inversion by resuming from the 'finalize' function.
+
+WARNING: Once you complete this step, the evalfunc and evalgrad directories
+will be deleted.
+
+First we set the RESUME_FROM parameter to 'finalize' to tell SF3 that we want to 
+continue with the same inversion from a specific function
+
+    $ seisflows par resume_from finalize
+
+We also need to remove the STOP_AFTER parameter, which originally told SF3 to 
+stop the inversion after the line search
+
+    $ seisflows par stop_after ''
+
+And finally we resume the workflow
+
+    $ seisflows resume
+    > y
+
+This step should only take a few moments
+
+(5) Once the master job stops running we can see that the final model from
+iteration 1 has been saved to the output/ directory
+
+    $ ls -l output
+
+This model is saved in the SPECFEM3D binary (.bin) format and can be visualized
+using .vtk files as normal. It is also stored as a vector in scratch/optimize
+so if you'd like to continue running the inversion, this newly updated
+model will be the starting model for Iteration 2.
+
+
+################################################################################
+
+CONCLUSION
+
+################################################################################
+
+We have now run a single iteration from an SF3 inversion. Have a look around the 
+directory and get a feel for where files are placed and how things are 
+organized, this file structure is mostly universal for SF3. 
+
+Some things you can do now are play around with the true and starting model,
+the number of earthquakes in the inversion, or the types of preprocessing 
+used.
