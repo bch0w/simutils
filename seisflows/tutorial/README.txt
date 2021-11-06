@@ -13,9 +13,8 @@ This README is an introduction to the SeisFlows3 (seisflows) package.
 It discusses the command line interface (CLI), the structure of a seisflows
 working directory, and runs a basic inversion.
 
-The steps are in logical order and most provide some commands to run to set up
-the example. Some are optional, which means they only provide information but 
-contain no critical commands to run.
+The steps cannot be run out of order, but some are optional, which means they 
+provide information but contain no critical commands to run.
 
 ################################################################################
 
@@ -33,7 +32,9 @@ Maui ancillary node. To get there you need to SSH from maui using:
     $ source activate /nesi/project/gns03247/PyPackages/conda_envs/seisflows
 
 NOTE: You can also create your own conda environment using the text file 
-provided which lists all the packages in my environment. This is not necessary
+provided which lists all the packages in my environment. 
+
+Do not run the following 2 commands, they're just for informative purposes.
     
     $ cd /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/TUTORIAL/misc/conda_envs
     $ conda create --name seisflows seisflows_conda_env.txt
@@ -121,16 +122,13 @@ modules. For example when running SF3 on Maui, we choose the 'maui' module
 which inherits attributes from the 'slurm_lg' system.
 
 (4) Because we're working on Maui and interested in performing an inversion 
-we need to change some of the default module choices in the par file. 
+we need to change some of the default module choices in the par file.
 
-Using a text editor, set the module choices to:
+We can use the 'par' command which just directly edits the parameter file 
 
-WORKFLOW: inversion
-SOLVER: specfem3d
-SYSTEM: maui
-OPTIMIZE: LBFGS
-PREPROCESS: pyatoa
-POSTPROCESS: base
+    $ seisflows par -h  # help command to see what it does
+    $ seisflows par system maui
+    $ seisflows par preprocess pyatoa
 
 (4) Now run 'configure' to auto fill in the par file based on our module choices.
 
@@ -145,7 +143,7 @@ NOTE: Parameters that need to be filled in by the user are denoted with
     $ cat parameters.yaml
 
 (6) To save some time, I have pre-filled a parameters.yaml file, you can see 
-which values have been set to what by using vimdiff
+which values have been set to what by using vimdiff. NOTE :q to quit vimdiff
 
     $ vimdiff parameters.yaml ../utils/parameters.yaml
 
@@ -202,7 +200,7 @@ halfspace true model
     
     $ ls -l utils/specfem3d/DATA
 
-NOTE: Whatever is in this DATA directory will get copied into all the SeisFlows 
+NOTE: Whatever is in this DATA/ directory will get copied into all the SeisFlows 
 working so don't keep large files here (e.g., tomo files). You can check the 
 location of the data directory with
 
@@ -213,7 +211,7 @@ North Island, NZ domain with ~30k elements.
 
     $ ls -l utils/specfem3d/DATA/meshfem3D_files
 
-(4) We have also provvided the DATABASES_MPI/ files which define the starting
+(4) Also provided is the DATABASES_MPI/ directory which defines the starting
 velocity model in terms of the Specfem3D binary (.bin) files. 
 
     $ ls -l utils/specfem3d/OUTPUT_FILES_HH/DATABASES_MPI
@@ -225,15 +223,12 @@ The layered halfspace has a similar directory
 
 ################################################################################
 
-STEP 4: INITATE SEISFLOWS3 (OPTIONAL)
+STEP 4: INITATE SEISFLOWS3 AND DEBUG MODE (OPTIONAL)
 
 ################################################################################
 
-* We first want to initiate a SeisFlows3 working directory and have a look at 
-all the different directories
-
-* To initiate SeisFlows we can use the init command, to see what it does we
-can run with the -h (help) flag (i.e., $ sf init -h)
+* We first want to initiate a SeisFlows3 working directory to have a look at 
+an SF3 working state
 
 (1) The init command starts a SeisFlows workflow but does not submit any jobs.
 
@@ -243,26 +238,21 @@ can run with the -h (help) flag (i.e., $ sf init -h)
 (2) 'init' created the output/ directory which contains .p (pickle) files, and 
 .json (ascii) files. These files represent the state of the SeisFlows workflow. 
 
-You can see the parameter json file matches our input yaml file
+You can see the parameter .json file matches our input yaml file
 
     $ cat output/seisflows_parameters.json
-
-################################################################################
-
-STEP 5: DEBUG MODE (OPTIONAL)
-
-################################################################################
 
 * One of the most important tools in SeisFlows is its debug mode. This 
 interactive IPython environment lets you explore an active workflow/
 
-(1) Activate the debug mode, and when prompted type 'n' to get to iPython
+(3) Activate the debug mode, and when prompted type 'n' to get to IPython
 
     $ sf debug
     > n
 
-(2) In this IPython environment, the entire SeisFlows architecture is loaded 
-into memory. We won't do anything yet, but just to see we can look at some vars
+(4) In this IPython environment, the entire SeisFlows architecture is loaded 
+into memory. We won't do anything with it yet, but to demonstrate this we can 
+look at the PAR and PATH variables
 
     > print(PAR)   # parameters are stored in a dict object
     > print(PATH)  # paths are also stored as dicts
@@ -272,13 +262,13 @@ into memory. We won't do anything yet, but just to see we can look at some vars
     In [6]: workflow
     Out[6]: <seisflows3.workflow.inversion.Inversion at 0x2aab3bb20550>
 
-(3) We will use debug mode more in later tutorials. To exit just type exit() at 
+(5) We will use debug mode more in later tutorials. To exit just type exit() at 
 each IPython prompt
 
     In [7]: exit()
     > exit()
 
-(4) Just so we have a blank slate to run our inversion, we will run the 'clean'
+(6) So that we have a blank slate to run our inversion, we will run the 'clean'
 command to get rid of all the created SeisFlows components
 
     $ sf clean
@@ -293,7 +283,7 @@ STEP 6: RUN THE INVERSION
 * SeisFlows is an automated tool, which means that once we have set it up 
 (parameters.yaml), we can just hit run and watch the output.
 
-(1) Now we can run SeisFlows with the 'submit' command. When prompted, type 'y'
+(1) We can run SeisFlows with the 'submit' command. When prompted, type 'y'
 to submit the master job
 
     $ sf submit
@@ -302,14 +292,14 @@ to submit the master job
 (2) Now that we have submitted the master job, we can check that it is running 
 on the cluster
 
-    $ squeue --account=gns03247
+    $ squeue --account=gns03247 --cluster=maui,maui_ancil
 
 (3) We can also track the progress of the inversion by watching the output
 logs. NOTE: ctrl+c to quit the tail command
 
     $ tail -f *log
 
-(4) The inversion will likely take some time (<1 hr) but should proceed 
+(4) The inversion will likely take some time (<.5 hr) but should proceed 
 automatically until it completes one iteration. 
 
 While it runs, we can have a look at a completed example
@@ -351,8 +341,8 @@ Descriptions of the file structure:
 
 (e) logs.old/
     If you re-run a workflow (e.g., using $ sf resume), new log files (a and b)
-    will be created. The old ones are moved here so that the information
-    is retained
+    will be created. The old ones are moved here so that previous run 
+    information is retained
 
 (f) output.stats/
     List-like stats information related to the optimization algorithm are
@@ -360,7 +350,7 @@ Descriptions of the file structure:
 
 (g) output/
     Location where all permament results are stored. These include the pickle
-    files and parameter files which store the state of the workflow (see 6.3)
+    files and parameter files which store the state of the workflow.
     Similarly gradients, updated velocity models, waveforms etc. are stored 
     here if requested by the User.
 
@@ -447,7 +437,7 @@ for each station
 
 (4) Now we will finish the inversion by resuming from the 'finalize' function.
 
-WARNING: Once you complete this step, the evalfunc and evalgrad directories
+!!! WARNING: Once you complete this step, the evalfunc and evalgrad directories
 will be deleted.
 
 First we set the RESUME_FROM parameter to 'finalize' to tell SF3 that we want to 
@@ -475,7 +465,7 @@ iteration 1 has been saved to the output/ directory
 This model is saved in the SPECFEM3D binary (.bin) format and can be visualized
 using .vtk files as normal. It is also stored as a vector in scratch/optimize
 so if you'd like to continue running the inversion, this newly updated
-model will be the starting model for Iteration 2.
+model will be the starting model for the next tteration.
 
 
 ################################################################################
