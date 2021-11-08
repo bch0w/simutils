@@ -27,9 +27,11 @@ Maui ancillary node. To get there you need to SSH from maui using:
 
     $ ssh -X w-mauivlab01.maui.nesi.org.nz
 
-(2) We will use my pre-built Conda environment to run SeisFlows3. 
+(2) We will use my pre-built Conda environment to run SeisFlows3. We first need
+to load the Anaconda module on slurm.
 
-    $ source activate /nesi/project/gns03247/PyPackages/conda_envs/seisflows
+    $ module load Anaconda3/5.2.0-GCC-7.1.0
+    $ source activate /nesi/project/nesi00263/PyPackages/conda_envs/seisflows
 
 NOTE: You can also create your own conda environment using the text file 
 provided which lists all the packages in my environment. 
