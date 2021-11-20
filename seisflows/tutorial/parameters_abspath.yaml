@@ -85,10 +85,10 @@ POSTPROCESS: base
 
 # ==============================================================================
 TITLE: example
-WALLTIME: 20
-TASKTIME: 5 
+WALLTIME: 60
+TASKTIME: 5
 NTASK: 2
-NPROC: 80
+NPROC: 40
 PRECHECK:
     - TITLE
     - BEGIN
@@ -96,8 +96,8 @@ PRECHECK:
     - WALLTIME
 NTASKMAX: 100
 NODESIZE: 40
-SLURMARGS: 
-ENVIRONS: 
+SLURMARGS: ''
+ENVIRONS: ''
 ACCOUNT: gns03247
 NODES: 1
 CPUS_PER_TASK: 1
@@ -156,9 +156,9 @@ UNIT_OUTPUT: DISP
 MIN_PERIOD: 10
 MAX_PERIOD: 30 
 CORNERS: 4
-CLIENT:
-START_PAD: 0
-END_PAD: 300
+CLIENT: GEONET
+START_PAD: 20
+END_PAD: 400
 ROTATE: False
 ADJ_SRC_TYPE: cc
 PYFLEX_PRESET: default 
@@ -199,8 +199,8 @@ MATERIALS: ELASTIC
 DENSITY: CONSTANT
 COMPONENTS: ZNE
 SOLVERIO: fortran_binary
-NT: !!! REQUIRED PARAMETER !!!
-DT: !!! REQUIRED PARAMETER !!!
+NT: 5000
+DT: .0725
 FORMAT: ascii
 SOURCE_PREFIX: CMTSOLUTION
 
@@ -295,7 +295,7 @@ LBFGSTHRESH: 0.0
 # ==============================================================================
 BEGIN: 1
 END: 1
-RESUME_FROM:
+RESUME_FROM: 
 STOP_AFTER:
 CASE: synthetic
 SAVEMODEL: True
@@ -347,19 +347,22 @@ VERBOSE: True
 
 # ==============================================================================
 PATHS:
+    DATA:
+    SPECFEM_DATA: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/TUTORIAL/specfem3d/DATA
+    SPECFEM_BIN: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/TUTORIAL/specfem3d/bin
+    MODEL_INIT: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/TUTORIAL/specfem3d/OUTPUT_FILES_HH/DATABASES_MPI
+    MODEL_TRUE: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/TUTORIAL/specfem3d/OUTPUT_FILES_LAYERED/DATABASES_MPI
+# ==============================================================================
+# !!! The paths below are default values and do not need to be changed !!!
+# ==============================================================================
     SCRATCH: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch
+    SOLVER: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/solver
     OUTPUT: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/output
     SYSTEM: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/system
     LOCAL:
     PREPROCESS: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/preprocess
-    DATA:
-    SOLVER: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/solver
-    SPECFEM_DATA: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/DATA
-    SPECFEM_BIN: /scale_wlg_persistent/filesets/project/nesi00263/bchow/specfem/specfem3d_75e1785/bin_75e1785_CrayGNU-19.04_openmp_mpi_vectorization
-    MASK:
-    OPTIMIZE: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/optimize
-    MODEL_INIT: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/MODEL_INIT
-    MODEL_TRUE:
     FUNC: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/evalfunc
     GRAD: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/evalgrad
     HESS: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/evalhess
+    MASK:
+    OPTIMIZE: /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/examples/scratch/optimize
