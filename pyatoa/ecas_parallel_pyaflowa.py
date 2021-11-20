@@ -57,9 +57,12 @@ pf = Pyaflowa(structure="standalone", config=cfg, log_level="DEBUG", **paths)
 if mode == "serial":
     for source_name in source_names:
         misfit = pf.process_event(source_name)
+        print(f"{source_name}: {misfit}")
 elif mode == "parallel":
     misfits = pf.multi_event_process(source_names=source_names,
                                      max_workers=max_workers
                                      )
+    for key, value in misfits.items():
+        print(f"{key}: {value}")
 
 
