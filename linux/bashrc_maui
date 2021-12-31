@@ -1,0 +1,69 @@
+# TERMINAL UPDATES
+export CLICOLOR=1
+# export LSCOLORS=CxFxBxDxExegedabagacad
+LS_COLORS='rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.Z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.jpg=01;35:*.jpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:';
+export LS_COLORS
+
+alias ls='ls --color -F'
+alias ll='ls -FGAhplt'
+alias lk='ls -FGAhp'
+alias lr='ls -lrt'
+cd() { builtin cd "$@"; ls -FGAhp; }
+alias c='clear'
+alias hg='history | grep'
+alias mkdir='mkdir -p'
+alias rmdir='rmdir -p'
+alias pkill='pkill -u ${USER}'
+alias ..='cd ../'                               # Move up 1 dir.
+alias ...='cd ../../'                           # Move up 2 dir.
+alias .3='cd ../../../'                         # Move up 3 dir.
+alias .4='cd ../../../../'                      # Move up 4 dir.
+alias pp='pwd -P'
+alias open='evince'                             # For PDF viewing
+alias count='ls . | wc -l'
+alias filecount='find . -printf "%h\n" | cut -d/ -f-2 | sort | uniq -c | sort -rn'
+alias len='ls | wc -l'
+alias biggest='du -ah . | sort -n -r | head -n 20'
+alias dubig='du -h * | sort -h'
+
+# CONVENIENCE FUNCTIONS
+alias CONFIGURE='./configure FC=ftn CC=cc CXX=CC MPIFC=ftn MPICC=cc MPICXX=CC --with-mpi'
+alias cdw='cd /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/seisflows/tutorial' 
+alias cdp='cd $(pwd -P)'
+alias cdpya='cd /nesi/project/gns03247/PyPackages/pyatoa'
+alias cdpri='cd ~/primer'
+alias cdsf3='cd /nesi/project/gns03247/PyPackages/seisflows3'
+alias cdsf3s='cd /nesi/project/gns03247/PyPackages/seisflows-super'
+alias cdsf3d='cd /nesi/project/gns03247/PyPackages/seisflows3-devel'
+alias cdsf='cd ~/tomo/seisflows/'
+alias cdsub='cd /scale_wlg_nobackup/filesets/nobackup/gns03247/bchow'
+alias cleansf='python /scale_wlg_persistent/filesets/home/chowbr/primer/simutils/seisflows/clean_scratch.py'
+alias cleands='python /scale_wlg_persistent/filesets/project/gns03247/PyPackages/pyatoa/pyatoa/scripts/clean_datasets.py'
+alias transfersf='python /scale_wlg_persistent/filesets/home/chowbr/primer/simutils/tools/transfersf.py'
+alias vtko='python /scale_wlg_persistent/filesets/project/gns03247/PyPackages/simutils/seisflows/vtko.py'
+alias modout='python /scale_wlg_persistent/filesets/project/gns03247/PyPackages/simutils/seisflows/modout.py'
+alias qmonpy='bash /home/chowbr/primer/simutils/cluster/utils/run_qmonpy.sh'
+alias tomo='source /home/chowbr/primer/simutils/cluster/profiles/conda_tomo.sh'
+alias sfconda='source /home/chowbr/primer/simutils/cluster/profiles/conda_seisflows.sh'
+alias sf='seisflows'
+alias nwin='python /home/chowbr/primer/simutils/tools/nwin_from_logs.py'
+alias pyrunning='ps -fA | grep python'
+
+# SLURM FUNCTION
+export SACCT_FORMAT="JobID,JobName,Elapsed,AveCPU,MinCPU,TotalCPU,Alloc%2,NTask%2,MaxRSS,State"
+alias sq='squeue --noheader --account=gns02750,gns03247 --clusters=maui,maui_ancil --user=chowbr -o "%i %j %T %M %L %D %C"'
+alias quota='nn_storage_quota'
+alias core_usage='nn_corehour_usage -f gns03247'
+alias scancel='scancel --cluster=maui,maui_ancil'
+alias sacct='sacct --clusters=maui,maui_ancil'
+
+# SSH ALIAS (config doesn't work)
+alias mahuika='ssh -Y login.mahuika.nesi.org.nz'
+alias ancil='ssh -X w-mauivlab01.maui.nesi.org.nz'
+alias chinook='ssh -Y bhchow@chinook.alaska.edu'
+alias rsh_chinook='rsync --ignore-existing -avzhLe ssh bhchow@chinook.alaska.edu'
+alias sftp_chinook='sftp -Y bhchow@chinook.alaska.edu'
+alias badger='ssh -Y bchow@badger.giseis.alaska.edu'
+alias sftp_badger='sftp bchow@badger.giseis.alaska.edu'
+alias rsh_badger='rsync --ignore-existing -avzhLe ssh bchow@badger.giseis.alaska.edu'
+

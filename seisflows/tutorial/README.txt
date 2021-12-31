@@ -1,6 +1,6 @@
 SEISFLOWS3 DEVEL VERSION INVERSION EXAMPLE README FOR MAUI
 STARTED: 27/08/2021
-LAST UPDATED: 5/11/2021
+LAST UPDATED: 17/11/2021
 CONTACT: Bryant Chow (bhchow@alaska.edu)
 
 ################################################################################
@@ -31,7 +31,7 @@ Maui ancillary node. To get there you need to SSH from maui using:
 to load the Anaconda module on slurm.
 
     $ module load Anaconda3/5.2.0-GCC-7.1.0
-    $ source activate /nesi/project/nesi00263/PyPackages/conda_envs/seisflows
+    $ source activate /nesi/project/gns03247/PyPackages/conda_envs/seisflows
 
 NOTE: You can also create your own conda environment using the text file 
 provided which lists all the packages in my environment. 
