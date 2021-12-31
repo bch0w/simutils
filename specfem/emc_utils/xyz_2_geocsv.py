@@ -11,12 +11,15 @@ NOTE:
         latitude can also be x or X
         longitude can also be y or Y
         depth must be depth because part of their code fails if it's z
+        header attributes such as 'author_name' must start with 'global', i.e.,
+            # global_author_name: Bryant Chow
 
 Relevant links:
     https://github.com/iris-edu/emc-tools
     http://geows.ds.iris.edu/documents/GeoCSV.pdf
 """
 import os
+import sys
 import datetime
 import numpy as np
 
@@ -205,13 +208,13 @@ class Converter():
 
         :type f: _io.TextIOWrapper
         :param f: optional open text file, if None then set automatically
-        :type prepend: str
+        :type prepend: dict
         :param prepend: optional lines to write after the first header
-            declaration. MUST be formatted with a leading '#' and a trailing
+            declaration. Will be formatted with a leading '#' and a trailing
             '\n' to match the header format
-        :type append: str
+        :type append: dict
         :param append: optional lines to write after the final standard header
-            declaration. MUST be formatted with a leading '#' and a trailing
+            declaration. Will be formatted with a leading '#' and a trailing
             '\n' to match the header format
         """
         print("\twriting header information")
@@ -220,14 +223,31 @@ class Converter():
 
         f.write("# dataset: GeoCSV 2.0\n")
         if prepend is not None:
-            f.write(prepend)
+            for key, val in prepend.items():
+                f.write(f"# {key}: {val}\n")
 
-        # Write some standard information
+        # Write some standard header information
         f.write(f"# created: {datetime.datetime.utcnow()} UTC\n")
         f.write(f"# delimiter: {self.delimiter}\n")
+        nc_file = os.path.basename(f.name).replace("csv", "nc")
+        f.write(f"# netCDF_file: {nc_file} \n")
 
         assert(len(self.fields) == len(self.data[0])), \
                 "Data and field length mismatch, maybe convert coords first"
+
+        # Write geospatial data as global header information, required by IRIS
+        # i.e., '# global_geospatial_lat_min: ...'
+        cmt = "global_geospatial"
+        for name in ["latitude", "longitude", "z_axis_utm"]:
+            for i, field in enumerate(self.fields):
+                if field["long_name"] == name:
+                    if name == "z_axis_utm":
+                        name = "vertical"
+                    else:
+                        name = field.std_name
+                    f.write(f"# {cmt}_{name}_min: {self.data[:, i].min()}\n")
+                    f.write(f"# {cmt}_{name}_max: {self.data[:, i].max()}\n")
+                    f.write(f"# {cmt}_{name}_units: {field.unit}\n")
 
         # Write header information REQUIRED by GeoCSV and IRIS emc-tools
         for i, field in enumerate(self.fields):
@@ -293,11 +313,16 @@ def convert_nzatom_north_xyz_2_geocsv():
     """
     # !!! Set the files here
     path_in = "./"
-    input_files = ["tomography_model_mantle.xyz"]#, 
-                   #"tomography_model_crust.xyz",
-                   #"tomography_model_shallow.xyz"]
+    input_files = ["tomography_model_mantle.xyz",
+                   "tomography_model_crust.xyz",
+                   "tomography_model_shallow.xyz"]
     input_files = [os.path.join(path_in, _) for _ in input_files]
+
     path_out = "./"
+    output_files = ["nz_atom_north_chow_etal_2021_vp+vs_mantle.csv",
+                    "nz_atom_north_chow_etal_2021_vp+vs_crust.csv",
+                    "nz_atom_north_chow_etal_2021_vp+vs_shallow.csv"]
+    output_files = [os.path.join(path_out, _) for _ in output_files]
 
 
     # Start em up boys
@@ -325,8 +350,8 @@ def convert_nzatom_north_xyz_2_geocsv():
     conv.append(std_name="qs", long_name="s_attenuation", unit="count")
 
     # Local paths to the tomography .xyz files
-    for fid in input_files:
-        conv.set_fids(fid)
+    for fid, fid_out in zip(input_files, output_files):
+        conv.set_fids(fid, fid_out)
         conv.read_xyz()
 
         # Convert the UTM60S coordinates to Lat/Lon and insert into the fields
@@ -334,21 +359,39 @@ def convert_nzatom_north_xyz_2_geocsv():
                                  x_in=conv.data[:,0], y_in=conv.data[:,1],
                                  choice="insert", insert=3)
 
-        conv.write_header(
-                prepend="# title: New Zealand Adjoint Tomography Model - "
-                        "North Island (NZ_ATOM_NORTH)\n"
-                        "# id: nz_atom_north_chow_etal_2021_vp+vs\n"
-                        "# author_name: Bryant Chow\n"
-                        "# author_contact: bryant.chow@vuw.ac.nz\n"
-                        "# attribution: DOI:10.1002/essoar.10507657.1.\n"
-                        "# reference_ellipsoid: WGS 84\n"
-                        "# geodetic_datum: UTM 60S / EPSG 32760\n"
-                        "# unit_of_measure: m\n"
-                        "# center_coordinates: 495732.01, 5572241.58\n"
-                        "# vertical_positive: up\n",
-                append=None
-                        )
+        header = {
+        "global_title": "New Zealand Adjoint Tomography Model - "
+                        "North Island (NZ_ATOM_NORTH)",
+        "global_id": "nz_atom_north_chow_etal_2021_vp+vs",
+        "global_summary": 
+            "NZ_ATOM_NORTH is a 3D velocity model of the North Island of New "
+            "Zealand derived using earthquake-based adjoint tomography. The "
+            "starting model is defined as the ray-based NZ-Wide2.2 Velocity "
+            "Model from Eberhart-Phillips et al. (2021). To derive this "
+            "velocity model, we iteratively improved fits between earthquake "
+            "obserations from New Zealand-based broadband seismometers and "
+            "synthetically generated waveforms from spectral element "
+            "simulations. The waveform bandpass of interest is 4-30s. This "
+            "velocity model defines the following parameters: Vp (km/s), "
+            "Vs (km/s), density (kg/m^3), Qp, and Qs. Only Vp and Vs "
+            "are updated during the inversion. The reamining quantities are "
+            "defined by the starting/reference velocity model",
+        "global_keywords": "adjoint, seismic, earthquake, tomography",
+        "global_attribution": "DOI:10.1002/essoar.1057657.1",
+        "global_author_name": "Bryant Chow",
+        "global_author_contact": "bhchow@alaska.edu",
+        "global_author_institution": "Victoria University of Wellington and "
+            "GNS Science (now at University of Alaska Fairbanks)",
+        "global_repository_name": "EMC",
+        "global_repository_institution": "IRIS DMC",
+        "global_reference_ellipsoid": "WGS 84",
+        "global_geodetic_datum": "UTM 60S / EPSG 32760",
+        "global_unit_of_measure": "m",
+        "global_center_coordinates": "495733.02, 5572241.58",
+        "global_vertical_positive": "up",
+                }
 
+        conv.write_header(prepend=header, append=None)
         conv.write_data()
         conv.close()
 
@@ -361,14 +404,18 @@ def convert_nzwide_north_xyz_2_geocsv():
     will require adjustments.
     """
     # !!! Set the files here
-    path_in = "/Users/Chow/Documents/academic/vuw/data/tomo_files/nznorth19"
+    path_in = "./"
     input_files = ["tomography_model_mantle.xyz", 
                    "tomography_model_crust.xyz",
                    "tomography_model_shallow.xyz"]
-
     input_files = [os.path.join(path_in, _) for _ in input_files]
-    path_out = ("/Users/Chow/Documents/academic/vuw/data/tomo_files/nzatom/"
-                "initial")
+
+    path_out = "./"
+    output_files = ["ref_model_nzwide2p2_mantle.csv",
+                    "ref_model_nzwide2p2_crust.csv",
+                    "ref_model_nzwide2p2_shallow.csv"]
+    output_files = [os.path.join(path_out, _) for _ in output_files]
+    # !!!
 
     # Start em up boys
     conv = Converter(delimiter=",", fmt="%.3f", path_out=path_out)
@@ -395,8 +442,8 @@ def convert_nzwide_north_xyz_2_geocsv():
     conv.append(std_name="qs", long_name="s_attenuation", unit="count")
 
     # Local paths to the tomography .xyz files
-    for fid in input_files:
-        conv.set_fids(fid)
+    for fid, fid_out in zip(input_files, output_files):
+        conv.set_fids(fid, fid_out)
         conv.read_xyz()
 
         # Convert the UTM60S coordinates to Lat/Lon and insert into the fields
@@ -404,24 +451,38 @@ def convert_nzwide_north_xyz_2_geocsv():
                                  x_in=conv.data[:,0], y_in=conv.data[:,1],
                                  choice="insert", insert=3)
 
-        conv.write_header(
-                prepend="# title: New Zealand Wide Velocity Model v2.2- "
-                        "North Island\n"
-                        "# id: nz_wide2p2_eberhart_phillips_etal_2020\n"
-                        "# author_name: Donna Eberhart-Phillips et al.\n"
-                        "# attribution: DOI:10.5281/zenodo.3779523\n"
-                        "# reference_ellipsoid: WGS 84\n"
-                        "# geodetic_datum: UTM 60S / EPSG 32760\n"
-                        "# unit_of_measure: m\n"
-                        "# center_coordinates: 495732.01, 5572241.58\n"
-                        "# vertical_positive: up\n",
-                append=None
-                        )
-
+        header = {
+        "global_title": "New Zealand Wide Velocity  Model v2.2 - "
+                        "North Island",
+        "global_id": "nz_wide2p2_eberhart_phillips_etal_2021",
+        "global_summary": 
+            "NZ-Wide2.2 Velocity Model created by Eberhart-Phillips et al. "
+            "(2021). This provided reference model has been modified from its "
+            "original format for use in our adjoint tomography inversion. "
+            "Modifications include: rotation to the UTM-60S coordinate system, "
+            "interpolation to a regular grid, and subsequent regularization. "
+            "This reference model is parameterized in terms of: "
+            "Vp (km/s), Vs (km/s), density (kg/m^3), Qp, and Qs.",
+        "global_reference": "Eberhart-Phillips et al. (2021)",
+        "global_attribution": "DOI:10.5281/zenodo.3779523",
+        "global_reference_ellipsoid": "WGS 84",
+        "global_geodetic_datum": "UTM 60S / EPSG 32760",
+        "global_unit_of_measure": "m",
+        "global_center_coordinates": "495732.01, 5572241.58",
+        "global_vertical_positive": "up",
+                }
+        conv.write_header(prepend=header, append=None)
         conv.write_data()
         conv.close()
 
 
 if __name__ == "__main__":
-    convert_nzwide_north_xyz_2_geocsv()
-    # convert_nzatom_north_xyz_2_geocsv()
+    try:
+        if sys.argv[1] == "atom":
+            print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
+            convert_nzatom_north_xyz_2_geocsv()
+        elif sys.argv[1] == "wide":
+            print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
+            convert_nzwide_north_xyz_2_geocsv()
+    except IndexError:
+        print("argument must be 'atom' or 'wide'")
