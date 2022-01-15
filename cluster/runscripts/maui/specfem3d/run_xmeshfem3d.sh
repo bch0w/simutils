@@ -1,11 +1,11 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xmeshfem3D
-#SBATCH --nodes=1
-#SBATCH --ntasks=25
+#SBATCH --nodes=2
+#SBATCH --ntasks=80
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
-#SBATCH --account=nesi00263
+#SBATCH --account=gns03247
 #SBATCH --partition=nesi_research
 #SBATCH --time=00:00:45
 #SBATCH --output=meshfem3D_%j.out

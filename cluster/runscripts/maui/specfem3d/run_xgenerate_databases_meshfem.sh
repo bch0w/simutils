@@ -5,9 +5,9 @@
 #SBATCH --ntasks=80
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
-#SBATCH --account=nesi00263
+#SBATCH --account=gns03247
 #SBATCH --partition=nesi_research
-#SBATCH --time=00:10:00
+#SBATCH --time=00:35:00
 #SBATCH --output=generate_databases_%j.out
 
 # get the number of processors, ignoring comments in the Par_file
