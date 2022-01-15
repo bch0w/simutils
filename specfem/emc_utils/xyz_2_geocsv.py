@@ -11,12 +11,15 @@ NOTE:
         latitude can also be x or X
         longitude can also be y or Y
         depth must be depth because part of their code fails if it's z
+        header attributes such as 'author_name' must start with 'global', i.e.,
+            # global_author_name: Bryant Chow
 
 Relevant links:
     https://github.com/iris-edu/emc-tools
     http://geows.ds.iris.edu/documents/GeoCSV.pdf
 """
 import os
+import sys
 import datetime
 import numpy as np
 
@@ -27,7 +30,7 @@ class Field(dict):
     dictionary that ensures all these attributes are met. Also allows expansion
     to new attributes that are automatically filled in as the Field is parsed.
     """
-    def __init__(self, std_name, long_name, unit, grid=False):
+    def __init__(self, std_name, long_name, unit, grid=False, col_name=None):
         """
         Set field attributes required for GeoCSV file
         
@@ -42,11 +45,15 @@ class Field(dict):
             discretization of the variable. Useful only for uniformly gridded
             variables like the coordinate system, where x is divided into equal
             dx values. Defaults to False
+        :type col_name: str
+        :param col_name: column name if different from actual name, for header
+            i.e. # y_column: `col_name`
         """
         self.std_name = std_name
         self.long_name = long_name
         self.unit = unit
         self.grid = grid
+        self.col_name = col_name
 
     def __setattr__(self, key, value):
         self[key] = value
@@ -60,14 +67,16 @@ class Converter():
     Class to control the conversion from XYZ to GeoCSV
     """
     def __init__(self, fields=None, delimiter=",", header_lines=4, fmt="%.1f",
-                 path_out=os.getcwd()):
+                 path_out=os.getcwd(), delimiter_in=None):
         """
         Set some constant parameters that the converter uses for internal checks
 
         :type fields: list of Fields
         :param fields: the different data types that are included in the XYZ
         :type delimiter: str
-        :param delimiter: how to separate variables in the file
+        :param delimiter: how to separate variables when writing to a new file
+            see `delimiter_in` if the input and output files should have 
+            different delimiters
         :type header_lines: int
         :param header_lines: tells the Converter how many lines to skip in the 
             input .xyz file so that it only reads data
@@ -78,13 +87,19 @@ class Converter():
         :type path_out: str
         :param path_out: path to save the output .csv files. If None, set to
             current working directory
+        :type delimiter_in: str
+        :param delimiter_in: If the input file has a different delimiter than
+            the output file, set here. If set to NoneType, will be the same as
+            `delimiter`
         """
         print("Initiating Converter for .xyz to GeoCSV")
         self.fields = fields or []
         self.delimiter = delimiter
         self.header_lines = header_lines
         self.fmt = fmt
+        self.fstr = fmt[1:]  # for f-string formatting, strip '%'
         self.path_out = path_out
+        self.delimiter_in = delimiter_in or delimiter
 
         # Initiate empty variables to be filled by other functions
         self.fid = None
@@ -124,24 +139,67 @@ class Converter():
             self.fid_out = fid_out
             self.f_out = open(self.fid_out, "w")
         else:
-            sys.exit(f"{fid} does not exist and must")
+            sys.exit(f"{fid} does n1Got exist and must")
 
         print(f"\tfile to read: {fid}")
         print(f"\toutput file will be: {fid_out}")
 
-    def read_xyz(self, fid=None):
+    def read_xyz(self, fid=None, swap_idx=None):
         """
         Read the .xyz file and store the values as a dict object
 
+        .. warning::
+            This does not talk to the append() function, which sets the names
+            for each of the data columns. You must be sure that if you're 
+            swapping indices, that you set the fields according to the newly
+            swapped fields
 
         :type fid: str
         :param fid: read the input xyz file with numpy loadtxt
+        :type swap_idx: list of lists
+        :param swap_idx: swap two indices in list order. used because IRIS wants
+            the y-column first (latitude) but my data is formatted in x, y, ...
+            So I include swap_idx=[[0, 1]], to swap the first two indices
+            and get y first. 
         """
         print(f"\treading input .xyz file")
         if fid is None:
             fid = self.fid
-
         self.data = np.loadtxt(fid, skiprows=self.header_lines)
+        if swap_idx:
+            for swap in swap_idx:
+                print(f"\tswapping data arrays {swap[0]} and {swap[1]}")
+                self.data[:, swap] = self.data[:, swap[::-1]]
+
+
+    def convert_data(self, convert):
+        """
+        IRIS EMC standard format is to have units in 'km' or 'km/s' for velocity
+        and the have depth positive down (i.e., deeper depths are larger,
+        positive values). NZAtom was originally formatted in units of 'm' and 
+        'm/s' and with depth positive up. Simply scale and flip some signs to 
+        fix.
+
+        :type convert: dict
+        :param convert: dictionary that tells this function how to convert stuff
+            keys should match `field.std_name`, corresponding value should be 
+            an int or float by which the data is multiplied. 
+
+            for example
+            convert = {"vp": 1E-3}  # multiplies vp by 1E-3, for m/s -> km/s
+        """
+        print(f"\tconverting data for {len(convert)} data columns")
+
+        # Match data indices with value names
+        names = [_.std_name for _ in self.fields]
+
+        for name, cnvt in convert.items():
+            idx = names.index(name)
+            og_val = self.data[0, idx]
+            self.data[:, idx] *= cnvt
+
+            # Print a check statement to make sure this is working
+            print(f"\t\t{name}: {og_val} -> {self.data[0, idx]}")
 
     def convert_coordinates(self, epsg_in, epsg_out, x_in, y_in, 
                             choice="append", insert=None, replace=None):
@@ -205,42 +263,83 @@ class Converter():
 
         :type f: _io.TextIOWrapper
         :param f: optional open text file, if None then set automatically
-        :type prepend: str
+        :type prepend: dict
         :param prepend: optional lines to write after the first header
-            declaration. MUST be formatted with a leading '#' and a trailing
+            declaration. Will be formatted with a leading '#' and a trailing
             '\n' to match the header format
-        :type append: str
+        :type append: dict
         :param append: optional lines to write after the final standard header
-            declaration. MUST be formatted with a leading '#' and a trailing
+            declaration. Will be formatted with a leading '#' and a trailing
             '\n' to match the header format
         """
         print("\twriting header information")
         if f is None:
             f = self.f_out
 
-        f.write("# dataset: GeoCSV 2.0\n")
-        if prepend is not None:
-            f.write(prepend)
+        f.write("# dataset: GeoCSV2.0\n")
 
-        # Write some standard information
+        # Write some standard header information
         f.write(f"# created: {datetime.datetime.utcnow()} UTC\n")
+        nc_file = os.path.basename(f.name).replace("csv", "nc")
+        f.write(f"# netCDF_file: {nc_file} \n")
         f.write(f"# delimiter: {self.delimiter}\n")
+        if prepend is not None:
+            for key, val in prepend.items():
+                f.write(f"# {key}: {val}\n")
+
 
         assert(len(self.fields) == len(self.data[0])), \
                 "Data and field length mismatch, maybe convert coords first"
 
+        # Write geospatial data as global header information, required by IRIS
+        # i.e., '# global_geospatial_lat_min: ...'
+        cmt = "global_geospatial"
+        for name in ["latitude", "longitude", "z_axis_utm"]:
+            for i, field in enumerate(self.fields):
+                if field["long_name"] == name:
+                    if name == "z_axis_utm":
+                        name = "vertical"
+                    else:
+                        name = field.std_name
+                    f.write(f"# {cmt}_{name}_min: "
+                            f"{self.data[:, i].min(): {self.fstr}}\n")
+                    f.write(f"# {cmt}_{name}_max: "
+                            f"{self.data[:, i].max(): {self.fstr}}\n")
+                    f.write(f"# {cmt}_{name}_units: {field.unit}\n")
+        
+                    # Need to define sign of the vertical axis, we're assuming
+                    # that the model is much larger in one direction than the
+                    # other and using that to determine which way is up 
+                    if name == "vertical":
+                        vert_data = self.data[:, i]
+                        if abs(vert_data.min()) > abs(vert_data.max()):
+                            vert_positive = "up"
+                        else:
+                            vert_positive = "down"
+                        f.write(f"# {cmt}_vertical_positive: {vert_positive}\n")
+
         # Write header information REQUIRED by GeoCSV and IRIS emc-tools
         for i, field in enumerate(self.fields):
             name = field.std_name
-            f.write(f"# {name}_column: {name}\n")
+
+            # Allows different column name w.r.t actual name, e.g. x -> long
+            if field.col_name is not None:
+                col_name = field.col_name
+            else:
+                col_name = field.std_name
+            f.write(f"# {name}_column: {col_name}\n")
             f.write(f"# {name}_long_name: {field.long_name}\n")
             f.write(f"# {name}_units: {field.unit}\n")
-            f.write(f"# {name}_min: {self.data[:, i].min()}\n")
-            f.write(f"# {name}_max: {self.data[:, i].max()}\n")
+            f.write(f"# {name}_min: {self.data[:, i].min(): {self.fstr}}\n")
+            f.write(f"# {name}_max: {self.data[:, i].max(): {self.fstr}}\n")
             if field.grid:
                 unique = np.unique(self.data[:, i])
                 dx = abs(unique[1] - unique[0])
                 f.write(f"# d{name}: {dx}\n")
+
+            # Need to define depth positive
+            if name == "depth":
+                f.write(f"# depth_positive: {vert_positive}\n")
 
         if append is not None:
             f.write(append)
@@ -284,144 +383,186 @@ class Converter():
         self.f_out.close()
         print("finished")
 
+
+def convert_main(input_files, output_files, path_out="./", prepend=None, 
+                 append=None, convert_dict=None):
+    """
+    Main convert script, which takes input, output, and header append files
+    but keeps the main processing the same
+    """
+    # Start em up boys
+    conv = Converter(delimiter_in=",", delimiter="|", fmt="%.3f", 
+                     path_out=path_out)
+
+    # Set the values defined by the xyz file. 
+    # NOTE: Order matters here, must match the order in which the data appears 
+    # in each data line of the input .xyz file! e.g., here it is:
+    # x,y,z,lat,lon,vp,vs,rho,qp,qs
+    # NOTE: Units are set to how they will appear in the output file, not how
+    # they're set in the input file. The function convert_data() may affect
+    # what the final units are
+    conv.append(std_name="y", long_name="y_axis_utm", unit="km", 
+                col_name="latitude")
+    conv.append(std_name="x", long_name="x_axis_utm", unit="km",
+                col_name="longitude")
+    conv.append(std_name="depth", long_name="z_axis_utm", unit="km")
+
+    # Having lat/lon headers means we will need to run convert_coordinates()
+    # BEFORE writing header information. These values are not in the original
+    # .xyz file
+    conv.append(std_name="lat", long_name="latitude", unit="degrees_north")
+    conv.append(std_name="lon", long_name="longitude", unit="degrees_east")
+
+    # Standard seismic tomography model data
+    conv.append(std_name="vp", long_name="p_velocity", unit="km/s")
+    conv.append(std_name="vs", long_name="s_velocity", unit="km/s")
+    conv.append(std_name="rho", long_name="density", unit="kg/m^3")
+    conv.append(std_name="qp", long_name="p_attenuation", unit="count")
+    conv.append(std_name="qs", long_name="s_attenuation", unit="count")
+
+    # Local paths to the tomography .xyz files
+    for fid, fid_out in zip(input_files, output_files):
+        conv.set_fids(fid, fid_out)
+        conv.read_xyz(swap_idx=[[0, 1]])
+
+        # Convert the UTM60S coordinates to Lat/Lon and insert into the fields
+        conv.convert_coordinates(epsg_in=32760, epsg_out=4326,
+                                 x_in=conv.data[:,1], y_in=conv.data[:,0],
+                                 choice="insert", insert=3)
+
+        # Convert the actual data (e.g., units m -> km). Note 'unit' field is
+        # not touched so user must ensure that output units are set correctly
+        # during the append() stage
+        conv.convert_data(convert=convert_dict)
+
+        # Write all to file
+        conv.write_header(prepend=prepend, append=append)
+        conv.write_data()
+        conv.close()
+
+
 def convert_nzatom_north_xyz_2_geocsv():
     """
     MAIN function for convering NZAtom_north to GeoCSV file that is formatted to
     match the IRIS emc-tools converters. Can be used as a template for future
     conversions but some of the header information and maybe data information
     will require adjustments.
+
+    * Turning 'grid' off on coordinate data because IRIS doesn't want that
     """
     # !!! Set the files here
     path_in = "./"
-    input_files = ["tomography_model_mantle.xyz"]#, 
-                   #"tomography_model_crust.xyz",
-                   #"tomography_model_shallow.xyz"]
+    input_files = ["tomography_model_mantle_m28.xyz",
+                   "tomography_model_crust_m28.xyz",
+                   "tomography_model_shallow_m28.xyz"]
     input_files = [os.path.join(path_in, _) for _ in input_files]
+
     path_out = "./"
+    output_files = ["nz-atom-north-chow-etal-2022-vp+vs-mantle.r0.0-n4.csv",
+                    "nz-atom-north-chow-etal-2022-vp+vs-crust.r0.0-n4.csv",
+                    "nz-atom-north-chow-etal-2022-vp+vs-shallow.r0.0-n4.csv"]
+    output_files = [os.path.join(path_out, _) for _ in output_files]
 
 
-    # Start em up boys
-    conv = Converter(delimiter=",", fmt="%.3f", path_out=path_out)
+    # Define header information required by EMC
+    header = {
+    "global_title": "New Zealand Adjoint Tomography Model - "
+                    "North Island (NZ_ATOM_NORTH)",
+    "global_id": "nz_atom_north_chow_etal_2021_vp+vs",
+    "global_data_revision": "r0.0",
+    "global_Conventions": "CF-1.0",
+    "global_Metadata_Conventions": "Unidata Dataset Discovery v1.0",
+    "global_summary": 
+        "NZ_ATOM_NORTH is a 3D velocity model of the North Island of New "
+        "Zealand derived using earthquake-based adjoint tomography. The "
+        "starting model is defined as the ray-based NZ-Wide2.2 Velocity "
+        "Model from Eberhart-Phillips et al. (2021). To derive this "
+        "velocity model, we iteratively improved fits between earthquake "
+        "obserations from New Zealand-based broadband seismometers and "
+        "synthetically generated waveforms from spectral element "
+        "simulations. The waveform bandpass of interest is 4-30s. This "
+        "velocity model defines the following parameters: Vp (km/s), "
+        "Vs (km/s), density (kg/m^3), Qp, and Qs. Only Vp and Vs "
+        "are updated during the inversion. The reamining quantities are "
+        "defined by the starting/reference velocity model",
+    "global_keywords": "adjoint, seismic, earthquake, tomography",
+    "global_attribution": "DOI:10.1029/2021JB022865",
+    "global_author_name": "Bryant Chow",
+    "global_author_contact": "bhchow@alaska.edu",
+    "global_author_institution": "Victoria University of Wellington and "
+        "GNS Science (now at University of Alaska Fairbanks)",
+    "global_repository_name": "EMC",
+    "global_repository_institution": "IRIS DMC",
+    "global_repository_pid": "doi:10.17611/dp/emc.2021.nzatomnnorthvpvs.1",
+    "global_reference_ellipsoid": "WGS 84",
+    "global_geodetic_datum": "UTM 60S / EPSG 32760",
+    # "global_unit_of_measure": "km",
+    # "global_center_coordinates": f"{conv.data[:, 0].mean(): {conv.fstr}}, " 
+    #                              f"{conv.data[:, 1].mean(): {conv.fstr}}",
+            }
 
-    # Set the values defined by the xyz file. 
-    # NOTE: Order matters here, must match the order in which the data appears 
-    # in each data line of the input .xyz file! e.g., here it is:
-    # x,y,z,lat,lon,vp,vs,rho,qp,qs
-    conv.append(std_name="x", long_name="x_axis_utm", unit="m", grid=True)
-    conv.append(std_name="y", long_name="y_axis_utm", unit="m", grid=True)
-    conv.append(std_name="depth", long_name="z_axis_utm", unit="m", grid=True)
+    convert_dict = {"x": 1E-3, "y": 1E-3, "depth": -1E-3, "vp": 1E-3, 
+                    "vs": 1E-3}
 
-    # Having lat/lon headers means we will need to run convert_coordinates()
-    # BEFORE writing header information. These values are not in the original
-    # .xyz file
-    conv.append(std_name="lat", long_name="latitude", unit="degrees_north")
-    conv.append(std_name="lon", long_name="longitude", unit="degrees_east")
-
-    # Standard seismic tomography model data
-    conv.append(std_name="vp", long_name="p_velocity", unit="m/s")
-    conv.append(std_name="vs", long_name="s_velocity", unit="m/s")
-    conv.append(std_name="rho", long_name="density", unit="kg/m^3")
-    conv.append(std_name="qp", long_name="p_attenuation", unit="count")
-    conv.append(std_name="qs", long_name="s_attenuation", unit="count")
-
-    # Local paths to the tomography .xyz files
-    for fid in input_files:
-        conv.set_fids(fid)
-        conv.read_xyz()
-
-        # Convert the UTM60S coordinates to Lat/Lon and insert into the fields
-        conv.convert_coordinates(epsg_in=32760, epsg_out=4326,
-                                 x_in=conv.data[:,0], y_in=conv.data[:,1],
-                                 choice="insert", insert=3)
-
-        conv.write_header(
-                prepend="# title: New Zealand Adjoint Tomography Model - "
-                        "North Island (NZ_ATOM_NORTH)\n"
-                        "# id: nz_atom_north_chow_etal_2021_vp+vs\n"
-                        "# author_name: Bryant Chow\n"
-                        "# author_contact: bryant.chow@vuw.ac.nz\n"
-                        "# attribution: DOI:10.1002/essoar.10507657.1.\n"
-                        "# reference_ellipsoid: WGS 84\n"
-                        "# geodetic_datum: UTM 60S / EPSG 32760\n"
-                        "# unit_of_measure: m\n"
-                        "# center_coordinates: 495732.01, 5572241.58\n"
-                        "# vertical_positive: up\n",
-                append=None
-                        )
-
-        conv.write_data()
-        conv.close()
+    convert_main(input_files=input_files, output_files=output_files, 
+                 prepend=header, append=None, convert_dict=convert_dict)
 
 
 def convert_nzwide_north_xyz_2_geocsv():
     """
-    MAIN function for convering NZAtom_north to GeoCSV file that is formatted to
-    match the IRIS emc-tools converters. Can be used as a template for future
-    conversions but some of the header information and maybe data information
-    will require adjustments.
+    MAIN function for converting initial ref model to GeoCSV file, formatted to
+    match the IRIS emc-tools converters
     """
-    # !!! Set the files here
-    path_in = "/Users/Chow/Documents/academic/vuw/data/tomo_files/nznorth19"
-    input_files = ["tomography_model_mantle.xyz", 
-                   "tomography_model_crust.xyz",
-                   "tomography_model_shallow.xyz"]
-
+    path_in = "./"
+    input_files = ["tomography_model_mantle_m00.xyz", 
+                   "tomography_model_crust_m00.xyz",
+                   "tomography_model_shallow_m00.xyz"]
     input_files = [os.path.join(path_in, _) for _ in input_files]
-    path_out = ("/Users/Chow/Documents/academic/vuw/data/tomo_files/nzatom/"
-                "initial")
 
-    # Start em up boys
-    conv = Converter(delimiter=",", fmt="%.3f", path_out=path_out)
+    path_out = "./"
+    output_files = ["ref-model-nzwide2p2-mantle.r0.0-n4.csv",
+                    "ref-model-nzwide2p2-crust.r0.0-n4.csv",
+                    "ref-model-nzwide2p2-shallow.r0.0-n4.csv"]
+    output_files = [os.path.join(path_out, _) for _ in output_files]
 
-    # Set the values defined by the xyz file. 
-    # NOTE: Order matters here, must match the order in which the data appears 
-    # in each data line of the input .xyz file! e.g., here it is:
-    # x,y,z,lat,lon,vp,vs,rho,qp,qs
-    conv.append(std_name="x", long_name="x_axis_utm", unit="m", grid=True)
-    conv.append(std_name="y", long_name="y_axis_utm", unit="m", grid=True)
-    conv.append(std_name="depth", long_name="z_axis_utm", unit="m", grid=True)
+    header = {
+    "global_title": "New Zealand Wide Velocity Model v2.2 - "
+                    "North Island",
+    "global_id": "nz_wide2p2_eberhart_phillips_etal_2021",
+    "global_data_revision": "r0.0",
+    "global_Conventions": "CF-1.0",
+    "global_Metadata_Convetions": "Unidata Dataset Discovery v1.0",
+    "global_summary": 
+        "NZ-Wide2.2 Velocity Model created by Eberhart-Phillips et al. "
+        "(2021). This provided reference model has been modified from its "
+        "original format for use in our adjoint tomography inversion. "
+        "Modifications include: rotation to the UTM-60S coordinate system, "
+        "interpolation to a regular grid, and subsequent regularization. "
+        "This reference model is parameterized in terms of: "
+        "Vp (km/s), Vs (km/s), density (kg/m^3), Qp, and Qs.",
+    "global_reference": "Eberhart-Phillips et al. (2021)",
+    "global_attribution": "DOI:10.5281/zenodo.3779523",
+    "global_repository_name": "EMC",
+    "global_repository_institution": "IRIS DMC",
+    "global_repository_pid": "doi:10.17611/dp/emc.2021.nzatomnnorthvpvs.1",
+    "global_reference_ellipsoid": "WGS 84",
+    "global_geodetic_datum": "UTM 60S / EPSG 32760",
+            }
 
-    # Having lat/lon headers means we will need to run convert_coordinates()
-    # BEFORE writing header information. These values are not in the original
-    # .xyz file
-    conv.append(std_name="lat", long_name="latitude", unit="degrees_north")
-    conv.append(std_name="lon", long_name="longitude", unit="degrees_east")
+    convert_dict = {"x": 1E-3, "y": 1E-3, "depth": -1E-3, "vp": 1E-3, 
+                    "vs": 1E-3}
 
-    # Standard seismic tomography model data
-    conv.append(std_name="vp", long_name="p_velocity", unit="m/s")
-    conv.append(std_name="vs", long_name="s_velocity", unit="m/s")
-    conv.append(std_name="rho", long_name="density", unit="kg/m^3")
-    conv.append(std_name="qp", long_name="p_attenuation", unit="count")
-    conv.append(std_name="qs", long_name="s_attenuation", unit="count")
-
-    # Local paths to the tomography .xyz files
-    for fid in input_files:
-        conv.set_fids(fid)
-        conv.read_xyz()
-
-        # Convert the UTM60S coordinates to Lat/Lon and insert into the fields
-        conv.convert_coordinates(epsg_in=32760, epsg_out=4326,
-                                 x_in=conv.data[:,0], y_in=conv.data[:,1],
-                                 choice="insert", insert=3)
-
-        conv.write_header(
-                prepend="# title: New Zealand Wide Velocity Model v2.2- "
-                        "North Island\n"
-                        "# id: nz_wide2p2_eberhart_phillips_etal_2020\n"
-                        "# author_name: Donna Eberhart-Phillips et al.\n"
-                        "# attribution: DOI:10.5281/zenodo.3779523\n"
-                        "# reference_ellipsoid: WGS 84\n"
-                        "# geodetic_datum: UTM 60S / EPSG 32760\n"
-                        "# unit_of_measure: m\n"
-                        "# center_coordinates: 495732.01, 5572241.58\n"
-                        "# vertical_positive: up\n",
-                append=None
-                        )
-
-        conv.write_data()
-        conv.close()
+    convert_main(input_files=input_files, output_files=output_files, 
+                 prepend=header, append=None, convert_dict=convert_dict)
 
 
 if __name__ == "__main__":
-    convert_nzwide_north_xyz_2_geocsv()
-    # convert_nzatom_north_xyz_2_geocsv()
+    try:
+        if sys.argv[1] == "atom":
+            print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
+            convert_nzatom_north_xyz_2_geocsv()
+        elif sys.argv[1] == "ref":
+            print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
+            convert_nzwide_north_xyz_2_geocsv()
+    except IndexError:
+        print("argument must be 'atom' or 'ref'")
