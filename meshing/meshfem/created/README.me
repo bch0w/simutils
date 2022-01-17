@@ -2,3 +2,26 @@ These meshes were created for Meshfem3D belonging to the SPECFEM3D_cartesian
 commit 75e1785c and they may not work for other versions of Meshfem3D. Each
 directory contains all the files necessary in the DATA/meshfem3D_files directory
 required by SPECFEM3D
+
+Mesh labels are explained as follows:
+ - forest: Main high-resolution mesh for derivation of the NZ ATOM velocity 
+    model, detailed in Chow et al. (2022) [https://doi.org/10.1029/2021JB022865]
+    We used the '4second' mesh only. The 2-3second mesh was used for trial runs
+    but waveform fits did not improve so these trials were scrapped.
+    'forest' was the internal name used to label the inversion.
+ - north: Main low-resolution mesh for derivation of NZ ATOM. We used the
+    '1node_10s' mesh only. All others were used for testing purposes. 
+    The 'nzni1d' was the 1D-velocity model (Ristau 2008) mesh used for 
+    waveform comparisons, discussed in Chow et al. (2020) 
+    [https://doi.org/10.1093/gji/ggaa381]
+    NOTE: forest and north cover the same volume, but are discretized in
+        different ways.
+ - ext_north: Extended North Island mesh which covers north to Cape Reinga 
+    and east past the trench. Used for an inversion being performed by the
+    Kyoto group (Kaneko and Adachi). They are using the '8sec' mesh.
+    NOTE: This mesh is sometimes referred to as 'Hackfish'
+ - south: South Island New Zealand mesh prepared for a planned SI inversion.
+ - sfexamples: Meshes for SeisFlows3 example problems
+ - visualize: mesh with no vertical coarsening layers for better 3D -> 2D 
+    visualizations, because these coarsening layers sometimes add weird
+    visual artifacts.
