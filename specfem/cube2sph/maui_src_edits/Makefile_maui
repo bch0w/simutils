@@ -80,6 +80,7 @@ write_stations_file_obj = \
 	
 write_sr_database_obj = \
 	$O/specfem3D_par.solverstatic_module.o
+
 shared_obj= \
 	$O/calendar.shared.o \
 	$O/shared_par.shared_module.o \
@@ -105,6 +106,7 @@ shared_obj= \
 	$O/lagrange_poly.shared.o \
 	$O/get_all_eight_slices.shared.o \
 	$O/hex_nodes.shared.o
+
 adios_shared_STUBS= \
 	$O/adios_method_stubs.cc.o
 
@@ -117,13 +119,16 @@ generate_databases_obj=\
 ## rules
 $E/cube2sph: ./src/cube2sph.f90 $(generate_databases_obj) $(shared_obj) $(adios_shared_STUBS)
 	${MPIFC} ${FCFLAGS} -o $@ $^
+
 $E/get_surf_topo: ./src/get_surf_topo.f90 $(get_surf_topo_obj) $(shared_obj)
 	${MPIFC} ${FCFLAGS} -o $@ $^
 
 $E/get_moho_topo: ./src/get_moho_topo.f90 $(get_moho_topo_obj) $(shared_obj) $(adios_shared_STUBS)
 	${MPIFC} ${FCFLAGS} -o $@ $^
+
 $E/setup_model_cartesian: ./src/setup_model_cartesian.f90 $O/update_parameters_from_netcdf.o $O/netcdf_model_wrapper.o $(setup_model_obj) $(shared_obj) $(adios_shared_STUBS)
 	${MPIFC} ${FCFLAGS} ${NCDFLDFLAGS} -o $@ $^ ${NCDFLDLIBS}
+
 $E/node_stretching: ./src/node_stretching.f90 $(node_stretching_obj) $(shared_obj) $(adios_shared_STUBS)
 	${MPIFC} ${FCFLAGS} -o $@ $^
 
@@ -204,6 +209,7 @@ $O/%.gen.o: ./src/generate_databases/%.F90 $O/generate_databases_par.gen_mod.o
 $O/%.gen_mod.o: ./src/generate_databases/%.F90 ./include/constants.h
 	${FC} ${FCFLAGS} -c -o $@ $<
 
+test: $E/write_force_solution_file
 
 all: $E/node_stretching $E/node_stretching_parallel $E/write_force_solution_file $E/write_stations_file $E/setup_model_cartesian $E/write_sr_database $E/cube2sph
 
