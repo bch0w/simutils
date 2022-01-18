@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xmeshfem3D
-#SBATCH --nodes=2
-#SBATCH --ntasks=80
+#SBATCH --nodes=1
+#SBATCH --ntasks=40
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
 #SBATCH --account=gns03247
