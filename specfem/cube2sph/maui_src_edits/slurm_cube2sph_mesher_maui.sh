@@ -1,7 +1,8 @@
 #!/bin/bash -e
-#SBATCH --job-name=xcube2sph_mesher
-#SBATCH --nodes=1  
-#SBATCH --ntasks=40  
+
+#SBATCH --job-name=xcube2sph
+#SBATCH --nodes=1
+#SBATCH --ntasks=40
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
 #SBATCH --account=gns03247
@@ -10,38 +11,52 @@
 #SBATCH --output=log_cube2sph_%j.out
 
 
-module load gcc/8.3.0
-module switch PrgEnv-cray/6.0.5 PrgEnv-gnu
-module load cray-hdf5/1.10.2.0
+# Machine specific module loadout
+module load gcc/8.3.0  
+module switch PrgEnv-cray/6.0.5 PrgEnv-gnu  
+module load cray-hdf5/1.10.2.0 
 module load cray-netcdf/4.6.1.3
 
-#############################
-current_dir=`pwd`
-## MODIFY specfem_dir
-specfem_dir="/scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/tomo/cube2sph/specfem3d_workdir"
-#############################
-cube2sph_dir="cube2sph_utils"
-NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
 
+# Set executable here
+exc="srun -n" 
+
+# Set directories here
+current_dir=`pwd`
+specfem_dir="/scale_wlg_persistent/filesets/home/chowbr/cube2sph/specfem3d_workdir"
+cube2sph_dir="/scale_wlg_persistent/filesets/home/chowbr/cube2sph/cube2sph/cube2sph_utils"
+
+# Typical Specfem run script dir grabs
+NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
 BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
+
+# ================================ RUN CUBE2SPH ================================
 echo
 echo "  cube2sph transform on $NPROC processors..."
 echo
 ## MODIFY cube2sph transform parameters - mesh center and rotation
 # cube2sph CENTER_LAT CENTER_LON ROTATE_ANGLE
-mpirun -np $NPROC ./${cube2sph_dir}/bin/cube2sph 62.5 -151.0 20.0
-##################################################################
+# ${exc} $NPROC ${cube2sph_dir}/bin/cube2sph 62.5 -151.0 20.0
+${exc} $NPROC ${cube2sph_dir}/bin/cube2sph 175.75 -57.75 20.0
+
+
+# ================================ RUN XGENDBS =================================
 echo
 echo "  running database generation on $NPROC processors..."
 echo
-mpirun -np $NPROC ./bin/xgenerate_databases
+${exc} $NPROC ./bin/xgenerate_databases
+
+
+# ================================ RUN XCOMBVOL ================================
 echo
 echo "    generate vtk file for vs... "
 echo
 ./bin/xcombine_vol_data_vtk 0 $((NPROC-1)) vs DATABASES_MPI/ . 0
 mv vs.vtk vs_ref.vtk
+
 mkdir -p ${cube2sph_dir}/DATABASES_MPI_REF
 mkdir -p ${cube2sph_dir}/DATABASES_MPI
+
 mv DATABASES_MPI/* ${cube2sph_dir}/DATABASES_MPI_REF
 rm -rf OUTPUT_FILES
 ########change the model, then generate database again################
@@ -63,7 +78,7 @@ echo
 echo "    adding surface and interior topography..."
 echo
 #./bin/node_stretching
-mpirun -np $NPROC ./bin/node_stretching_parallel
+${exc} $NPROC ./bin/node_stretching_parallel
 #cp nodes_coords_file_topo ../../MESH-default
 cp DATABASES_MPI/*Database ${current_dir}/DATABASES_MPI
 
@@ -72,7 +87,7 @@ echo
 echo "    changing the velocity model on GLL points..."
 echo 
 
-mpirun -np $NPROC ./bin/setup_model_cartesian
+${exc} $NPROC ./bin/setup_model_cartesian
 cp DATABASES_MPI/*vp.bin DATABASES_MPI/*vs.bin DATABASES_MPI/*rho.bin ${current_dir}/DATABASES_MPI
 
 #echo
@@ -102,7 +117,7 @@ cp DATA/Par_file OUTPUT_FILES/
 echo
 echo "  running database generation on $NPROC processors..."
 echo
-mpirun -np $NPROC ./bin/xgenerate_databases
+${exc} $NPROC ./bin/xgenerate_databases
 
 echo
 echo "    generate vtk file for vs... "
