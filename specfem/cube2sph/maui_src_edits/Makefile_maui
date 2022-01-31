@@ -209,8 +209,6 @@ $O/%.gen.o: ./src/generate_databases/%.F90 $O/generate_databases_par.gen_mod.o
 $O/%.gen_mod.o: ./src/generate_databases/%.F90 ./include/constants.h
 	${FC} ${FCFLAGS} -c -o $@ $<
 
-test: $E/write_force_solution_file
-
 all: $E/node_stretching $E/node_stretching_parallel $E/write_force_solution_file $E/write_stations_file $E/setup_model_cartesian $E/write_sr_database $E/cube2sph
 
 clean:
