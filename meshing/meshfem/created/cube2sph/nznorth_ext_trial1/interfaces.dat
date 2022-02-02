@@ -10,7 +10,7 @@
  .true. 2 2 -361383.5d0 -405861.5d0 180.d0 180.d0
  interface_40.dat
 # interface number 4 (topo)
- .true. 763 850 115822.d0 5358185.d0 1000.00d0 1000.00d0
+ .true. 560 818 -361383.5d0 -405861.5d0 1290.7d0 992.3d0
  interface_topo.dat
 # number of spectral elements per layer (from bottom)
  11

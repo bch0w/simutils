@@ -613,6 +613,8 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
         topo = ".true. 899 859 38192d0 -5288202d0 1000.00d0 1000.00d0"
     elif topo == "nznorth_ext":
         topo = ".true. 763 850 115822.d0 5358185.d0 1000.00d0 1000.00d0"
+    elif topo == "c2s_nznorth_ext":
+        topo = ".true. 560 818 -361383.5d0 -405861.5d0 1290.7d0 992.3d0"
     else:
         topo = flat_layer
 

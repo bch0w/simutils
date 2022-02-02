@@ -1,6 +1,6 @@
 {
 	"tag": "cube2sph_nznorth_ext",
-    "dir_name": "./created/cube2sph/nznorth_ext_trial4",
+    "dir_name": "./created/cube2sph/nznorth_ext_trial2",
     "lat_min": -405861.5,
     "lat_max": 405861.5,
     "lon_min": -361383.5,
@@ -10,19 +10,18 @@
     "mesh_depth_km": 400.0,
     "mesh_top_km": -2.67,
     "doubling_layers": [
-        60, 120
+        50, 85
     ],
     "interfaces": [
-        24.4, 40, 80, 220
+        40, 80, 220
     ],
     "interface_fids": [
-        "interface_24p4.dat",
         "interface_40.dat",
         "interface_80.dat",
         "interface_220.dat"
     ],
     "interface_increase": [
-        1, 2, 2, 2
+        2, 2, 2
     ],
     "regions": [
         8, 50
