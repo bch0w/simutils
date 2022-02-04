@@ -1,0 +1,20 @@
+reading file 1/1: e140s10.nc
+	converting latlon to UTM -60
+	topography file has size (28800000, 3)
+	cutting topography file to desired dimensions
+	topography file cut to size (717591, 3)
+final topo file has size (717591, 3) 
+interpolating to regular grid
+	interpolated file has size (458080, 3)
+writing to topo_c2s_utm60s
+MESHFEM INTERFACE STATS
+==================================================
+NPTS_LON = 560
+NPTS_LAT = 818
+dLON    = 0.011605403775409685
+dLAT    = 0.00891399571151725
+LON_MIN = 172.5
+LAT_MIN = -41.6
+
+ .false. 560 818 172.50d0 -41.60d0 0.011605d0 0.008914d0
+ .true. 560 818 124950d0 -4615155d0 1000.00d0 1000.00d0
