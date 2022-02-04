@@ -8,7 +8,7 @@
 #SBATCH --account=gns03247
 #SBATCH --partition=nesi_research
 #SBATCH --time=00:30:00
-#SBATCH --output=log_cube2sph_%j.out
+#SBATCH --output=log_cube2sphp3_%j.out
 
 
 # Machine specific module loadout
@@ -23,8 +23,9 @@ exc="srun -n"
 
 # Set directories here
 current_dir=`pwd`
-specfem_dir="/scale_wlg_persistent/filesets/home/chowbr/cube2sph/specfem3d_workdir"
-cube2sph_dir="/scale_wlg_persistent/filesets/home/chowbr/cube2sph/cube2sph/cube2sph_utils"
+specfem_dir="/scale_wlg_nobackup/filesets/nobackup/gns03247/bchow/tomo/cube2sph/cube2sph_specfem3d_b7ed7a33"
+# cube2sph_dir="cube2sph_utils"
+cube2sph_dir="/scale_wlg_persistent/filesets/project/gns03247/bchow/repos/cube2sph_update/cube2sph_utils"
 
 # Typical Specfem run script dir grabs
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
@@ -36,23 +37,22 @@ echo "  cube2sph transform on $NPROC processors..."
 echo
 ## MODIFY cube2sph transform parameters - mesh center and rotation
 # cube2sph CENTER_LAT CENTER_LON ROTATE_ANGLE
-# ${exc} $NPROC ${cube2sph_dir}/bin/cube2sph 62.5 -151.0 20.0
-${exc} $NPROC ${cube2sph_dir}/bin/cube2sph 175.75 -57.75 20.0
+# !!! ${exc} $NPROC ${cube2sph_dir}/bin/cube2sph 175.75 -57.75 20.0
 
 
 # ================================ RUN XGENDBS =================================
 echo
 echo "  running database generation on $NPROC processors..."
 echo
-${exc} $NPROC ./bin/xgenerate_databases
+# !!! ${exc} $NPROC ./bin/xgenerate_databases
 
 
 # ================================ RUN XCOMBVOL ================================
 echo
 echo "    generate vtk file for vs... "
 echo
-./bin/xcombine_vol_data_vtk 0 $((NPROC-1)) vs DATABASES_MPI/ . 0
-mv vs.vtk vs_ref.vtk
+# !!! ./bin/xcombine_vol_data_vtk 0 $((NPROC-1)) vs DATABASES_MPI/ . 0
+# mv vs.vtk vs_ref.vtk
 
 mkdir -p ${cube2sph_dir}/DATABASES_MPI_REF
 mkdir -p ${cube2sph_dir}/DATABASES_MPI
