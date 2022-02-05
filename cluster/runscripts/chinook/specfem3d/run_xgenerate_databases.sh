@@ -1,14 +1,14 @@
-#!/bin/bash -e
+#!/bin/sh
 
 #SBATCH --job-name=xgenerate_databases
-#SBATCH --nodes=1
-#SBATCH --ntasks=40
-#SBATCH --cpus-per-task=1
-#SBATCH --clusters=maui
-#SBATCH --account=gns03247
-#SBATCH --partition=nesi_research
+#SBATCH --ntasks=48
+#SBATCH --tasks-per-node=24
+#SBATCH --partition=t2small
 #SBATCH --time=00:20:00
 #SBATCH --output=generate_databases_%j.out
+
+ulimit -s unlimited
+ulimit -l unlimited
 
 # get the number of processors, ignoring comments in the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`

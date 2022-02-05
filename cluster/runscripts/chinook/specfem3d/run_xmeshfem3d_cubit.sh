@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH --job-name=xmeshfem3D
+#SBATCH --job-name=xmeshfem3D_cubit
 #SBATCH --ntasks=1
 #SBATCH --tasks-per-node=24
 #SBATCH --partition=debug
@@ -17,7 +17,7 @@ mkdir -p ${BASEMPIDIR}
 echo "xmeshfem3D on ${NPROC} processors"
 echo
 echo "`date`"
-time srun -n ${NPROC} ./bin/xmeshfem3D
+time srun -n ${NPROC} ./bin/xmeshfem3D_cubit
 echo
 echo "finished at: `date`"
 

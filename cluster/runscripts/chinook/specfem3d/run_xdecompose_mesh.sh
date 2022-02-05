@@ -1,15 +1,14 @@
-#!/bin/bash -e
-
+#!/bin/sh 
+ 
 #SBATCH --job-name=xdecompose_mesh
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --clusters=maui
-#SBATCH --account=nesi00263
-#SBATCH --partition=nesi_research
-#SBATCH --hint=nomultithread
-#SBATCH --time=00:02:00
+#SBATCH --ntasks=1 
+#SBATCH --tasks-per-node=24
+#SBATCH --partition=t2small
+#SBATCH --time=00:00:45 
 #SBATCH --output=decompose_mesh_%j.out
+
+ulimit -s unlimited
+ulimit -l unlimited
 
 # Set the directory to search for external mesh files
 MESH="./MESH"
