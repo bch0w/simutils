@@ -1,0 +1,32 @@
+{
+	"tag": "nalaska",
+    "dir_name": "./created/nalaska/8sec",
+    "lat_min": 64.0,
+    "lat_max": 72.0,
+    "lon_min": -169.0,
+    "lon_max": -140.0,
+    "utm_projection": 3,
+    "mesh_depth_km": 1000.0,
+    "mesh_top_km": -5.0,
+    "doubling_layers": [
+        50, 70
+    ],
+    "interfaces": [
+        40, 65
+    ],
+    "interface_fids": [
+        "interface_1.dat",
+        "interface_2.dat"
+    ],
+    "interface_increase": 2,
+    "regions": [
+       8, 50
+    ],
+    "nproc": 80,
+    "topo": "topo_nalaska",
+    "grid_space_top_hv": [8, 4],
+    "shortest_period_s": 12,
+    "vs_min_km_per_s": 3.0,
+    "vp_max_km_per_s": 9.3,
+    "top_vertical_element_ratio": 1.0
+}

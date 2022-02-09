@@ -30,7 +30,7 @@ class Field(dict):
     dictionary that ensures all these attributes are met. Also allows expansion
     to new attributes that are automatically filled in as the Field is parsed.
     """
-    def __init__(self, std_name, long_name, unit, grid=False, col_name=None):
+    def __init__(self, std_name, long_name, unit, grid=False):
         """
         Set field attributes required for GeoCSV file
         
@@ -45,15 +45,11 @@ class Field(dict):
             discretization of the variable. Useful only for uniformly gridded
             variables like the coordinate system, where x is divided into equal
             dx values. Defaults to False
-        :type col_name: str
-        :param col_name: column name if different from actual name, for header
-            i.e. # y_column: `col_name`
         """
         self.std_name = std_name
         self.long_name = long_name
         self.unit = unit
         self.grid = grid
-        self.col_name = col_name
 
     def __setattr__(self, key, value):
         self[key] = value
@@ -323,11 +319,7 @@ class Converter():
             name = field.std_name
 
             # Allows different column name w.r.t actual name, e.g. x -> long
-            if field.col_name is not None:
-                col_name = field.col_name
-            else:
-                col_name = field.std_name
-            f.write(f"# {name}_column: {col_name}\n")
+            f.write(f"# {name}_column: {field.std_name}\n")
             f.write(f"# {name}_long_name: {field.long_name}\n")
             f.write(f"# {name}_units: {field.unit}\n")
             f.write(f"# {name}_min: {self.data[:, i].min(): {self.fstr}}\n")
@@ -401,10 +393,8 @@ def convert_main(input_files, output_files, path_out="./", prepend=None,
     # NOTE: Units are set to how they will appear in the output file, not how
     # they're set in the input file. The function convert_data() may affect
     # what the final units are
-    conv.append(std_name="y", long_name="y_axis_utm", unit="km", 
-                col_name="latitude")
-    conv.append(std_name="x", long_name="x_axis_utm", unit="km",
-                col_name="longitude")
+    conv.append(std_name="y", long_name="y_axis_utm", unit="km") 
+    conv.append(std_name="x", long_name="x_axis_utm", unit="km")
     conv.append(std_name="depth", long_name="z_axis_utm", unit="km")
 
     # Having lat/lon headers means we will need to run convert_coordinates()
