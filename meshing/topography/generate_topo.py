@@ -300,17 +300,17 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
 
 if __name__ == "__main__":
     # Set parameters here
-    tag = "topo_c2s_utm60s"
-    utm_projection = -60
+    tag = "topo_nalaska"
+    utm_projection = 3
     method = "meshfem"
     coords = "latlon"
     buffer_m = 0  # 10E3  # add some wiggle room if the bounds are precise
     plot = True
     if coords == "latlon":
-        lat_min = -41.6
-        lat_max = -34.3
-        lon_min = 172.5
-        lon_max = 179.0
+        lat_min = 64
+        lat_max = 72
+        lon_min = -169.
+        lon_max = -140.
         x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
         x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
     elif coords == "xyz":

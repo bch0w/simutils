@@ -1,14 +1,15 @@
-#!/bin/bash
-
+#!/bin/sh                                                                        
+                                                                                 
 #SBATCH --job-name=combine_vol_data_vtk
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --account=gns03247
-#SBATCH --clusters=maui
-#SBATCH --partition=nesi_research
-#SBATCH --hint=nomultithread
-#SBATCH --time=0:05:00
-#SBATCH --output=comb.log
+#SBATCH --ntasks=48                                                              
+#SBATCH --tasks-per-node=24                                                      
+#SBATCH --partition=debug                                                        
+#SBATCH --time=00:02:00                                                          
+#SBATCH --output=combine_vol_data_vtk_%j.log
+                                                                                 
+                                                                                 
+ulimit -s unlimited                                                              
+ulimit -l unlimited    
 
 # Rubric:
 # * This exectuable needs to be run inside a SPECFEM3D working directory

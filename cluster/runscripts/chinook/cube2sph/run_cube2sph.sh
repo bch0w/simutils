@@ -7,7 +7,6 @@
 #SBATCH --time=00:00:45
 #SBATCH --output=cube2sph_%j.out
 
-ulimit -v
 ulimit -s unlimited
 ulimit -l unlimited
 
@@ -20,7 +19,7 @@ ulimit -l unlimited
 # Alaska TLiu example
 CENTER_LAT=62.5
 CENTER_LON=-151.0
-ROTATE_ANGLE=20.0
+ROTATE_ANGLE=0.0
 
 # Get the number or processors and Database directory form the Par_file
 # ignore comments in the line

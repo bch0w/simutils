@@ -1,15 +1,14 @@
-#!/bin/bash -e
-
+#!/bin/sh                                                                        
+                                                                                 
 #SBATCH --job-name=setup_model_cartesian
-#SBATCH --nodes=1
-#SBATCH --ntasks=40
-#SBATCH --cpus-per-task=1
-#SBATCH --clusters=maui
-#SBATCH --account=gns03247
-#SBATCH --partition=nesi_research
-#SBATCH --hint=nomultithread
-#SBATCH --time=00:10:00
+#SBATCH --ntasks=48                                                              
+#SBATCH --tasks-per-node=24                                                      
+#SBATCH --partition=debug                                                        
+#SBATCH --time=00:010:00                                                          
 #SBATCH --output=setup_model_cartesian_%j.out
+                                                                                 
+ulimit -s unlimited                                                              
+ulimit -l unlimited 
 
 
 # Get the number or processors and Database directory form the Par_file

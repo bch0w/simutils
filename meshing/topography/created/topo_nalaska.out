@@ -1,0 +1,25 @@
+reading file 1/2: w180n90.nc
+	converting latlon to UTM 3
+	topography file has size (28800000, 3)
+	cutting topography file to desired dimensions
+	topography file cut to size (9347488, 3)
+reading file 2/2: w140n90.nc
+	converting latlon to UTM 3
+	topography file has size (28800000, 3)
+	cutting topography file to desired dimensions
+	topography file cut to size (1328170, 3)
+final topo file has size (10675658, 3) 
+interpolating to regular grid
+	interpolated file has size (84384, 3)
+writing to topo_nalaska
+MESHFEM INTERFACE STATS
+==================================================
+NPTS_LON = 288
+NPTS_LAT = 293
+dLON    = -0.14036394035829827
+dLAT    = 0.03640713926028897
+LON_MIN = -172.57732787878697
+LAT_MIN = 62.052232309735494
+
+ .false. 288 293 -172.58d0 62.05d0 -0.140364d0 0.036407d0
+ .true. 288 293 104449d0 6903153d0 5000.00d0 5000.00d0
