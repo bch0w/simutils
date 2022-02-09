@@ -247,7 +247,6 @@ def print_meshfem_stats(data, utm_projection):
     dlat = abs(abs(lat_max) - abs(lat_min)) / len(y)
     dlon = abs(abs(lon_max) - abs(lon_min)) / len(x)
 
-    import ipdb;ipdb.set_trace()
     print(f"\nTOPOGRAPHY INFO\n{'='*50}\n"
           f"TOPO_MIN =  {data[:,2].min():.2f}\n"
           f"TOPO_MAX =  {data[:,2].max():.2f}\n"
@@ -402,9 +401,10 @@ def call_mesh_nalaska():
     # Set parameters here
     tag = "topo_nalaska"
     utm_projection = 3
-    method = "meshfem"
-    coords = "latlon"
-    buffer_m = 0  # add some wiggle room if the bounds are precise
+    method = "meshfem"  # 'meshfem' or 'trellis'
+    coords = "latlon"  # define corner points in 'latlon' or 'xyz'
+    buffer_m = None  # extend each bound by a constant value `buffer_m` 
+    border_m = 2E3  # for cutting topo, ensures interpolation has enough points
     if coords == "latlon":
         lat_min = 64.
         lat_max = 72.
@@ -417,9 +417,10 @@ def call_mesh_nalaska():
         x_max = 725E3
         y_min = 5150E3
         y_max = 5950E3
-    moho = -100E3
-    spacing_m = 5E3
+    moho = -100E3  # only used if `method`=='trellis'
+    spacing_m = 5E3  # uniform grid spacing 
 
+    # Offset each bound by constant value 
     if buffer_m is not None:
         x_min -= buffer_m
         y_min -= buffer_m
@@ -435,7 +436,7 @@ def call_mesh_nalaska():
 
     main(tag=tag, method=method, srtm_files=srtm_files, x_min=x_min, 
          x_max=x_max, y_min=y_min, y_max=y_max, spacing_m=spacing_m, 
-         border_m=buffer_m, utm_projection=utm_projection, plot=True)
+         border_m=border_m, utm_projection=utm_projection, plot=True)
 
 if __name__ == "__main__":
     # call_mesh_nz()
