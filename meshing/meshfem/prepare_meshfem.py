@@ -120,10 +120,16 @@ def set_parameters(fid="./parmesh.json"):
            ), "interfaces number must match interface_fids number"
 
     # Convert latlon to UTM
-    x_min, y_min = lonlat_utm(parameters["lon_min"], parameters["lat_min"],
-                              parameters["utm_projection"])
-    x_max, y_max = lonlat_utm(parameters["lon_max"], parameters["lat_max"],
-                              parameters["utm_projection"])
+    if not parameters["suppress_utm_proj"]:
+        x_min, y_min = lonlat_utm(parameters["lon_min"], parameters["lat_min"],
+                                  parameters["utm_projection"])
+        x_max, y_max = lonlat_utm(parameters["lon_max"], parameters["lat_max"],
+                                  parameters["utm_projection"])
+    else:
+        x_min = parameters["lon_min"]
+        x_max = parameters["lon_max"]
+        y_min = parameters["lat_min"]
+        y_max = parameters["lat_max"]
 
     # Set the UTM coordinates in the parameters
     parameters["x_min"] = x_min
@@ -370,16 +376,25 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z,
     :return: number of elements in each layer corresponding to each desired
         interface. layers start counting from the bottom of the mesh
     """
-    logger.info("CALCULATING NUMBER OF VERTICAL TRIPLING LAYERS (interfaces)")
+    logger.info("CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)")
 
     # Start interfaces from the top, include the bottom interface of depth
     all_interfaces = [top_of_mesh] + interfaces + [depth]
     all_interfaces.sort()
 
     layers = []
+    # Allows for both list-like interface increases and single valued
+    if isinstance(interface_increase, int):
+        interface_increase = [interface_increase] * len(all_interfaces)
+
+    # Set up how the vertical element will change at each interface    
+    # First entry needs to be 1 because no double after topography (layer 0)
+    int_inc_tmp = [1] + interface_increase
+    grid_space_vert = grid_space_z
+
     for i in range(len(all_interfaces) - 1):
         j = i + 1
-        grid_space_vert = grid_space_z * interface_increase ** i
+        grid_space_vert *= int_inc_tmp[i]
         # grid_space_vert = grid_space_z * 3 ** i  # ORIGINAL
         num_layers = (all_interfaces[j] - all_interfaces[i]) / grid_space_vert
         layers.append(myround(num_layers, 1, "near"))
@@ -558,7 +573,7 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
 
 
 def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
-                     fids=[], topo="default"):
+                     suppress_utm_proj, fids=[], topo="default"):
     """
     Write the interfaces.dat file as well as the corresponding flat interface
     layers. Topo will need to be written manually
@@ -573,6 +588,9 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
     :param interfaces: depths in km of each interface
     :param lat_min: minimum latitude of the mesh
     :param lon_min: minimum longitude of the mesh
+    :type suppress_utm_proj: bool
+    :param suppress_utm_proj: if True, will use Lat/Lon coordinates, else
+        uses a UTM projection conversion
     :type fids: list
     :param fids: for custom interface names, starting from the top going down,
         excluding topography and the bottom of the mesh. If left blank, defaults
@@ -582,7 +600,8 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
     layers_from_bottom = layers
 
     # Template for setting a flat layer
-    flat_layer = f".false. 2 2 {lon_min:.1f}d0 {lat_min:.1f}d0 180.d0 180.d0"
+    flat_layer = (f".{str(suppress_utm_proj).lower()}. 2 2 {lon_min:.1f}d0 "
+                  f"{lat_min:.1f}d0 180.d0 180.d0")
 
     # Hardcoded topo layers define the structure of the underlying 
     # single-column topography file that must be generated externally    
@@ -594,6 +613,8 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
         topo = ".true. 899 859 38192d0 -5288202d0 1000.00d0 1000.00d0"
     elif topo == "nznorth_ext":
         topo = ".true. 763 850 115822.d0 5358185.d0 1000.00d0 1000.00d0"
+    elif topo == "c2s_nznorth_ext":
+        topo = ".true. 560 818 -361383.5d0 -405861.5d0 1290.7d0 992.3d0"
     else:
         topo = flat_layer
 
@@ -643,15 +664,18 @@ def pprint_mesh_stats(interfaces, doublings, regions, dx, dy, dz, top,
     c, r = 0, 1
     dx_, dy_, dz_ = dx, dy, dz
     depth = top
+    int_idx = 0  # interface index 
     for i in range(layers_nz, 0, -1):
         j = layers_nz - i + 1
         msg = ""
         if i == layers_nz:
             msg += "\n\t\tTop of Mesh"
         if i in interfaces:
-            msg += f"\n\t\tInterface (vertical x{interface_increase})"
+            msg += f"\n\t\tInterface (vertical x{interface_increase[int_idx]})"
             # dz *= 3  # ORIGINAL
-            dz *= interface_increase
+            # Increment the interface increase number
+            dz *= interface_increase[int_idx]
+            int_idx += 1
         if i in doublings:
             msg += "\n\t\tDoubling (horizontal doubling)"
             dx *= 2
@@ -733,6 +757,8 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
                              lon_min=pars["lon_min"], lon_max=pars["lon_max"],
                              depth=pars["mesh_depth_km"],
                              utm_projection=pars["utm_projection"],
+                             suppress_utm_proj=str(
+                                    pars["suppress_utm_proj"]).lower(),
                              nex_xi=nex_x, nex_eta=nex_y, nproc_xi=nproc_x,
                              nproc_eta=nproc_y,
                              ndoublings=len(pars["doubling_layers"]),
@@ -757,6 +783,7 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
             write_interfaces(template=interfaces_template, topo=topo,
                              dir_name=pars["dir_name"], layers=layers, 
                              interfaces=pars["interfaces"],
+                             suppress_utm_proj=pars["suppress_utm_proj"],
                              lat_min=pars["lat_min"], lon_min=pars["lon_min"],
                              fids=pars["interface_fids"]
                              )
@@ -773,7 +800,12 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
 
 
 if __name__ == "__main__":
-    prepare_meshfem(parameter_file="./parmesh.json",
+    # Allow custom parameter file names
+    try:
+        parfile = sys.argv[1]
+    except IndexError:
+        parfile = "parmesh.json"
+    prepare_meshfem(parameter_file=parfile,
                     mesh_par_file_template="./template_Mesh_Par_file",
                     interfaces_template="./template_interfaces.dat",
                     )

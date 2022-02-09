@@ -1,4 +1,3 @@
-# Created by simutils.prepare_meshfem
 #-----------------------------------------------------------
 #
 # Meshing input parameters
@@ -6,13 +5,13 @@
 #-----------------------------------------------------------
 
 # coordinates of mesh block in latitude/longitude and depth in km
-LATITUDE_MIN                    = -41.6d0
-LATITUDE_MAX                    = -34.3d0
-LONGITUDE_MIN                   = 172.5d0
-LONGITUDE_MAX                   = 179.0d0
-DEPTH_BLOCK_KM                  = 400.0d0
-UTM_PROJECTION_ZONE             = -60
-SUPPRESS_UTM_PROJECTION         = .false.
+LATITUDE_MIN                    = -305786.05d0
+LATITUDE_MAX                    = 305786.05d0
+LONGITUDE_MIN                   = -305786.05d0
+LONGITUDE_MAX                   = 305786.05d0
+DEPTH_BLOCK_KM                  = 400.0
+UTM_PROJECTION_ZONE             = 11
+SUPPRESS_UTM_PROJECTION         = .true.
 
 # file that contains the interfaces of the model / mesh
 INTERFACES_FILE                 = interfaces.dat
@@ -21,15 +20,14 @@ INTERFACES_FILE                 = interfaces.dat
 CAVITY_FILE                     = no_cavity.dat
 
 # number of elements at the surface along edges of the mesh at the surface
-# (must be 8 * multiple of NPROC below if mesh is not regular and contains
-#  mesh doublings)
+# (must be 8 * multiple of NPROC below if mesh is not regular and contains mesh doublings)
 # (must be multiple of NPROC below if mesh is regular)
 NEX_XI                          = 120
 NEX_ETA                         = 128
 
 # number of MPI processors along xi and eta (can be different)
-NPROC_XI                        = 5
-NPROC_ETA                       = 8
+NPROC_XI                        = 1
+NPROC_ETA                       = 1
 
 #-----------------------------------------------------------
 #
@@ -42,9 +40,9 @@ USE_REGULAR_MESH                = .false.
 # Only for irregular meshes, number of doubling layers and their position
 NDOUBLINGS                      = 2
 # NZ_DOUBLING_1 is the parameter to set up if there is only one doubling layer
+# (more doubling entries can be added if needed to match NDOUBLINGS value)
 NZ_DOUBLING_1                   = 21
 NZ_DOUBLING_2                   = 24
-
 
 #-----------------------------------------------------------
 #
@@ -58,7 +56,7 @@ CREATE_DX_FILES                 = .false.
 CREATE_VTK_FILES                = .true.
 
 # path to store the databases files
-LOCAL_PATH                      = ./OUTPUT_FILES/DATABASES_MPI
+LOCAL_PATH                      = ./DATABASES_MPI
 
 #-----------------------------------------------------------
 #
@@ -66,7 +64,7 @@ LOCAL_PATH                      = ./OUTPUT_FILES/DATABASES_MPI
 #
 #-----------------------------------------------------------
 
-# CPML perfectly matched absorbing layers
+# CPML perfectly matched absorbing layers, in m
 THICKNESS_OF_X_PML              = 12.3d0
 THICKNESS_OF_Y_PML              = 12.3d0
 THICKNESS_OF_Z_PML              = 12.3d0
@@ -78,21 +76,15 @@ THICKNESS_OF_Z_PML              = 12.3d0
 #-----------------------------------------------------------
 
 # number of materials
-NMATERIALS                      = 3
-# define the different materials in the model as :
-# #material_id  #rho  #vp  #vs  #Q  #anisotropy_flag #domain_id
-# NOTE:
-# For Specfem3D versions after January 2018, the input format of materials was
-# changed to separate Q into Q_kappa and Q_mu, so a new value has to be added
-
-# #material_id  #rho  #vp  #vs  #Q_kappa #Q_mu  #anisotropy_flag #domain_id
-#     Q                : quality factor
-#     anisotropy_flag  : 0=no anisotropy/ 1,2,.. check w/ aniso_model.f90
-#     domain_id        : 1=acoustic / 2=elastic
-1  5500  9500  4500  9999.0  1000.0  0  2
-2  5500  9500  4500  9999.0  1000.0  0  2
-3  5500  9500  4500  9999.0  1000.0  0  2
-
+NMATERIALS                      = 2
+# define the different materials in the model as:
+# #material_id  #rho  #vp  #vs  #Q_Kappa  #Q_mu  #anisotropy_flag  #domain_id
+#     Q_Kappa          : Q_Kappa attenuation quality factor
+#     Q_mu             : Q_mu attenuation quality factor
+#     anisotropy_flag  : 0 = no anisotropy / 1,2,... check the implementation in file aniso_model.f90
+#     domain_id        : 1 = acoustic / 2 = elastic
+1  1200  8110.613  4491.005  9999. 40.0  0  2
+2  1300  5800.000  3200.000  9999. 50.0  0  2
 
 #-----------------------------------------------------------
 #
@@ -101,11 +93,8 @@ NMATERIALS                      = 3
 #-----------------------------------------------------------
 
 # number of regions
-NREGIONS                        = 3
+NREGIONS                        = 2
 # define the different regions of the model as :
-# NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-1     120   1     128   1     14    1    
-1     120   1     128   15    34    2    
-1     120   1     128   35    36    3    
-
-
+#NEX_XI_BEGIN  #NEX_XI_END  #NEX_ETA_BEGIN  #NEX_ETA_END  #NZ_BEGIN #NZ_END  #material_id
+1              120            1             128             1         14        1
+1              120            1             128             15         36        2

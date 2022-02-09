@@ -244,8 +244,8 @@ def print_meshfem_stats(data, utm_projection):
     # abs() because we only care about the magnitude
     dx = x[1] - x[0]
     dy = y[1] - y[0]
-    dlat = (abs(lat_max) - abs(lat_min)) / len(y)
-    dlon = (abs(lon_max) - abs(lon_min)) / len(x)
+    dlat = abs(abs(lat_max) - abs(lat_min)) / len(y)
+    dlon = abs(abs(lon_max) - abs(lon_min)) / len(x)
 
     import ipdb;ipdb.set_trace()
     print(f"\nTOPOGRAPHY INFO\n{'='*50}\n"
@@ -311,7 +311,7 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
     topography = None
     for i, fid in enumerate(srtm_files):
         print(f"reading file {i+1}/{len(srtm_files)}: {os.path.basename(fid)}")
-        # Convert from latitude/longitude to UTM -60/ UTM 60south
+        # Convert from latitude/longitude to UTM 
         print(f"\tconverting latlon to UTM {utm_projection}")
         topo_utm = convert_coordinates(data=read_nc(fid),
                                        utm_projection=utm_projection
@@ -358,16 +358,17 @@ def call_mesh_nz():
     Meshing script for New Zealand
     """
     # Set parameters here
-    tag = "topo_utm59s_south"
-    utm_projection = -59
+    tag = "topo_c2s_utm60s"
+    utm_projection = -60
     method = "meshfem"
     coords = "latlon"
-    buffer_m = 10E3  # add some wiggle room if the bounds are precise
+    buffer_m = 0  # 10E3  # add some wiggle room if the bounds are precise
+    plot = True
     if coords == "latlon":
-        lat_min = -47.5
-        lat_max = -40.
-        lon_min = 165
-        lon_max = 176.
+        lat_min = -41.6
+        lat_max = -34.3
+        lon_min = 172.5
+        lon_max = 179.0
         x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
         x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
     elif coords == "xyz":
@@ -386,8 +387,7 @@ def call_mesh_nz():
 
     # Load the topography file to be interpolated, can use multiple files if
     # your domain extends beyond a single file
-    path = ("/Users/Chow/Documents/academic/vuw/data/carto/topography/srtm30p/"
-            "*.nc")
+    path = ("/home/bchow/Work/data/topography/*.nc")
     srtm_files = glob(path)
     if not srtm_files:
         sys.exit("No input .nc files found")
