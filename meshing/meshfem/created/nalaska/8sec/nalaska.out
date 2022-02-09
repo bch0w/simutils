@@ -1,0 +1,154 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'tag': 'nalaska', 'dir_name': './created/nalaska/8sec', 'lat_min': 64.0, 'lat_max': 72.0, 'lon_min': -169.0, 'lon_max': -140.0, 'utm_projection': 3, 'mesh_depth_km': 1000.0, 'mesh_top_km': -5.0, 'doubling_layers': [50, 70], 'interfaces': [40, 65], 'interface_fids': ['interface_1.dat', 'interface_2.dat'], 'interface_increase': 2, 'regions': [8, 50], 'nproc': 80, 'topo': 'topo_nalaska', 'grid_space_top_hv': [8, 4], 'shortest_period_s': 12, 'vs_min_km_per_s': 3.0, 'vp_max_km_per_s': 9.3, 'top_vertical_element_ratio': 1.0}
+
+PARAMETERS FOR: nalaska
+	tag: nalaska
+	dir_name: ./created/nalaska/8sec
+	lat_min: 64.0
+	lat_max: 72.0
+	lon_min: -169.0
+	lon_max: -140.0
+	utm_projection: 3
+	mesh_depth_km: 1000.0
+	mesh_top_km: -5.0
+	doubling_layers: [50, 70]
+	interfaces: [40, 65]
+	interface_fids: ['interface_1.dat', 'interface_2.dat']
+	interface_increase: 2
+	regions: [8, 50]
+	nproc: 80
+	topo: topo_nalaska
+	grid_space_top_hv: [8, 4]
+	shortest_period_s: 12
+	vs_min_km_per_s: 3.0
+	vp_max_km_per_s: 9.3
+	top_vertical_element_ratio: 1.0
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 8
+	MIN GRID SPACE VERTICAL: 4
+CALCULATING NUMBER OF PROCESSORS
+	short direction is x
+	NPROC_X = 8
+	NPROC_Y = 10
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 192
+	NEX_Y = 240
+	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
+		NEX_X: 192 -> 192
+	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
+		NEX_Y: 240 -> 240
+	DX = 5.3933km
+	DY = 4.4309km
+CALCULATING NUMBER OF VERTICAL TRIPLING LAYERS (interfaces)
+	11 layers of 4km between -5.0km and 40km
+	3 layers of 8km between 40km and 65km
+	58 layers of 16km between 65km and 1000.0km
+	NLAYERS = 3
+	NELEMENTS_Z = 72
+	LAYER SIZE FROM BOTTOM = [58, 3, 11]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	depth 70km is approx element 58 at depth 79.00km
+	depth 50km is approx element 60 at depth 55.00km
+	NDOUBLING LAYERS = [58, 60]
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 3
+	depth 50km is approx element 60 at depth 55.00km
+	depth 8km is approx element 69 at depth 11.00km
+	depth -5.0km is top of mesh -5.0km
+	REGION STARTING ELEMENT = [72, 69, 60]
+MESH HAS THE APPROXIMATE FORM
+	72/01; Z~= -5.00km
+		Top of Mesh
+		Region 1 begins
+		dx=5.39, dy=4.43, dz=4
+	71/02; Z~= -9.00km
+	70/03; Z~=-13.00km
+	69/04; Z~=-17.00km
+		Region 2 begins
+		dx=5.39, dy=4.43, dz=4
+	68/05; Z~=-21.00km
+	67/06; Z~=-25.00km
+	66/07; Z~=-29.00km
+	65/08; Z~=-33.00km
+	64/09; Z~=-37.00km
+	63/10; Z~=-41.00km
+	62/11; Z~=-45.00km
+	61/12; Z~=-49.00km
+		Interface (vertical x2)
+		dx=5.39, dy=4.43, dz=8
+	60/13; Z~=-57.00km
+		Doubling (horizontal doubling)
+		Region 3 begins
+		dx=10.79, dy=8.86, dz=8
+	59/14; Z~=-65.00km
+	58/15; Z~=-73.00km
+		Interface (vertical x2)
+		Doubling (horizontal doubling)
+		dx=21.57, dy=17.72, dz=16
+	57/16; Z~=-89.00km
+	56/17; Z~=-105.00km
+	55/18; Z~=-121.00km
+	54/19; Z~=-137.00km
+	53/20; Z~=-153.00km
+	52/21; Z~=-169.00km
+	51/22; Z~=-185.00km
+	50/23; Z~=-201.00km
+	49/24; Z~=-217.00km
+	48/25; Z~=-233.00km
+	47/26; Z~=-249.00km
+	46/27; Z~=-265.00km
+	45/28; Z~=-281.00km
+	44/29; Z~=-297.00km
+	43/30; Z~=-313.00km
+	42/31; Z~=-329.00km
+	41/32; Z~=-345.00km
+	40/33; Z~=-361.00km
+	39/34; Z~=-377.00km
+	38/35; Z~=-393.00km
+	37/36; Z~=-409.00km
+	36/37; Z~=-425.00km
+	35/38; Z~=-441.00km
+	34/39; Z~=-457.00km
+	33/40; Z~=-473.00km
+	32/41; Z~=-489.00km
+	31/42; Z~=-505.00km
+	30/43; Z~=-521.00km
+	29/44; Z~=-537.00km
+	28/45; Z~=-553.00km
+	27/46; Z~=-569.00km
+	26/47; Z~=-585.00km
+	25/48; Z~=-601.00km
+	24/49; Z~=-617.00km
+	23/50; Z~=-633.00km
+	22/51; Z~=-649.00km
+	21/52; Z~=-665.00km
+	20/53; Z~=-681.00km
+	19/54; Z~=-697.00km
+	18/55; Z~=-713.00km
+	17/56; Z~=-729.00km
+	16/57; Z~=-745.00km
+	15/58; Z~=-761.00km
+	14/59; Z~=-777.00km
+	13/60; Z~=-793.00km
+	12/61; Z~=-809.00km
+	11/62; Z~=-825.00km
+	10/63; Z~=-841.00km
+	09/64; Z~=-857.00km
+	08/65; Z~=-873.00km
+	07/66; Z~=-889.00km
+	06/67; Z~=-905.00km
+	05/68; Z~=-921.00km
+	04/69; Z~=-937.00km
+	03/70; Z~=-953.00km
+	02/71; Z~=-969.00km
+	01/72; Z~=-985.00km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+	setting topography to 'topo_nalaska', points to 'interface_topo.dat'
+WRITING INTERACE interface_1.dat
+WRITING INTERACE interface_2.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	APPRX_NUM_ELEM = 786240

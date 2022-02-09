@@ -15,9 +15,6 @@ import numpy as np
 from scipy.io.netcdf import NetCDFFile
 from scipy.interpolate import griddata
 
-sys.path.append("..")
-from mesh_utils import lonlat_utm
-
 
 def read_nc(fid):
     """
@@ -73,6 +70,45 @@ def convert_coordinates(data, utm_projection=-60):
     data_out[:, 1] = y_irreg
 
     return data_out
+
+
+def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):
+    """
+    convert latitude and longitude coordinates to UTM projection
+    From Pyatoa
+
+    :type lon_or_x: float or int
+    :param lon_or_x: longitude value in WGS84 or X in UTM-'zone' projection
+    :type lat_or_y: float or int
+    :param lat_or_y: latude value in WGS84 or Y in UTM-'zone' projection
+    :type utm_zone: int
+    :param utm_zone: UTM zone for conversion from WGS84
+    :type inverse: bool
+    :param inverse: if inverse == False, latlon => UTM, vice versa.
+    :rtype x_or_lon: float
+    :return x_or_lon: x coordinate in UTM or longitude in WGS84
+    :rtype y_or_lat: float
+    :return y_or_lat: y coordinate in UTM or latitude in WGS84
+    """
+    from pyproj import Proj
+
+    # Determine if the projection is north or south
+    if utm_zone < 0:
+        direction = "south"
+    else:
+        direction = "north"
+    # Proj doesn't accept negative zones
+    utm_zone = abs(utm_zone)
+
+    # Proj requires a string to tell it how to convert the coordinates
+    projstr = (f"+proj=utm +zone={utm_zone}, +{direction} +ellps=WGS84"
+               " +datum=WGS84 +units=m +no_defs")
+
+    # Initiate a Proj object and convert the coordinates
+    my_proj = Proj(projstr)
+    x_or_lon, y_or_lat = my_proj(lon_or_x, lat_or_y, inverse=inverse)
+
+    return x_or_lon, y_or_lat
 
 
 def cut_topography(data, x_or_lon_min, x_or_lon_max, y_or_lat_min,
@@ -147,6 +183,11 @@ def interpolate_points(data, x_min, x_max, y_min, y_max, spacing_m, plot=False):
         import matplotlib.pyplot as plt
         plt.imshow(interp_vals)
         plt.gca().invert_yaxis()
+        plt.title("NAlaska UTM3 SRTM30P Topography\n"
+                  "Corners Lon/Lat: -169, 72 / -140, 64"
+                  )
+        plt.xlabel("X [km]")
+        plt.ylabel("Y [km]")
         plt.show()
 
     # Create the ndarray by creating column vectors and mushing em together
@@ -206,7 +247,15 @@ def print_meshfem_stats(data, utm_projection):
     dlat = abs(abs(lat_max) - abs(lat_min)) / len(y)
     dlon = abs(abs(lon_max) - abs(lon_min)) / len(x)
 
-    print(f"MESHFEM INTERFACE STATS\n{'='*50}\n"
+    import ipdb;ipdb.set_trace()
+    print(f"\nTOPOGRAPHY INFO\n{'='*50}\n"
+          f"TOPO_MIN =  {data[:,2].min():.2f}\n"
+          f"TOPO_MAX =  {data[:,2].max():.2f}\n"
+          f"TOPO_MEAN = {data[:,2].mean():.2f}\n"
+          f"TOPO_MED =  {np.median(data[:,2]):.2f}\n"
+          )
+
+    print(f"\nMESHFEM INTERFACE STATS\n{'='*50}\n"
           f"NPTS_LON = {len(x)}\n"
           f"NPTS_LAT = {len(y)}\n"
           f"dLON    = {dlon}\n"
@@ -214,6 +263,8 @@ def print_meshfem_stats(data, utm_projection):
           f"LON_MIN = {lon_min}\n"
           f"LAT_MIN = {lat_min}\n"
           )
+
+    print(f"Place one of the following lines in your 'interfaces.dat' file:\n")
     print(f" .false. {len(x)} {len(y)} {lon_min:.2f}d0 {lat_min:.2f}d0 "
           f"{dlon:.6f}d0 {dlat:.6f}d0")
     print(f" .true. {len(x)} {len(y)} {x.min():.0f}d0 {y.min():.0f}d0 "
@@ -221,7 +272,7 @@ def print_meshfem_stats(data, utm_projection):
 
 
 def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
-         border_m=10E3, plot=False):
+         border_m=10E3, utm_projection=-60, plot=False):
     """
     Create topography files for a mesher using underlying SRTM30P data files
 
@@ -253,20 +304,23 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
     :type border_m: float
     :param border_m: border to add to the initial cut of the topography file
         (in meters) so that interpolation won't hit the edge of the file
+    :type utm_projection: int
+    :param utm_projection: projection label, defaults to -60 / 60S for 
+        New Zealand
     """
     topography = None
     for i, fid in enumerate(srtm_files):
         print(f"reading file {i+1}/{len(srtm_files)}: {os.path.basename(fid)}")
         # Convert from latitude/longitude to UTM 
         print(f"\tconverting latlon to UTM {utm_projection}")
-        topo_utm60s = convert_coordinates(data=read_nc(fid),
-                                          utm_projection=utm_projection
-                                          )
-        print(f"\ttopography file has size {np.shape(topo_utm60s)}")
+        topo_utm = convert_coordinates(data=read_nc(fid),
+                                       utm_projection=utm_projection
+                                       )
+        print(f"\ttopography file has size {np.shape(topo_utm)}")
 
         # Cut the topography file to the desired mesh boundaries with some buffr
         print("\tcutting topography file to desired dimensions")
-        topo_cut = cut_topography(data=topo_utm60s,
+        topo_cut = cut_topography(data=topo_utm,
                                   x_or_lon_min=x_min - border_m,
                                   x_or_lon_max=x_max + border_m,
                                   y_or_lat_min=y_min - border_m,
@@ -298,7 +352,11 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
     if method == "meshfem":
         print_meshfem_stats(topo_interp, utm_projection)
 
-if __name__ == "__main__":
+
+def call_mesh_nz():
+    """
+    Meshing script for New Zealand
+    """
     # Set parameters here
     tag = "topo_nalaska"
     utm_projection = 3
@@ -332,6 +390,53 @@ if __name__ == "__main__":
     path = ("/home/bchow/Work/data/topography/*.nc")
     srtm_files = glob(path)
     if not srtm_files:
-        sys.exit("No .nc files found, please check your path")
+        sys.exit("No input .nc files found")
 
-    main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m, plot)
+    main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m)
+
+
+def call_mesh_nalaska():
+    """
+    Meshing script for northern Alaska
+    """
+    # Set parameters here
+    tag = "topo_nalaska"
+    utm_projection = 3
+    method = "meshfem"
+    coords = "latlon"
+    buffer_m = 0  # add some wiggle room if the bounds are precise
+    if coords == "latlon":
+        lat_min = 64.
+        lat_max = 72.
+        lon_min = -169.
+        lon_max = -140.
+        x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
+        x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
+    elif coords == "xyz":
+        x_min = 125E3
+        x_max = 725E3
+        y_min = 5150E3
+        y_max = 5950E3
+    moho = -100E3
+    spacing_m = 5E3
+
+    if buffer_m is not None:
+        x_min -= buffer_m
+        y_min -= buffer_m
+        x_max += buffer_m
+        y_max += buffer_m
+
+    # Load the topography file to be interpolated, can use multiple files if
+    # your domain extends beyond a single file
+    path = "/home/bchow/Work/data/topography/nalaska_srtm30p/*nc"
+    srtm_files = glob(path)
+    if not srtm_files:
+        sys.exit("No input .nc files found")
+
+    main(tag=tag, method=method, srtm_files=srtm_files, x_min=x_min, 
+         x_max=x_max, y_min=y_min, y_max=y_max, spacing_m=spacing_m, 
+         border_m=buffer_m, utm_projection=utm_projection, plot=True)
+
+if __name__ == "__main__":
+    # call_mesh_nz()
+    call_mesh_nalaska()
