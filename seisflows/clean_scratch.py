@@ -1,8 +1,32 @@
 """
 Partially clean a SeisFlows scratch directory while keeping the main components 
-intact. This allows for maximum memory conservationw without removing the 
+intact. This allows for maximum memory conservation without removing the 
 possibility of re-starting an inversion using the same directory with minimal 
 required work.
+
+Flags:
+    p: path to seisflows working directory, defaults to cwd
+    R: real run, delete files. if not given, dry run only (no file deletions)
+    M: delete scratch/solver/mainsolver, not recommended if you think you will
+        restart this working directory at some point
+    f: delete scratch/evalfunc
+    g: delete scratch/evalgrad
+    l: delete log files in scratch/solver/*/OUTPUT_FILES/
+    v: delete .vt? files in scratch/solver/*/OUTPUT_FILES/DATABASES_MPI
+    d: delete the entire scratch/solver/*/OUTPUT_FILES/DATABASES_MPI/ dir.
+    s: delete the saved forward wavefield from 
+        scratch/solver/*/OUTPUT_FILES/DATABASES_MPI
+        including proc???_save_forward_arrays.bin files and 
+        proc???_absorb_field.bin files. These are likely the largest files
+        within this dir.
+
+Usage:
+    Help message:
+    $ python clean_scratch.py -h  # run help message
+    Dry run deletion (no files deleted)
+    $ python clean_scratch.py -fglvds
+    Actual run, delete all files
+    $ python clean_scratch.py -fglvdsR
 """
 import os
 from glob import glob
