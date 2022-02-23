@@ -1,0 +1,21 @@
+# The below options work together but I wasn't sure if I would run into issues
+# with intel compiler options and foss modules.
+# module purge
+# module load slurm
+# module load compiler/ifort/2018.5.274-GCC-5.4.0-2.26
+# module load openmpi/intel/2.1
+# # module load data/HDF5/1.8.15-foss-2016b   # works
+# module load data/HDF5/1.10.1-foss-2016b   # works
+# module load data/netCDF/4.5.0-foss-2016b
+#
+# The below options will load matching intel compiler options and openmpi
+module purge
+module load slurm
+# module load compiler/ifort/2019.3.199-GCC-8.3.0-2.32 
+# module load compiler/icc/2019.3.199-GCC-8.3.0-2.32
+# module load openmpi/intel/4.0
+module load data/HDF5/1.10.6-pic-intel-2019b
+module load data/netCDF/4.7.4-pic-intel-2019b  # Not sure if this is necessary
+module load data/netCDF-Fortran/4.5.2-pic-intel-2019b
+module list
+

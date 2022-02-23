@@ -1,0 +1,37 @@
+{
+	"tag": "nzne_ch",
+    "dir_name": "./created/cube2sph/nznorth_ext_chinook",
+    "lat_min": -405861.5,
+    "lat_max": 405861.5,
+    "lon_min": -361383.5,
+    "lon_max": 361383.05,
+    "utm_projection": -99,
+    "suppress_utm_proj": true,
+    "mesh_depth_km": 400.0,
+    "mesh_top_km": -2.67,
+    "doubling_layers": [
+        60, 120
+    ],
+    "interfaces": [
+        24.4, 40, 80, 220
+    ],
+    "interface_fids": [
+        "interface_24p4.dat",
+        "interface_40.dat",
+        "interface_80.dat",
+        "interface_220.dat"
+    ],
+    "interface_increase": [
+        1, 2, 2, 2
+    ],
+    "regions": [
+        8, 50
+    ],
+    "nproc": 48,
+    "topo": "nznorth_ext",
+    "grid_space_top_hv": [8, 4],
+    "shortest_period_s": 12,
+    "vs_min_km_per_s": 1.0,
+    "vp_max_km_per_s": 9.3,
+    "top_vertical_element_ratio": 1.0
+}
