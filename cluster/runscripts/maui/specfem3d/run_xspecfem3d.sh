@@ -5,7 +5,7 @@
 #SBATCH --ntasks=40
 #SBATCH --cpus-per-task=1
 #SBATCH --clusters=maui
-#SBATCH --account=nesi00263
+#SBATCH --account=gns03247
 #SBATCH --partition=nesi_research
 #SBATCH --time 00:25:00
 #SBATCH --output=specfem3D_%j.out
