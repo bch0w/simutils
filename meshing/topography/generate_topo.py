@@ -12,6 +12,7 @@ import os
 import sys
 from glob import glob
 import numpy as np
+from pyproj import Proj
 from scipy.io.netcdf import NetCDFFile
 from scipy.interpolate import griddata
 
@@ -72,6 +73,45 @@ def convert_coordinates(data, utm_projection=-60):
     return data_out
 
 
+# def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):
+#     """
+#     convert latitude and longitude coordinates to UTM projection
+#     From Pyatoa
+# 
+#     :type lon_or_x: float or int
+#     :param lon_or_x: longitude value in WGS84 or X in UTM-'zone' projection
+#     :type lat_or_y: float or int
+#     :param lat_or_y: latude value in WGS84 or Y in UTM-'zone' projection
+#     :type utm_zone: int
+#     :param utm_zone: UTM zone for conversion from WGS84
+#     :type inverse: bool
+#     :param inverse: if inverse == False, latlon => UTM, vice versa.
+#     :rtype x_or_lon: float
+#     :return x_or_lon: x coordinate in UTM or longitude in WGS84
+#     :rtype y_or_lat: float
+#     :return y_or_lat: y coordinate in UTM or latitude in WGS84
+#     """
+#     from pyproj import Proj
+# 
+#     # Determine if the projection is north or south
+#     if utm_zone < 0:
+#         direction = "south"
+#     else:
+#         direction = "north"
+#     # Proj doesn't accept negative zones
+#     utm_zone = abs(utm_zone)
+# 
+#     # Proj requires a string to tell it how to convert the coordinates
+#     projstr = (f"+proj=utm +zone={utm_zone}, +{direction} +ellps=WGS84"
+#                " +datum=WGS84 +units=m +no_defs")
+# 
+#     # Initiate a Proj object and convert the coordinates
+#     my_proj = Proj(projstr)
+#     x_or_lon, y_or_lat = my_proj(lon_or_x, lat_or_y, inverse=inverse)
+# 
+#     return x_or_lon, y_or_lat
+
+
 def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):
     """
     convert latitude and longitude coordinates to UTM projection
@@ -90,23 +130,8 @@ def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):
     :rtype y_or_lat: float
     :return y_or_lat: y coordinate in UTM or latitude in WGS84
     """
-    from pyproj import Proj
-
-    # Determine if the projection is north or south
-    if utm_zone < 0:
-        direction = "south"
-    else:
-        direction = "north"
-    # Proj doesn't accept negative zones
-    utm_zone = abs(utm_zone)
-
-    # Proj requires a string to tell it how to convert the coordinates
-    projstr = (f"+proj=utm +zone={utm_zone}, +{direction} +ellps=WGS84"
-               " +datum=WGS84 +units=m +no_defs")
-
-    # Initiate a Proj object and convert the coordinates
-    my_proj = Proj(projstr)
-    x_or_lon, y_or_lat = my_proj(lon_or_x, lat_or_y, inverse=inverse)
+    p = Proj(proj="utm", zone=utm_zone, ellps="WGS84", preserve_units=False)
+    x_or_lon, y_or_lat = p(lon_or_x, lat_or_y, inverse=inverse)
 
     return x_or_lon, y_or_lat
 
@@ -183,9 +208,7 @@ def interpolate_points(data, x_min, x_max, y_min, y_max, spacing_m, plot=False):
         import matplotlib.pyplot as plt
         plt.imshow(interp_vals)
         plt.gca().invert_yaxis()
-        plt.title("NAlaska UTM3 SRTM30P Topography\n"
-                  "Corners Lon/Lat: -169, 72 / -140, 64"
-                  )
+        plt.title("NAlaska UTM3 SRTM30P Topography")
         plt.xlabel("X [km]")
         plt.ylabel("Y [km]")
         plt.show()
@@ -244,8 +267,12 @@ def print_meshfem_stats(data, utm_projection):
     # abs() because we only care about the magnitude
     dx = x[1] - x[0]
     dy = y[1] - y[0]
-    dlat = abs(abs(lat_max) - abs(lat_min)) / len(y)
-    dlon = abs(abs(lon_max) - abs(lon_min)) / len(x)
+    deltax = abs(abs(x.max()) - abs(x.min()))
+    deltay = abs(abs(y.max()) - abs(y.min()))
+    deltalat = abs(abs(lat_max) - abs(lat_min))
+    deltalon = abs(abs(lon_max) - abs(lon_min))
+    dlat = deltalat / len(y)
+    dlon = deltalon / len(x)
 
     print(f"\nTOPOGRAPHY INFO\n{'='*50}\n"
           f"TOPO_MIN =  {data[:,2].min():.2f}\n"
@@ -257,10 +284,18 @@ def print_meshfem_stats(data, utm_projection):
     print(f"\nMESHFEM INTERFACE STATS\n{'='*50}\n"
           f"NPTS_LON = {len(x)}\n"
           f"NPTS_LAT = {len(y)}\n"
+          f"DELTA_X  = {deltax}\n"
+          f"DELTA_Y  = {deltay}\n"
+          f"DELTA_LAT  = {deltalat}\n"
+          f"DELTA_LON  = {deltalon}\n"
+          f"dX  = {dx}\n"
+          f"dY  = {dy}\n"
           f"dLON    = {dlon}\n"
           f"dLAT    = {dlat}\n"
           f"LON_MIN = {lon_min}\n"
           f"LAT_MIN = {lat_min}\n"
+          f"LON_MAX = {lon_max}\n"
+          f"LAT_MAX = {lat_max}\n"
           )
 
     print(f"Place one of the following lines in your 'interfaces.dat' file:\n")
@@ -352,73 +387,51 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
         print_meshfem_stats(topo_interp, utm_projection)
 
 
-def call_mesh_nz():
-    """
-    Meshing script for New Zealand
-    """
-    # Set parameters here
-    tag = "topo_nalaska"
-    utm_projection = 3
-    method = "meshfem"
-    coords = "latlon"
-    buffer_m = 0  # 10E3  # add some wiggle room if the bounds are precise
-    plot = True
-    if coords == "latlon":
-        lat_min = 64
-        lat_max = 72
-        lon_min = -169.
-        lon_max = -140.
-        x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
-        x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
-    elif coords == "xyz":
-        x_min = 125E3
-        x_max = 725E3
-        y_min = 5150E3
-        y_max = 5950E3
-    moho = -100E3
-    spacing_m = 1E3
-
-    if buffer_m is not None:
-        x_min -= buffer_m
-        y_min -= buffer_m
-        x_max += buffer_m
-        y_max += buffer_m
-
-    # Load the topography file to be interpolated, can use multiple files if
-    # your domain extends beyond a single file
-    path = ("/home/bchow/Work/data/topography/*.nc")
-    srtm_files = glob(path)
-    if not srtm_files:
-        sys.exit("No input .nc files found")
-
-    main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m)
-
-
 def call_mesh_nalaska():
     """
     Meshing script for northern Alaska
     """
     # Set parameters here
     tag = "topo_nalaska"
-    utm_projection = 3
+    utm_projection = "3"
     method = "meshfem"  # 'meshfem' or 'trellis'
-    coords = "latlon"  # define corner points in 'latlon' or 'xyz'
+    coords = "corner"  # define corner points in 'latlon' or 'xyz'
     buffer_m = None  # extend each bound by a constant value `buffer_m` 
     border_m = 2E3  # for cutting topo, ensures interpolation has enough points
+    moho = -100E3  # only used if `method`=='trellis'
+    spacing_m = 1E3  # uniform grid spacing 
+
+    # 'latlon': Define corners in lat lon and convert all to XY, doesn't work 
+    #   very well for domains that span multiple UTM zones
     if coords == "latlon":
-        lat_min = 64.
-        lat_max = 72.
-        lon_min = -169.
-        lon_max = -140.
+        lat_min = 63.  # 63.
+        lat_max = 72.  # 72
+        lon_min = -170.  # -170
+        lon_max = -135.  # -135
         x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
         x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
+        print(f"x_min: {x_min*1e-3:.2f}")
+        print(f"y_min: {y_min*1e-3:.2f}")
+        print(f"x_max: {x_max*1e-3:.2f}")
+        print(f"y_max: {y_max*1e-3:.2f}")
+        print(f"delta_x ={(x_max - x_min) * 1e-3:.2f}")
+        print(f"delta_y ={(y_max - y_min) * 1e-3:.2f}")
+    # 'xyz': Define everything in XYZ using the northing and easting of UTM
     elif coords == "xyz":
         x_min = 125E3
         x_max = 725E3
         y_min = 5150E3
         y_max = 5950E3
-    moho = -100E3  # only used if `method`=='trellis'
-    spacing_m = 5E3  # uniform grid spacing 
+    # 'Corner': Set a lat/lon corner and then push out using X and Y values
+    #   Best for large domains that span multiple UTM zones
+    elif coords == "corner":
+        lat_min = 63.
+        lon_min = -170.
+        x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)  
+        x_max = x_min + 1.6E6
+        y_max = y_min + 1.1E6
+        lon_max, lat_max = lonlat_utm(x_max, y_max, utm_projection, 
+                                      inverse=True)
 
     # Offset each bound by constant value 
     if buffer_m is not None:
