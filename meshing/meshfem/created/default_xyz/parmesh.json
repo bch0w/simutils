@@ -31,7 +31,6 @@
         [7500, 9000, 4500, 9999, 1000]
     ],
     "nproc": 84,
-    "topo": "nznorth_ext",
     "grid_space_top_hv": null,
     "shortest_period_s": 12,
     "vs_min_km_per_s": 3.25,

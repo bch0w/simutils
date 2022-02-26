@@ -805,7 +805,7 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
 
 
 def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
-                     suppress_utm_proj, fids=[], topo="default"):
+                     suppress_utm_proj, fids=[]):
     """
     Write the interfaces.dat file as well as the corresponding flat interface
     layers. Topo will need to be written manually
@@ -853,7 +853,6 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
 
     # Write the individual interface files
     for fid, interface in zip(fids, interfaces):
-        # Skip top interface (topography)
         logger.info(f"WRITING INTERACE {fid}")
         with open(os.path.join(dir_name, fid), "w") as f:
             for i in range(4):
@@ -993,15 +992,7 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
         # Format the interfaces file
         if pars["interfaces"]:
             logger.info("WRITING interfaces.dat")
-            # Choice to set topography line in interface, which defines the
-            # structure of the single-column topography file
-            try:
-                topo = pars["topo"] 
-            except KeyError:
-                logger.warning("\n!!! WARNING. UPDATED PARAMETER 'topo' "
-                               "NOT FOUND. SETTING DEFAULT !!!\n")
-                topo = "default"
-            write_interfaces(template=interfaces_template, topo=topo,
+            write_interfaces(template=interfaces_template,
                              dir_name=pars["dir_name"], layers=layers, 
                              interfaces=pars["interfaces"],
                              suppress_utm_proj=pars["suppress_utm_proj"],
