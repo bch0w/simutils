@@ -1,6 +1,6 @@
 PREPARING MESH FOR MESHFEM3D
 
-{'tag': 'default_xyz', 'dir_name': './created/default_xyz', 'lat_min': -100000.0, 'lat_max': 100000.0, 'lon_min': -125000.0, 'lon_max': 125000.0, 'utm_projection': -99, 'suppress_utm_proj': True, 'mesh_depth_km': 250.0, 'mesh_top_km': 0, 'doubling_layers': [], 'interfaces': [0, 25, 50], 'interface_fids': ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat'], 'interface_increase': [1, 2, 2.5], 'regions': [40, 80], 'materials': [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000], [7500, 9000, 4500, 9999, 1000]], 'nproc': 84, 'grid_space_top_hv': None, 'shortest_period_s': 12, 'vs_min_km_per_s': 3.25, 'points_per_wl': 5, 'top_vertical_element_ratio': 1}
+{'tag': 'default_xyz', 'dir_name': './created/default_xyz', 'lat_min': -100000.0, 'lat_max': 100000.0, 'lon_min': -125000.0, 'lon_max': 125000.0, 'utm_projection': -99, 'suppress_utm_proj': True, 'mesh_depth_km': 250.0, 'mesh_top_km': 0, 'doubling_layers': [], 'interfaces': [0, 25, 50], 'interface_fids': ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat'], 'interface_increase': [1, 2, 2.5], 'regions': [40, 80], 'materials': [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000], [7500, 9000, 4500, 9999, 1000]], 'nproc': 84, 'grid_space_top_hv': [5, 5], 'shortest_period_s': 12, 'vs_min_km_per_s': 3.25, 'points_per_wl': 5, 'top_vertical_element_ratio': 1}
 
 PARAMETERS FOR: default_xyz
 	tag: default_xyz
@@ -20,17 +20,15 @@ PARAMETERS FOR: default_xyz
 	regions: [40, 80]
 	materials: [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000], [7500, 9000, 4500, 9999, 1000]]
 	nproc: 84
-	grid_space_top_hv: None
+	grid_space_top_hv: [5, 5]
 	shortest_period_s: 12
 	vs_min_km_per_s: 3.25
 	points_per_wl: 5
 	top_vertical_element_ratio: 1
 CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
-	Manually calculating grid space based on T and V
-	desired grid points per wavelength: 5
-	T_min * V_min / points_per_wl = 7.8 km
-	MIN GRID SPACE HORIZONTAL = 7.8 km
-	MIN GRID SPACE VERTICAL = 7.8 km
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 5
+	MIN GRID SPACE VERTICAL: 5
 CALCULATING NUMBER OF PROCESSORS
 	short direction is y
 	NPROC_X = 12
@@ -46,8 +44,8 @@ CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
 	DX = 2.6042km
 	DY = 3.5714km
 	Note: if values below too large, adjust 'shortest_period_s'
-	GRID_SPACE_H - DX = 5.195833333333333
-	GRID_SPACE_H - DY = 4.228571428571428
+	GRID_SPACE_H - DX = 2.3958333333333335
+	GRID_SPACE_H - DY = 1.4285714285714284
 SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY
 	DZ = (dx + dy)/2 * 1 ~= 3
 CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)
