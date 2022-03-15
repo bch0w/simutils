@@ -1,9 +1,9 @@
 #!/bin/sh
 
 #SBATCH --job-name=cube2sph
-#SBATCH --ntasks=48
-#SBATCH --tasks-per-node=24
-#SBATCH --partition=debug
+#SBATCH --ntasks=56
+#SBATCH --tasks-per-node=28
+#SBATCH --partition=t2small
 #SBATCH --time=00:00:45
 #SBATCH --output=cube2sph_%j.out
 
@@ -17,8 +17,8 @@ ulimit -l unlimited
 # CENTER_LON=175.5
 # ROTATE_ANGLE=10.0
 # Alaska TLiu example
-CENTER_LAT=62.5
-CENTER_LON=-151.0
+CENTER_LAT=67.5
+CENTER_LON=-152.5
 ROTATE_ANGLE=0.0
 
 # Get the number or processors and Database directory form the Par_file

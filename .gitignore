@@ -1,4 +1,5 @@
 .idea/
+*.swp
 meshing/__pycache__/
 specfem/semslicer/xsemslicer
 cluster/utils/run_qmonpy.sh

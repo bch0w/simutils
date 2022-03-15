@@ -27,7 +27,6 @@ BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
 rm -rf ${BASEMPIDIR}
 mkdir -p ${BASEMPIDIR}
 
-# Decomposes mesh using files contained in ./MESH
 echo "xdecompose_mesh"
 echo
 time ./bin/xdecompose_mesh ${NPROC} ${MESH} ${BASEMPIDIR}     

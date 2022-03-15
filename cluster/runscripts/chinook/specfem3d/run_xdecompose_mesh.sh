@@ -1,9 +1,9 @@
 #!/bin/sh 
  
 #SBATCH --job-name=xdecompose_mesh
-#SBATCH --ntasks=1 
+#SBATCH --ntasks=1
 #SBATCH --tasks-per-node=24
-#SBATCH --partition=t2small
+#SBATCH --partition=debug
 #SBATCH --time=00:00:45 
 #SBATCH --output=decompose_mesh_%j.out
 

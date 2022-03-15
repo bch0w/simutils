@@ -3,6 +3,7 @@ Tired of having to open the SPECFEM3D Par_file every time you want to edit
 a silly parameter? This Python script is designed to allow a User top quickly
 access, assess, and edit a parameter in the SPECFEM3D Par_file
 """
+import os
 import sys
 
 
@@ -17,7 +18,17 @@ try:
 except IndexError:
     newval = None
 
-fid = "./Par_file"
+# Figure out where the Par_file is, typically should be run in a SPECFEM workdir
+cwd = os.getcwd()
+cases = ["Par_file", "DATA/Par_file", "../DATA/Par_file"]
+for case in cases:
+    path = os.path.relpath(os.path.join(cwd, case))
+    if os.path.exists(case):
+        fid = case
+        break
+else:
+    import pdb;pdb.set_trace()
+    sys.exit(f"Cannot find Par_file, please make sure you are in a work dir")
 
 with open(fid, "r") as f:
     lines = f.readlines()

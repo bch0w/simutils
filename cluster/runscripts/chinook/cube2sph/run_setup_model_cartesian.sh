@@ -1,10 +1,10 @@
 #!/bin/sh                                                                        
                                                                                  
 #SBATCH --job-name=setup_model_cartesian
-#SBATCH --ntasks=48                                                              
-#SBATCH --tasks-per-node=24                                                      
-#SBATCH --partition=debug                                                        
-#SBATCH --time=00:010:00                                                          
+#SBATCH --ntasks=56
+#SBATCH --tasks-per-node=28 
+#SBATCH --partition=t2small
+#SBATCH --time=00:30:00
 #SBATCH --output=setup_model_cartesian_%j.out
                                                                                  
 ulimit -s unlimited                                                              

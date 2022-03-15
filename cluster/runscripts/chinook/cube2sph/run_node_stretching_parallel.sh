@@ -1,10 +1,10 @@
 #!/bin/sh
 
 #SBATCH --job-name=node_stretch
-#SBATCH --ntasks=48
-#SBATCH --tasks-per-node=24
-#SBATCH --partition=debug
-#SBATCH --time=00:02:00
+#SBATCH --ntasks=56
+#SBATCH --tasks-per-node=28
+#SBATCH --partition=t2small
+#SBATCH --time=00:30:00
 #SBATCH --output=node_stretch_%j.out
 
 

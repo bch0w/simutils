@@ -1,16 +1,16 @@
 {
 	"tag": "nalaska_c2s",
     "dir_name": "./created/cube2sph/nalaska",
-    "lat_min": -1612326.41,
-    "lat_max": 1612326.41,
-    "lon_min": -444779.70,
-    "lon_max": 444779.70,
+    "lat_min": -444779.7,
+    "lat_max": 444779.7,
+    "lon_min": -1612326.4,
+    "lon_max": 1612326.4,
     "utm_projection": -99,
     "suppress_utm_proj": true,
-    "mesh_depth_km": 2000.0,
-    "mesh_top_km": -5.0,
+    "mesh_depth_km": 600.0,
+    "mesh_top_km": -6.0,
     "doubling_layers": [
-        60, 120
+        60, 140
     ],
     "interfaces": [
         24.4, 40, 80, 220, 400
@@ -30,7 +30,7 @@
     ],
     "nproc": 56,
     "topo": "nznorth_ext",
-    "grid_space_top_hv": [10, 5],
+    "grid_space_top_hv": [8, 4],
     "shortest_period_s": 12,
     "vs_min_km_per_s": 3.0,
     "vp_max_km_per_s": 9.3,

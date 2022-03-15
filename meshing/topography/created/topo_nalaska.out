@@ -2,35 +2,43 @@ reading file 1/2: w180n90.nc
 	converting latlon to UTM 3
 	topography file has size (28800000, 3)
 	cutting topography file to desired dimensions
-	topography file cut to size (3540542, 3)
+	topography file cut to size (4531495, 3)
 reading file 2/2: w140n90.nc
 	converting latlon to UTM 3
 	topography file has size (28800000, 3)
 	cutting topography file to desired dimensions
-	topography file cut to size (34, 3)
-final topo file has size (3540576, 3) 
+	topography file cut to size (770799, 3)
+final topo file has size (5302294, 3) 
 interpolating to regular grid
-	interpolated file has size (44304, 3)
+	interpolated file has size (1760000, 3)
 writing to topo_nalaska
 
 TOPOGRAPHY INFO
 ==================================================
-TOPO_MIN =  -3878.08
-TOPO_MAX =  2278.80
-TOPO_MEAN = -66.26
-TOPO_MED =  41.06
+TOPO_MIN =  -3716.21
+TOPO_MAX =  5941.40
+TOPO_MEAN = 251.05
+TOPO_MED =  166.53
 
 
 MESHFEM INTERFACE STATS
 ==================================================
-NPTS_LON = 208
-NPTS_LAT = 213
-dLON    = 0.13916793485563694
-dLAT    = 0.03743703987609412
-LON_MIN = -169.0
-LAT_MIN = 64.0
+NPTS_LON = 1600
+NPTS_LAT = 1100
+DELTA_X  = 1599000.0
+DELTA_Y  = 1099000.0
+DELTA_LAT  = 6.263950603097555
+DELTA_LON  = 40.86398378460231
+dX  = 1000.0
+dY  = 1000.0
+dLON    = 0.025539989865376443
+dLAT    = 0.005694500548270505
+LON_MIN = -170.0
+LAT_MIN = 63.0
+LON_MAX = -129.1360162153977
+LAT_MAX = 69.26395060309756
 
 Place one of the following lines in your 'interfaces.dat' file:
 
- .false. 208 213 -169.00d0 64.00d0 0.139168d0 0.037437d0
- .true. 208 213 304449d0 7103153d0 5000.00d0 5000.00d0
+ .false. 1600 1100 -170.00d0 63.00d0 0.025540d0 0.005695d0
+ .true. 1600 1100 246926d0 6995437d0 1000.00d0 1000.00d0
