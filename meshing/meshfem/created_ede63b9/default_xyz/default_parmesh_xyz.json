@@ -1,0 +1,40 @@
+{
+	"tag": "default_xyz",
+    "dir_name": "./created/default_xyz",
+    "lat_min": -100000.0,
+    "lat_max": 100000.0,
+    "lon_min": -125000.0,
+    "lon_max": 125000.0,
+    "utm_projection": -99,
+    "suppress_utm_proj": true,
+    "mesh_depth_km": 250.0,
+    "mesh_top_km": 0,
+    "doubling_layers": [
+    ],
+    "interfaces": [
+        0, 25, 50
+    ],
+    "interface_fids": [
+        "interface_topo.dat", 
+        "interface_1.dat",
+        "interface_2.dat"
+    ],
+    "interface_increase": [
+        1, 1.3, 2
+    ],
+    "regions": [
+        40, 80
+    ],
+    "materials": [
+        [4400, 7500, 4500, 9999, 1001],
+        [6500, 8500, 4500, 9999, 1000],
+        [7500, 9000, 4500, 9999, 1000]
+    ],
+    "nproc": 84,
+    "topo": "nznorth_ext",
+    "grid_space_top_hv": [5, 5],
+    "shortest_period_s": 12,
+    "vs_min_km_per_s": 3.0,
+    "vp_max_km_per_s": 9.3,
+    "top_vertical_element_ratio": 1.0
+}

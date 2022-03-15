@@ -1,65 +1,161 @@
+#!/usr/bin/env python3
 """
-A script to generate the necessary files for Specfem3D Cartesians internal
-mesher, Meshfem3D. So far hardcoded for two doubling layers, both in the
-templates and in the functions below. If more or less layers are required,
-one would need to edit the templates to add more layers and interfaces, and then
-change the string formatting in the write functions below
+Generate required files to run Specfem3D Cartesians internal mesher, Meshfem3D
+while keeping track of the internal requirements of Meshfem3D and generally 
+simplifying the meshing procedure.
 
-NOTE:
-1) Doubling layers control the horizontal doubling of element area
-2) Interfaces control vertical tripling of element length
-3) Doubling layers above interfaces causes high skewness, bad
-4) Put interfaces 1-2 layers above doubling layers if your elements are square 
-    at the top
-5) Better to keep the vertical element size smaller than horizontal at the top
-    because the interfaces will expand elements more than doubling layers
-6) Cartesian large domain:
-    2 interfaces, one element above 2 doubling layers, top element spacing 
-    with dx ~- 3*dz, gives a good mesh with no issues in skewness, 
-    in my experience
+LIMITATIONS:
+    * This script is geared towards creating a very simple cubed-element mesh 
+    with simple mesh refinement/coarsening layers.
+    * Currently hardcoded for two doubling layers, both in the templates and in 
+    the functions below. If more or less layers are required, one would need to 
+    edit the templates to add more layers and interfaces, and then change the 
+    string formatting in the write functions below
 
-Parameters must be set in the meshpar.json file (or user defined file)
-The JSON parameter file can contain the following parameters
+REQUIRES:
+    Python>=3.6
+    numpy
+    template_Mesh_Par_file 
+    template_interfaces.dat
+
+MESHING NOTES:
+    1) Doubling layers control the horizontal doubling of element area. Only x2
+    2) Interfaces control vertical size of elements. Can be arbitrary scaling.
+    3) Doubling layers placed above interfaces causes high skewness, thats bad!
+    4) Put interfaces 1-2 layers above doubling layers if your elements are 
+       square at the top, to reduce skewness.
+
+USAGE:
+    $ python prepare_meshfem.py  # looks for file parmesh.json
+
+    OR
+
+    $ python prepare_meshfem.py my_custom_parmesh.json  # must be in same dir.
+
+|==============================================================================|
+|                       JSON PARAMETER FILE PARAMETERS                         |
+|                                                                              |
+| The following parameters must be set in 'parmesh.json' (or user defined file)|
+| NOTE: To set values as None in JSON, set them as: null                       |
+|==============================================================================|
 
 :type tag: str
-:param tag: tag to save outputs to
+:param tag: the name of your mesh, this tag is used to save the log file
 :type dir_name: str
-:param tag: directory to save all the output files to
+:param tag: directory to save all the output files to, this will end up being
+    your meshfem3D_files/ directory in SPECFEM3D
 :type lat_min: float
-:param lat_min: minimum latitude in degrees
+:param lat_min: minimum latitude in degrees OR minimum Y value in km 
 :type lat_max: float
-:param lat_max: maximum latitude in degrees
+:param lat_max: maximum latitude in degrees OR maximum Y value in km
 :type lon_min: float
-:param lon_min: minimum longitude in degrees
+:param lon_min: minimum longitude in degrees OR minimum X value in km
 :type lon_max: float
-:param lon_max: maximum longitude in degrees
+:param lon_max: maximum longitude in degrees OR maximum X value in km
 :type utm_projection: int
-:param utm_prjection: UTM projection to convert lat/lon with
+:param utm_prjection: UTM projection to convert lat/lon. 
+    OPTIONAL: Not needed if `suppress_utm_proj==True`
+    NOTE: requires `pyproj` to convert from lat/lon to UTM
+:type suppress_utm_proj: bool
+:param suppress_utm_proj: if True, will not try to convert from lat/lon to UTM,
+    and coordinates can be in lat/lon or in cartesian XYZ.
+    if False, lat_min etc. expected to be coordinates in units of degrees
 :type mesh_depth_km: float
 :param mesh_depth_km: mesh depth in units of kilometers
+:type mesh_top_km: float
+:param mesh_top_km: top of topography in units of kilometers. 
+    If no topography then set to 0.
 :type interfaces: list of float
 :param interfaces: the depth locations of interfaces where doubling occurs
-  in units of kilometers
+    in units of kilometers. 
+    NOTE: Atleast one interface must be included otherwise no interfaces.dat
+          file will be written out.
 :type interface_fids: list of str
 :param interface_fids: name of the output interface files corresponding to
-  the list of interfaces
+    the list of interfaces.
+    NOTE: Must match len(interfaces)
+:type interface_increase: list of float OR float
+:param interface_increase: An integer multiple of the previous vertical element
+    size starting from the top of the mesh. For example if your mesh has 1 
+    interface with dz_top=1km, an interface increase of 2 would make dz_bot=2km.
+
+    NOTE: must match len(interfaces)
+    NOTE: if given as a single float, each interface will be multipled by
+          the float. e.g., if 2, each interface will cause vertical element
+          size to double
+
+    EXAMPLE:
+    ...
+    interfaces = [some_value]
+    interface_fids = [interface]
+    interface_increase = [2]
+    ...
+
+                LAYERS  DZ
+    TOP OF MESH  1      1
+                 2      1
+    INTERFACE    3      2
+                 4      2
+:type regions: list of float
+:param regions: depths at which to create regions, or a collection of layers. 
+    These regions are related to the materials in the mesh (if using the simple 
+    internal mesher method for assigning material properties). 
+    Or they are used to assign external .xyz tomography models to the mesh. 
+:type materials: list of list of float OR empty list
+:param materials: materials to assign to each region. If empty, some random
+    default values will be assigned. This is only important if you are setting
+    `model=default` in the SPECFEM3D Par_file.
+
+    NOTE each list must be of length 5, corresponding to the following values:
+        [rho, vp, vs, qkappa, qmu]
+    NOTE: len(materials) = len(regions) + 1 
+    EXAMPLE: if e.g., regions = [20, 30] then
+        materials = [[a, b, c, d, e], [f, g, h, i, j], [k, l, m, n, o, p]]
 :type nproc: int
-:param nproc: number of processors to split up the mesh into
-:type grid_space_top_hv: list of float
-:param grid_space_top_hv: desired horizontal and vertical grid spacing at the
-    top of the mesh [h, v]. Allows user to manual set their grid spacing. If
-    None given, will use shortest_period_s and vs_min_km_s to calculate the 
-    shortest wavelength and determine cubic grid spacing at the top.
+:param nproc: number of processors to split the mesh X and Y into. Usually good
+    idea to make this an integer multiple of the number of cores per node
+    on your cluster. 
 :type shortest_period_s: float
 :param shortest_period_s: the shortest period that the mesh is expected to
     resolve. Not a strict requirement, but gives an idea of the necessary
     element sizes required to resolve given features. A minimum
     resolvable period test must be done to get the actual resolution of the mesh.
+:type top_vertical_element_ratio: float or None
+:param top_vertical_element_ratio: Scale the vertical element size by the
+    horizontal element size. Set to 1 if you want roughly cube-like elements
+    at the top of your mesh. i.e.,
+    
+    dz = (dx + dy) / 2 * top_vertical_element_ratio
+
+    NOTE: if None, vertical element size will be set as the 'v' in 
+          grid_space_top_hv OR whatever is calculated in OPTION 2 (see below).
+
+ELEMENT SIZE OPTION 1 - Manually set element sizes at top of mesh:
+
+:type grid_space_top_hv: list of float or None
+:param grid_space_top_hv: desired horizontal and vertical grid spacing at the
+    top of the mesh [h, v] in units of km. 
+    NOTE: If None, will use option 2
+    NOTE: This number is NOT enforced, it is simply a recommendation or starting
+          point for the script. You may have to play around with this parameter,
+          plus nproc, plus the mesh dimensions to get elements of the desired
+          size. The script will do its best to get close to the values of h, v.
+
+ELEMENT SIZE OPTION 2 - Dynamically determine element size at top of mesh based
+    on shortest wavelength and desired points per wavelength:
+
 :type vs_min_km_per_s: float
 :param vs_min_km_per_s: smallest expected wavespeed in the model, in km/s
     as with `shortest_period_s`, gives an idea of the necessary element sizes
     but is not a hard requirement. An MRP test will need to be performed
     NOTE: if grid_space_top_hv given, will not be used
+:type points_per_wl: int
+:param points_per_wl: desired points per wavelength for numerical accuracy.
+    bare minimum = 2, SPECFEM recommended = 5
+
+|==============================================================================|
+|                       JSON PARAMETER FILE PARAMETERS                         |
+|==============================================================================|
 """
 import os
 import sys
@@ -69,12 +165,7 @@ import logging
 import traceback
 import numpy as np
 
-# Import from the utilities above
-import sys
-sys.path.append("..")
-from mesh_utils import myround, lonlat_utm
-
-
+# Set up the logger with very simple format
 logging.basicConfig(level=logging.DEBUG,
                     format="%(message)s",
                     filename=f"log_mesh_temp.out",
@@ -85,6 +176,72 @@ console = logging.StreamHandler()
 console.setLevel(logging.INFO)
 logging.getLogger('').addHandler(console)
 logger = logging.getLogger("mesher")
+
+
+def myround(x, base=5, choice='near'):                                           
+    """                                                                          
+    Round value x to nearest base, round 'up','down' or to 'near'est base        
+                                                                                 
+    :type x: float                                                               
+    :param x: value to be rounded                                                
+    :type base: int                                                              
+    :param base: nearest integer to be rounded to                                
+    :type choice: str                                                            
+    :param choice: method of rounding, 'up', 'down' or 'near'                    
+    :rtype roundout: int                                                         
+    :return: rounded value                                                       
+    """                                                                          
+    if choice == 'near':                                                         
+        roundout = int(base * round(float(x) / base))                            
+    elif choice == 'down':                                                       
+        roundout = int(base * np.floor(float(x) / base))                         
+    elif choice == 'up':                                                         
+        roundout = int(base * np.ceil(float(x) / base))                          
+                                                                                 
+    return roundout  
+
+
+def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):                 
+    """                                                                          
+    convert latitude and longitude coordinates to UTM projection                 
+    From Pyatoa                                                                  
+                                                                                 
+    :type lon_or_x: float or int                                                 
+    :param lon_or_x: longitude value in WGS84 or X in UTM-'zone' projection      
+    :type lat_or_y: float or int                                                 
+    :param lat_or_y: latude value in WGS84 or Y in UTM-'zone' projection         
+    :type utm_zone: int                                                          
+    :param utm_zone: UTM zone for conversion from WGS84                          
+    :type inverse: bool                                                          
+    :param inverse: if inverse == False, latlon => UTM, vice versa.              
+    :rtype x_or_lon: float                                                       
+    :return x_or_lon: x coordinate in UTM or longitude in WGS84                  
+    :rtype y_or_lat: float                                                       
+    :return y_or_lat: y coordinate in UTM or latitude in WGS84                   
+    """                                                                          
+    try:
+        from pyproj import Proj
+    except ModuleNotFoundError:
+        sys.exit("To use UTM projections, you must install 'pyproj'")
+                                                                                 
+    # Determine if the projection is north or south                              
+    if utm_zone < 0:                                                             
+        direction = "south"                                                      
+    else:                                                                        
+        direction = "north"                                                      
+    # Proj doesn't accept negative zones                                         
+    utm_zone = abs(utm_zone)                                                     
+                                                                                 
+    # Proj requires a string to tell it how to convert the coordinates           
+    # !!! Update to the newest syntax of pyproj, these projstrs are outdated
+    projstr = (f"+proj=utm +zone={utm_zone}, +{direction} +ellps=WGS84"          
+               " +datum=WGS84 +units=m +no_defs")                                
+                                                                                 
+    # Initiate a Proj object and convert the coordinates                         
+    my_proj = Proj(projstr)                                                      
+    x_or_lon, y_or_lat = my_proj(lon_or_x, lat_or_y, inverse=inverse)            
+                                                                                 
+    return x_or_lon, y_or_lat            
 
 
 def set_parameters(fid="./parmesh.json"):
@@ -112,7 +269,17 @@ def set_parameters(fid="./parmesh.json"):
     for key, item in parameters.items():
         logger.info(f"\t{key}: {item}")
 
+    # Set some internal parameters 
     parameters["ndoublings"] = len(parameters["doubling_layers"])
+
+    # Make sure num materials matches num regions, if materials given
+    if parameters["materials"]:
+        assert(len(parameters["materials"]) == len(parameters["regions"]) + 1
+               ), ("number of regions must match number of materials, or else "
+                   "materials must be an empty list")
+    else:
+        # Set None if empty to use default values
+        parameters["materials"] = None
 
     # Make sure there are enough fids for each interface, or that none specified
     assert((len(parameters["interface_fids"]) == 0) or
@@ -142,7 +309,8 @@ def set_parameters(fid="./parmesh.json"):
     return parameters
 
 
-def minimum_grid_spacing(slowest_wavespeed, shortest_period,
+def minimum_grid_spacing(slowest_wavespeed, shortest_period, points_per_wl=2,
+                         top_vertical_element_ratio=1,
                          grid_space_top_hv=None):
     """
     Define minimum grid spacing based on slowest wavespeed and shortest period
@@ -164,14 +332,25 @@ def minimum_grid_spacing(slowest_wavespeed, shortest_period,
 
     else:
         logger.info("\tManually calculating grid space based on T and V")
+        logger.info(f"\tdesired grid points per wavelength: {points_per_wl}")
+        min_grid_space = (shortest_period * slowest_wavespeed) / points_per_wl
+        logger.info(f"\tT_min * V_min / points_per_wl = {min_grid_space} km")
 
-        # Value of 2 comes from two points per wavelength
-        min_grid_space = (shortest_period * slowest_wavespeed) / 2
-        logger.info(f"\tT_min/V_min = {min_grid_space}")
-        grid_space_h = myround(min_grid_space, 2, 'down') or min_grid_space
-        grid_space_v = grid_space_h / 2
-        if grid_space_h == myround(min_grid_space, 2, 'down'):
-            logger.info(f"\trounded to nearest factor of 2")
+        # I don't think we need to round this value? We can have non-integer
+        # values of grid space 
+        # grid_space_h = myround(min_grid_space, 1, 'down') or min_grid_space
+
+        # Scale horizontal grid space to get vertical grid space
+        grid_space_h = min_grid_space
+        if top_vertical_element_ratio is not None:
+            grid_space_v = grid_space_h / top_vertical_element_ratio
+        else:
+            grid_space_v = grid_space_h
+
+        # Same as above, we can have non-integer values of grid space v
+        # if grid_space_h == myround(min_grid_space, 1, 'down'):
+        #     logger.info(f"\trounded to nearest factor of 2")
+
         logger.info(f"\tMIN GRID SPACE HORIZONTAL = {grid_space_h} km")
         logger.info(f"\tMIN GRID SPACE VERTICAL = {grid_space_v} km")
         
@@ -243,6 +422,31 @@ def number_of_processors(nproc, x_length, y_length):
             guess_a += 1
 
 
+def adjust_vertical_element_size(dx, dy, top_vertical_element_ratio):
+    """
+    DX and DY are dynamically determined by the desired number of elements,
+    mesh domain size, etc. Meanwhile DZ can be set as your heart desires.
+    This function simply scales DZ to DX and DY to get cube-like elements, or
+    other ratios if desired
+
+    Simply returns: (dx + dy) / 2 * top_vertical_element_ratio
+
+    :type dx: float
+    :param dx: element size in x direction at top of mesh
+    :type dy: float
+    :param dy: element size in x direction at top of mesh
+    :type top_vertical_element_ratio: float
+    :param top_vertical_element_ratio: amount to scale DX by to get DZ
+    :rtype: float
+    :return: DZ as a scaled function of DX and DY
+    """
+    logger.info("SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY")
+    dz = (dx + dy) / 2 * top_vertical_element_ratio
+    dz = myround(dz, 0.25, "near")  # round off to get clean depth values
+    logger.info(f"\tDZ = (dx + dy)/2 * {top_vertical_element_ratio} ~= {dz}")
+    return dz
+
+
 def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
                        shortest_period_s, ndoublings):
     """
@@ -267,18 +471,30 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
     :return nex_y: int
     """
     logger.info("CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH")
-    # meshfem requires the number of grid points be an integer multiple of 8
-    # times the number of processors in a given direction
+
+    # Based upon benchmarks against semi-analytical discrete wavenumber 
+    # synthetic seismograms [Komatitsch et al., 2004], determined that a 
+    # NEX_XI = 288 run is accurate to a shortest period of roughly 2 s. 
+    # Therefore, since accuracy is determined by the number of grid points per 
+    # shortest wavelength, for any particular value of NEX_XI the simulation 
+    # will be accurate to a shortest period determined by 
     c = 1
     nex_x = 0
-    while nex_x < 2 * 288 / shortest_period_s:
+    nex_y = 0
+    while ((nex_x < 2 * 288 / shortest_period_s) or \
+            (nex_y < 2 * 288 / shortest_period_s)):
+
+        # Meshfem requires the number of grid points be an integer multiple of 
+        # 8 times the number of processors in a given direction
         nex_x = myround(x_length / grid_space, c * nproc_x * 8, "up")
         nex_y = myround(y_length / grid_space, c * nproc_y * 8, "up")
+        
+        # Increment by integers until we satisfy this requirement
         c += 1
         if c >= 50:
             raise OverflowError("nex_x seems too large for given nproc_x")
 
-    # ensure that the short direction is maintained
+    # Ensure that the short direction is maintained
     while (nproc_x < nproc_y) and (nex_x > nex_y):
         nex_y += nproc_y * 8
 
@@ -286,7 +502,7 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
     logger.info(f"\tNEX_X = {nex_x}\n"
                 f"\tNEX_Y = {nex_y}")
 
-    # Assertions mandated by Meshfem
+    # Re-check assertions mandated by Meshfem 
     assert(nex_x >= 2 * 288 / shortest_period_s)
     assert(nex_y >= 2 * 288 / shortest_period_s)
     
@@ -316,6 +532,10 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
 
     logger.info(f"\tDX = {dx:.4f}km\n"
                 f"\tDY = {dy:.4f}km")
+
+    logger.info("\tNote: if values below too large, adjust 'shortest_period_s'")
+    logger.info(f"\tGRID_SPACE_H - DX = {abs(dx-grid_space)}")
+    logger.info(f"\tGRID_SPACE_H - DY = {abs(dy-grid_space)}")
 
     return int(nex_x), int(nex_y), dx, dy
 
@@ -359,14 +579,15 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z,
     """
     Determine the number of elements in the vertical direction (depth) based on
     the desired grid spacing at the top of the mesh, the desired depth of the
-    mesh and the desired number of interfaces which control vertical tripling.
+    mesh and the desired number of interfaces which control vertical element
+    size.
 
     :type top_of_mesh: float
     :param top_of_mesh: top of the mesh in km (negative for topography)
     :type depth: float
     :param depth: depth of the mesh in km (positive)
     :type interfaces: list of float
-    :param interfaces: interfaces for vertical tripling layers
+    :param interfaces: interfaces for vertical element size manipulations
     :type grid_space_z: float
     :param grid_space_z: desired vertical grid spacing at the top of the mesh
     :type interface_increase: int
@@ -379,7 +600,8 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z,
     logger.info("CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)")
 
     # Start interfaces from the top, include the bottom interface of depth
-    all_interfaces = [top_of_mesh] + interfaces + [depth]
+    # all_interfaces = [top_of_mesh] + interfaces + [depth]
+    all_interfaces =  interfaces + [depth]
     all_interfaces.sort()
 
     layers = []
@@ -389,17 +611,18 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z,
 
     # Set up how the vertical element will change at each interface    
     # First entry needs to be 1 because no double after topography (layer 0)
-    int_inc_tmp = [1] + interface_increase
+    int_inc_tmp = interface_increase
     grid_space_vert = grid_space_z
 
+    # Stop at the bottom, no layers after bottom of mesh
     for i in range(len(all_interfaces) - 1):
         j = i + 1
         grid_space_vert *= int_inc_tmp[i]
-        # grid_space_vert = grid_space_z * 3 ** i  # ORIGINAL
         num_layers = (all_interfaces[j] - all_interfaces[i]) / grid_space_vert
         layers.append(myround(num_layers, 1, "near"))
         logger.info(f"\t{layers[i]} layers of {grid_space_vert}km between "
-                    f"{all_interfaces[i]}km and {all_interfaces[j]}km")
+                    f"{all_interfaces[i]}km and {all_interfaces[j]}km "
+                    f"({layers[i] * grid_space_vert} km)")
 
     # Get an even number of elements, place new layers on top
     while sum(layers) < myround(sum(layers), 2, "up"):
@@ -410,7 +633,7 @@ def interface_layers(top_of_mesh, depth, interfaces, grid_space_z,
 
     logger.info(f"\tNLAYERS = {len(layers)}")
     logger.info(f"\tNELEMENTS_Z = {sum(layers)}")
-    logger.info(f"\tLAYER SIZE FROM BOTTOM = {layers}")
+    logger.info(f"\tNUM ELEM PER LAYER FROM BOTTOM = {layers}")
 
     return layers
 
@@ -419,7 +642,7 @@ def approx_element_number(depth_km, layers_from_top, top, bottom,
                           grid_space_top, interface_increase=2):
     """
     Return an approximate element number based on the depth, the grid space
-    at the top of the mesh, and the known vertical tripling layers.
+    at the top of the mesh, and the known interfaces.
 
     NOTE: Element numbering starts from the bottom!
 
@@ -470,7 +693,7 @@ def approx_element_number(depth_km, layers_from_top, top, bottom,
 
 def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
                                    nex_eta, top, bottom, grid_space_z,
-                                   interface_increase=2):
+                                   materials, interface_increase=2):
     """
     Define the string that gives the doubling layers which control the
     horizontal doubling of element area, as well as the strings that define
@@ -529,14 +752,23 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
     regions.sort(reverse=True)
     regions += [top]
 
+    # Determine the material parameters that will be placed in each region
+    input_materials_default = [5500, 7500, 4500, 9999., 1000.]
+    if materials is None:
+        input_materials = []
+        # Dynamically create a list of lists to match number of regions + 1
+        for i in range(len(regions) + 1):
+            input_materials.append(input_materials_default)
+    else:
+        input_materials = materials
+
     materials_out, regions_out, rgn_elem = "", "", []
-    input_materials = [5500, 9500, 4500, 9999., 1000.]
     for i, reg in enumerate(regions):
         j = i + 1
         # Materials don't need to be specific as they will be overwritten
         # by external tomography files. Otherwise User will have to manual set
 
-        rho, vp, vs, qk, qm = input_materials
+        rho, vp, vs, qk, qm = input_materials[i]
         materials_out += materials_template.format(j=j, rho=rho, vp=vp, vs=vs,
                                                    qk=qk, qm=qm)
         # Step down the values of the input materials so that they still remain
@@ -573,7 +805,7 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
 
 
 def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
-                     suppress_utm_proj, fids=[], topo="default"):
+                     suppress_utm_proj, fids=[]):
     """
     Write the interfaces.dat file as well as the corresponding flat interface
     layers. Topo will need to be written manually
@@ -603,38 +835,16 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
     flat_layer = (f".{str(suppress_utm_proj).lower()}. 2 2 {lon_min:.1f}d0 "
                   f"{lat_min:.1f}d0 180.d0 180.d0")
 
-    # Hardcoded topo layers define the structure of the underlying 
-    # single-column topography file that must be generated externally    
-    topo_fid = "interface_topo.dat"
-    logger.info(f"\tsetting topography to '{topo}', points to '{topo_fid}'")
-    if topo == "nznorth":
-        topo = ".false. 720 720 173.d0 -43.d0 0.00833d0 0.00833d0"
-    elif topo == "nzsouth": 
-        topo = ".true. 899 859 38192d0 -5288202d0 1000.00d0 1000.00d0"
-    elif topo == "nznorth_ext":
-        topo = ".true. 763 850 115822.d0 5358185.d0 1000.00d0 1000.00d0"
-    elif topo == "c2s_nznorth_ext":
-        topo = ".true. 560 818 -361383.5d0 -405861.5d0 1290.7d0 992.3d0"
-    elif topo == "c2s_nalaska":
-        topo = ".true. 288 293 104449d0 6903153d0 5000.00d0 5000.00d0"
-    else:
-        topo = flat_layer
-
     # Write to a new file
     with open(os.path.join(dir_name, "interfaces.dat"), "w") as f:
         f.write("# number of interfaces\n")
-        f.write(" {ninterfaces}\n".format(ninterfaces=len(interfaces) + 1))
+        f.write(" {ninterfaces}\n".format(ninterfaces=len(interfaces)))
 
         # Write flat layers up to topo
         for i, (interface, fid) in enumerate(zip(interfaces, reversed(fids))):
             f.write("# interface number {}\n".format(i+1))
             f.write(f" {flat_layer}\n")
             f.write(f" {fid}\n")
-
-        # Write topo interface
-        f.write("# interface number {} (topo)\n".format(i+2))
-        f.write(f" {topo}\n")
-        f.write(f" {topo_fid}\n")
 
         # Write number of elements in each layer
         f.write("# number of spectral elements per layer (from bottom)\n")
@@ -643,11 +853,10 @@ def write_interfaces(template, dir_name, layers, interfaces, lat_min, lon_min,
 
     # Write the individual interface files
     for fid, interface in zip(fids, interfaces):
-        # Skip top interface (topography)
         logger.info(f"WRITING INTERACE {fid}")
         with open(os.path.join(dir_name, fid), "w") as f:
             for i in range(4):
-                f.write("-{}\n".format(abs(int(interface * 1E3))))
+                f.write("{}\n".format(-1 * abs(int(interface * 1E3))))
 
 
 def pprint_mesh_stats(interfaces, doublings, regions, dx, dy, dz, top,
@@ -662,13 +871,13 @@ def pprint_mesh_stats(interfaces, doublings, regions, dx, dy, dz, top,
     # Total number of vertical layers in the mesh
     layers_nz = sum(interfaces)
     # Figure out the element numbers corresponding to interfaces
-    interfaces = np.cumsum(interfaces)[:-1]
+    interfaces = np.cumsum(interfaces)
     c, r = 0, 1
     dx_, dy_, dz_ = dx, dy, dz
     depth = top
     int_idx = 0  # interface index 
     for i in range(layers_nz, 0, -1):
-        j = layers_nz - i + 1
+        j = layers_nz - i 
         msg = ""
         if i == layers_nz:
             msg += "\n\t\tTop of Mesh"
@@ -712,7 +921,9 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
         grid_space_h, grid_space_v = minimum_grid_spacing(
             grid_space_top_hv=pars["grid_space_top_hv"],
             slowest_wavespeed=pars["vs_min_km_per_s"],
-            shortest_period=pars["shortest_period_s"]
+            shortest_period=pars["shortest_period_s"],
+            top_vertical_element_ratio=pars["top_vertical_element_ratio"],
+            points_per_wl=pars["points_per_wl"]
                                           )
 
         # Number of processors controlled by given User set parameters
@@ -729,7 +940,14 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
             ndoublings=len(pars["doubling_layers"])
         )
 
-        # Interfaces control tripling in height of elements
+        # Adjust vertical element spacing to new grid spacing, which is new
+        if pars["top_vertical_element_ratio"] is not None:
+            grid_space_v = adjust_vertical_element_size(
+                    dx=dx, dy=dy, top_vertical_element_ratio=pars[
+                        "top_vertical_element_ratio"]
+                    )
+
+        # Interfaces control vertical height of elements
         layers = interface_layers(
             top_of_mesh=pars["mesh_top_km"], depth=pars["mesh_depth_km"],
             interfaces=pars["interfaces"], grid_space_z=grid_space_v,
@@ -742,7 +960,7 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
                 doubling_layers=pars["doubling_layers"], layers=layers,
                 regions=pars["regions"], nex_xi=nex_x, nex_eta=nex_y,
                 top=pars["mesh_top_km"], bottom=pars["mesh_depth_km"],
-                grid_space_z=grid_space_v
+                grid_space_z=grid_space_v, materials=pars["materials"]
         )
 
         # Print the mesh stats for easier qualification of mesh
@@ -774,15 +992,7 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
         # Format the interfaces file
         if pars["interfaces"]:
             logger.info("WRITING interfaces.dat")
-            # Choice to set topography line in interface, which defines the
-            # structure of the single-column topography file
-            try:
-                topo = pars["topo"] 
-            except KeyError:
-                logger.warning("\n!!! WARNING. UPDATED PARAMETER 'topo' "
-                               "NOT FOUND. SETTING DEFAULT !!!\n")
-                topo = "default"
-            write_interfaces(template=interfaces_template, topo=topo,
+            write_interfaces(template=interfaces_template,
                              dir_name=pars["dir_name"], layers=layers, 
                              interfaces=pars["interfaces"],
                              suppress_utm_proj=pars["suppress_utm_proj"],
