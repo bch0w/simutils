@@ -18,7 +18,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from datetime import datetime
-from obspy.geodetics import kilometers2degrees, gps2dist_azimuth
+from matplotlib.ticker import MultipleLocator
+from obspy.geodetics import (kilometers2degrees, degrees2kilometers,
+                             gps2dist_azimuth)
 
 
 class Dict(dict):
@@ -43,7 +45,7 @@ class RecordSection:
                  y_axis_spacing=1, sort_by_azimuth_start_deg=0.,
                  distance_units="km", geometric_spreading_factor=0.5,
                  geometric_spreading_k_val=None, figsize=(9, 11), show=True,
-                 save="./record_section.png", overwrite=False):
+                 save="./record_section.png", overwrite=False, **kwargs):
         """
         Set the default record section plotting parameters and enforce types
         Run some internal parameter derivation functions by manipulating input
@@ -179,6 +181,7 @@ class RecordSection:
         self.show = bool(show)
         self.save = save
         self.overwrite = bool(overwrite)
+        self.kwargs = kwargs
 
         # Run checks to ensure that all the parameters are set properly
         self.check_parameters()
@@ -191,11 +194,11 @@ class RecordSection:
         # Calculate array-like values that are matched to each of the traces
         self.idx = np.arange(0, len(self.st), 1)
         self.max_amplitudes = np.array([max(abs(tr.data)) for tr in self.st])
-        self.sorted_idx = self.get_sorted_idx()
         self.amplitude_scaling = self.get_amplitude_scaling()
         self.y_axis = self.get_weighted_yaxis_positions()
         self.distances, self.azimuths, self.backazimuths = \
             self.get_srcrcv_dist_az_baz()
+        self.sorted_idx = self.get_sorted_idx()  # after get_srcrcv_dist_az_baz
 
     def check_parameters(self):
         """
@@ -352,34 +355,35 @@ class RecordSection:
         if tr is None:
             tr = self.st[int(idx)]
         try:
-            gcdist = tr.stats.sac.dist
-            az = tr.stats.sac.az
-            baz = tr.stats.sac.baz
+            dist = tr.stats.sac.dist  # units: km
+            az = tr.stats.sac.az        # units: deg
+            baz = tr.stats.sac.baz      # units: deg
         except AttributeError:
             # If for whatever reason SAC headers dont contain this info already
             # Use ObsPy to get great circle distance, azimuth and backazimuth
-            gcdist, az, baz = gps2dist_azimuth(lat1=tr.stats.sac.evla,
-                                               lon1=tr.stats.sac.evlo,
-                                               lat2=tr.stats.sac.stla,
-                                               lon2=tr.stats.sac.stlo)
-        # Esnure that 0 <= (b)az <= 360
+            dist, az, baz = gps2dist_azimuth(lat1=tr.stats.sac.evla,
+                                             lon1=tr.stats.sac.evlo,
+                                             lat2=tr.stats.sac.stla,
+                                             lon2=tr.stats.sac.stlo)
+            dist *= 1E-3   # units: m -> km
+
+        # Ensure that 0 <= (b)az <= 360
         az = az % 360
         baz = baz % 360
 
         # Make sure distance is in the correct units, default units 'km'
-        gcdist *= 1E-3  # units: m -> km
         if self.distance_units == "deg":
-            gcdist = kilometers2degrees(gcdist)  # units: km -> deg
+            dist = kilometers2degrees(dist)  # units: km -> deg
         elif self.distance_units == "km_utm":
-            # Overwrite `gcdist`, could probably skip that calc above but
+            # Overwrite `dist`, could probably skip that calc above but
             # leaving for now as I don't think this option will be used heavily.
-            gcdist = np.sqrt(
+            dist_deg = np.sqrt(
                 ((tr.stats.sac.stlo - tr.stats.sac.evlo) ** 2) /
                 ((tr.stats.sac.stla - tr.stats.sac.evla) ** 2)
             )
-            gcdist *= 1E-3  # units: m -> km
+            dist = kilometers2degrees(dist_deg)  # units: km
 
-        return gcdist, az, baz
+        return dist, az, baz
 
     def get_srcrcv_stats(self):
         """
@@ -424,6 +428,7 @@ class RecordSection:
         stats.event_names = _unique([tr.stats.sac.kevnm for tr in self.st])
         stats.nevents = len(stats.event_names)
         stats.station_ids = _unique([tr.get_id() for tr in self.st])
+        stats.longest_id = max([len(_) for _ in stats.station_ids])
         stats.nstation_ids = len(stats.station_ids)
         # Get unique network, station, location and channel codes. Also numbers
         for i, name in enumerate(["network", "station", "location", "channel"]):
@@ -434,7 +439,7 @@ class RecordSection:
 
         return stats
 
-    def get_sorted_idx(self, reverse=False):
+    def get_sorted_idx(self):
         """
         Sort the source-receiver pairs by the chosen parameters.
         Overwrites the internal `idx` parameter, which defines the order
@@ -450,16 +455,19 @@ class RecordSection:
             if self.sort_by == "alphabetical":
                 sort_list = self._sort_by_alphabetical(net_or_sta="net",
                                                        reverse=False)
-            elif self.sort_by == "azimuth":
-                sort_list = self._azimiths
-            elif self.sort_by == "backazimuth":
-                sort_list = self.backazimuths
-            elif self.sort_by == "distance":
+            # Azimuthal sorts are allowed to start at a value other than 0
+            # Backazimuth needs to come first because 'azimuth' can return both
+            elif "backazimuth" in self.sort_by:
+                sort_list = self.azimiths - self.sort_by_azimuth_start_deg
+            elif "azimuth" in self.sort_by:
+                sort_list = self.backazimuths - self.sort_by_azimuth_start_deg
+            elif "distance" in self.sort_by:
                 sort_list = self.distances
-            sorted_tup = zip(*sorted(zip(sort_list, self.idx), reverse=reverse))
-            sorted_idx = list(sorted_tup[1])
+            reverse = bool("_r" in self.sort_by)
+            sorted_list, sorted_idx = zip(*sorted(zip(sort_list, self.idx),
+                                                  reverse=reverse))
 
-        return sorted_idx
+        return list(sorted_idx)
 
     def get_weighted_yaxis_positions(self):
         """
@@ -642,11 +650,23 @@ class RecordSection:
 
         return w_vector
 
-    def plot(self, **kwargs):
+    def plot(self, subset=None, page_num=None, **kwargs):
         """
         Generate record sections based on internal data
+
+        :type subset: list of int
+        :param subset: subset of `sorted_idx` if there are too many waveforms to
+            plot on one page (set by `max_traces_per_rs`). e.g., to get the
+            first 10 entries, subset=[0,10]
         """
-        print(f"plotting record section for {len(self.st)} waveforms")
+        if subset is None:
+            start, stop = 0, -1
+            nwav = len(self.st)
+        else:
+            start, stop = subset
+            nwav = stop - start
+
+        print(f"plotting record section for {nwav} waveforms")
         self.f, self.ax = plt.subplots(figsize=self.figsize)
 
         # Allow choosing observed or synthetic data, defaults to boserved
@@ -657,26 +677,34 @@ class RecordSection:
 
             # Main plotting call. Indexes should already be sorted
             # Allow different waveform looks based on observed vs. synthetic
-            for y_idx, idx in enumerate(self.sorted_idx):
-                self._plot_trace(idx=idx, y_index=y_idx, c=["k", "r"][i],
-                                 **kwargs)
-                self._plot_text_label()
+            for y_idx, idx in enumerate(self.sorted_idx[start:stop]):
+                self._plot_trace(idx=idx, y_index=y_idx + start, **kwargs)
 
         # Plot other figure objects
         if self.sort_by and "azimuth" in self.sort_by:
             self._plot_azimuth_bins()
-        self._plot_title()
+        self._plot_title(nwav=nwav, page_num=page_num)
+        self._set_y_axis_text_labels(start=start, stop=stop)
 
         # Finalization chunk
         plt.xlabel("Time [s]")
+        self._plot_aesthetic()
         plt.tight_layout()
+
+        if self.save:
+            # Allow appending e.g., numbers to figure names, e.g.
+            # default.png -> default_01.png
+            if page_num:
+                fid, ext = os.path.splitext(self.save)
+                save_fid = f"{fid}_{page_num:0>2}{ext}"
+            else:
+                save_fid = self.save
+            print(f"saving figure to {save_fid}")
+            plt.savefig(save_fid)
         if self.show:
             plt.show()
-        if self.save:
-            print(f"saving figure to {self.save}")
-            plt.savefig(self.save)
 
-    def _plot_trace(self, idx, y_index, **kwargs):
+    def _plot_trace(self, idx, y_index, choice="st", **kwargs):
         """
         Plot a single trace on the record section, with amplitude scaling,
         time shifts, etc.s
@@ -690,8 +718,15 @@ class RecordSection:
         :param y_index: numerical order which this trace was plotted, as each
             trace is plotted on top of the previous one. y_index should be
             iterated linearly in the loop that calls this function.
+        :type choice: str
+        :param choice: choice of 'st' or 'st_syn' depending on whether you want
+            to plot the observed or synthetic waveforms
         """
-        tr = self.st[idx]
+        # Used to differentiate the two types of streams for plotting diffs
+        choices = ["st", "st_syn"]
+        assert (choice in choices)
+        c = choices.index(choice)
+        tr = getattr(self, choice)[idx]  # i.e., tr = self.st[idx]
 
         # Time shift: see if time shift is an array or a constant
         try:
@@ -702,27 +737,10 @@ class RecordSection:
             else:
                 tshift = self.time_shift_s
         x = tr.times() - tshift
-
         # Perform amplitude scaling
         y = tr.data / self.amplitude_scaling[idx] + self.y_axis[y_index]
 
-        self.ax.plot(x, y, **kwargs)
-
-    def _plot_text_label(self):
-        """
-        Plot a text label next to the
-        """
-
-    def _plot_title(self):
-        """
-        Create the title of the plot based on event and station information
-
-        TODO Add the remaining information related to the title
-        """
-        title = (
-            f"RECORD SECTION\n"
-            f"ORIGINTIME: {min([tr.stats.starttime for tr in self.st])}]\n"
-        )
+        self.ax.plot(x, y, c=["k", "r"][c], **kwargs)
 
     def _plot_azimuth_bins(self, azimuth_binsize=45):
         """
@@ -737,6 +755,125 @@ class RecordSection:
         for azbin in azimuth_bins:
             plt.axhline(y=azbin, c="k", linewidth=2.)
 
+    def _set_y_axis_text_labels(self, start=0, stop=-1):
+        """
+        Plot a text label next to each trace describing the station,
+        azimuth and source-receiver distance. We need to do this all at once
+        because we have to replace all ticks and tick labels at once.
+
+        .. note::
+            if using the 'subset' option in plot, need to also tell the y-axis
+            plotter that we are only plotting a subset of data by using the
+            `start` and `stop` parameters
+
+        :type start: int
+        :param start: starting index for plotting, default to start 0
+        :type stop: int
+        :param stop: stop index for plotting, default to end -1
+        """
+        degree_char = u'\N{DEGREE SIGN}'
+
+        y_tick_labels = []
+        for idx in self.sorted_idx[start:stop]:
+            tr = self.st[idx]
+            str_id = f"{tr.get_id()}"
+            if self.sort_by is not None and "backazimuth" in self.sort_by:
+                # This is named `str_az` but it's actually backazimuths
+                str_az = f"{self.backazimuths[idx]:6.2f}{degree_char}"
+            else:
+                str_az = f"{self.azimuths[idx]:6.2f}{degree_char}"
+            str_dist = f"{self.distances[idx]:5.2f}km"
+
+            # Looks like: NN.SSS.LL.CC  30*  250.03km
+            label = \
+                f"{str_id:>{self.stats.longest_id}}|{str_az:>8}|{str_dist:>8}"
+            y_tick_labels.append(label)
+
+        self.ax.set_yticks(self.y_axis[start:stop])
+        self.ax.set_yticklabels(y_tick_labels)
+
+    def _plot_title(self, nwav=None, page_num=None):
+        """
+        Create the title of the plot based on event and station information
+        Allow dynamic creation of title based on user input parameters
+        TODO Can we make this two-column to save space?
+
+        :type nwav: int
+        :param nwav: if using subset, the title needs to know how many waveforms
+            it's showing on the page. self.plot() should tell it
+        :type page_num: int
+        :param page_num: same as nwav, we need to know what page number were on
+        """
+        # Defines the number of waveforms plotted on a single page, allowing
+        # for subsets per page
+        if nwav is None:
+            nwav = self.stats.nstation_ids
+
+        # Allow appending page numbers to title
+        title_top = "RECORD SECTION"
+        if page_num:
+            title_top += f" PAGE {page_num:0>2}"
+
+        # The y-label will show baz or az depending on user choice, distinguish
+        if self.sort_by is not None and "backazimuth" in self.sort_by:
+            az_str = "BAZ"
+        else:
+            az_str = "AZ"
+
+        title = "\n".join([
+            title_top,
+            f"{'=' * len(title_top)}",
+            f"ORIGINTIME: {min([tr.stats.starttime for tr in self.st])}",
+            f"Y_FMT: NET.STA.LOC.CHA|{az_str}|DIST",
+            f"NWAV: {nwav}; NEVT: {self.stats.nevents}; "
+            f"NSTA: {self.stats.nstation}",
+            f"SORT_BY: {self.sort_by}; SCALE_AMP: {self.scale_amp}"
+        ])
+
+        if self.min_period_s is not None or self.max_period_s is not None:
+            title += f"FILT: [{self.min_period_s}, {self.max_period_s}]s"
+
+        self.ax.set_title(title)
+
+    def _plot_aesthetic(self):
+        """
+        Give a nice look to the output figure by creating thicc borders on the
+        axis, adjusting fontsize etc. All plot aesthetics should be placed here
+        so it's easiest to find.
+
+        .. note::
+            This was copy-pasted from Pyatoa.visuals.insp_plot.default_axes()
+        """
+        ytick_fontsize = self.kwargs.get("ytick_fontsize", 8)
+        xtick_fontsize = self.kwargs.get("xtick_fontsize", 12)
+        tick_linewidth = self.kwargs.get("tick_linewidth", 1.5)
+        tick_length = self.kwargs.get("tick_length", 5)
+        tick_direction = self.kwargs.get("tick_direction", "in")
+        label_fontsize = self.kwargs.get("label_fontsize", 10)
+        axis_linewidth = self.kwargs.get("axis_linewidth", 2.)
+        title_fontsize = self.kwargs.get("title_fontsize", 10)
+        xtick_minor = self.kwargs.get("xtick_minor", 25)
+        xtick_major = self.kwargs.get("xtick_major", 100)
+
+        # Re-set font sizes for labels already created
+        self.ax.title.set_fontsize(title_fontsize)
+        self.ax.tick_params(axis="both", which="both", width=tick_linewidth,
+                            direction=tick_direction, length=tick_length)
+        self.ax.tick_params(axis="x", labelsize=xtick_fontsize)
+        self.ax.tick_params(axis="y", labelsize=ytick_fontsize)
+        self.ax.xaxis.label.set_size(label_fontsize)
+
+        # Thicken up the bounding axis lines
+        for axis in ["top", "bottom", "left", "right"]:
+            self.ax.spines[axis].set_linewidth(axis_linewidth)
+
+        # Set xtick label major and minor which is assumed to be a time series
+        self.ax.xaxis.set_major_locator(MultipleLocator(xtick_major))
+        self.ax.xaxis.set_minor_locator(MultipleLocator(xtick_minor))
+
+        plt.grid(visible=True, which="major", axis="x", alpha=0.5, linewidth=1)
+        plt.grid(visible=True, which="minor", axis="x", alpha=0.2, linewidth=.5)
+
 
 def plotw_rs(*args, **kwargs):
     """
@@ -746,7 +883,18 @@ def plotw_rs(*args, **kwargs):
     print(f"STARTING RECORD SECTION PLOTTER")
 
     rs = RecordSection(*args, **kwargs)
-    rs.plot()
+    # Simple case where all waveforms will fit on one page
+    if len(rs.st) < rs.max_traces_per_rs:
+        rs.plot()
+    # More complicated case where we need to split onto multiple pages
+    else:
+        for i, start in enumerate(np.arange(0, len(rs.st),
+                                            rs.max_traces_per_rs)):
+            stop = start + rs.max_traces_per_rs
+            # Case where the num waveforms is less than max_traces_per_rs
+            if stop < rs.max_traces_per_rs:
+                stop = len(rs.st)
+            rs.plot(subset=[start, stop], page_num=i+1)
 
     _end = datetime.now()
     print(f"FINISHED RECORD SECTION (t={_end - _start}s)")
@@ -767,8 +915,9 @@ def testw_rs():
     plotw_rs(
         st,
         st_syn=None,
-        sort_by=None,
-        scale_amp="normalize",
+        sort_by="distance",
+        # scale_amp="normalize",
+        scale_amp=None,
         time_shift_s=None,
         time_marker=None,
         min_period_s=None,
@@ -777,14 +926,21 @@ def testw_rs():
         integrate=0,
         differentiate=0,
         xlim_s=None,
-        y_axis_spacing=1,
+        y_axis_spacing=.5,
         sort_by_azimuth_start_deg=0,
         distance_units="km",
         geometric_spreading_factor=0.5,
         geometric_spreading_k_val=None,
         figsize=(9, 11),
-        show=True,
+        # figsize=(4, 6),
+        show=False,
         save="./record_section.png",
+        kwargs={
+            "yticklabel_fontsize": 8,
+            "title_fontsize": 8,
+            "xtick_minor": 25,
+            "xtick_major": 50,
+        },
         overwrite=True
     )
 
