@@ -23,6 +23,29 @@ from obspy.geodetics import (kilometers2degrees, degrees2kilometers,
                              gps2dist_azimuth)
 
 
+def myround(x, base=5, choice="near"):
+    """
+    Round value x to nearest base, round 'up','down' or to 'near'est base
+    Copied from Pyatoa
+
+    :type x: float
+    :param x: value to be rounded
+    :type base: int
+    :param base: nearest integer to be rounded to
+    :type choice: str
+    :param choice: method of rounding, 'up', 'down' or 'near'
+    :rtype roundout: int
+    :return: rounded value
+    """
+    if choice == "near":
+        roundout = int(base * round(float(x)/base))
+    elif choice == "down":
+        roundout = int(base * np.floor(float(x)/base))
+    elif choice == "up":
+        roundout = int(base * np.ceil(float(x)/base))
+    return roundout
+
+
 class Dict(dict):
     """Easy dictionary overload for nicer get/set attribute characteristics"""
     def __setattr__(self, key, value):
@@ -358,10 +381,15 @@ class RecordSection:
         self.idx = np.arange(0, len(self.st), 1)
         self.station_ids = np.array([tr.get_id() for tr in self.st])
         self.max_amplitudes = np.array([max(abs(tr.data)) for tr in self.st])
-        self.amplitude_scaling = self.get_amplitude_scaling()
-        self.y_axis = self.get_yaxis_positions()
+
+        # Needs to be run as the first 'get' function because other 'get'
+        # functions may require distances or (back)azimuths
         self.distances, self.azimuths, self.backazimuths = \
             self.get_srcrcv_dist_az_baz()
+
+        # Get array-like factors which control the sort order, amplitudes, etc.
+        self.amplitude_scaling = self.get_amplitude_scaling()
+        self.y_axis = self.get_yaxis_positions()
         self.sorted_idx = self.get_sorted_idx()  # after get_srcrcv_dist_az_baz
 
     def get_srcrcv_dist_az_baz(self):
@@ -681,27 +709,18 @@ class RecordSection:
         """
         print(f"determining y-axis positioning for sort: {self.sort_by}")
 
-        # Default weights, constant separation between all seismograms which
-        # takes into account the maximum amplitudes
+        # Default weights provides constant `y_axis_spacing` between seismos
         if self.sort_by is None or "abs_" not in self.sort_by:
-            y_axis_range = np.arange(0, len(self.st), 1)
-            weight = self.y_axis_spacing
+            y_axis = self.y_axis_spacing * np.arange(0, len(self.st), 1)
+        # Absolute y-axis (i.e., absolute distance or (back)azimuth) will just
+        # plot the actual distance or azimuth value
         else:
-            y_axis_range = np.arange(0, len(self.st), 1)
-            # !!! TODO I'm not sure what this is doing, what is expected?
-            if self.sort_by == "abs_distance":
-                # Distance range is in `distance_units` specified by user
-                sort_range = max(self.distances) - min(self.distances)
-            elif self.sort_by == "abs_azimuth":
-                sort_range = max(self.azimuths) - min(self.azimuths)
-            elif self.sort_by == "abs_backazimuth":
-                sort_range = (max(self.backazimuths) - min(self.backazimuths))
+            _choices = {"abs_distance": self.distances,
+                        "abs_azimuth": self.azimuths,
+                        "abs_backazimuth": self.backazimuths
+                        }
+            y_axis = _choices[self.sort_by]
 
-            traces_per_unit = len(self.st) / sort_range
-            weight = \
-                self.y_axis_spacing * traces_per_unit * self.max_amplitudes
-
-        y_axis = weight * y_axis_range
         return y_axis
 
     def process_st(self):
@@ -797,7 +816,13 @@ class RecordSection:
             # Main plotting call. Indexes should already be sorted
             # Allow different waveform looks based on observed vs. synthetic
             for y_idx, idx in enumerate(self.sorted_idx[start:stop]):
-                self._plot_trace(idx=idx, y_index=y_idx + start, **kwargs)
+                # Absolute scaling requires plotting actual dist or az values
+                # relative scaling just requires a linear index to stack seismos
+                if "abs_" in self.sort_by:
+                    y_index = idx
+                else:
+                    y_index = y_idx + start
+                self._plot_trace(idx=idx, y_index=y_index, **kwargs)
 
         # Plot other figure objects
         if self.sort_by and "azimuth" in self.sort_by:
@@ -1042,7 +1067,7 @@ def testw_rs():
         st,
         st_syn=None,
         # sort_by="alphabetical",
-        sort_by="distance_r",
+        sort_by="azimuth",
         scale_amp="normalize",
         # scale_amp=None,
         time_shift_s=None,
