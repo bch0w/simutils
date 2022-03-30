@@ -509,191 +509,6 @@ class RecordSection:
 
         return stats
 
-    def get_sorted_idx(self):
-        """
-        Sort the source-receiver pairs by the chosen parameters.
-        Overwrites the internal `idx` parameter, which defines the order
-        in which the Stream traces should be organized
-
-        TODO allow the user to set sort arguments of alphabetical
-        """
-        print(f"determining sort order with parameter: {self.sort_by}")
-
-        if self.sort_by is None:
-            sorted_idx = self.idx
-        elif "alphabetical" in self.sort_by:
-            sorted_idx = self._sort_by_alphabetical()
-        else:
-            components = self._get_component_order()
-            # Azimuthal sorts are allowed to start at a value other than 0
-            # Backazimuth needs to come first because 'azimuth' can return both
-            if "backazimuth" in self.sort_by:
-                sort_list = self.azimiths - self.sort_by_azimuth_start_deg
-            elif "azimuth" in self.sort_by:
-                sort_list = self.backazimuths - self.sort_by_azimuth_start_deg
-            elif "distance" in self.sort_by:
-                sort_list = self.distances
-
-            # Sort by the values, AND the components (e.g., Z->R->T)
-            _, _, sorted_idx = \
-                zip(*sorted(zip(sort_list, components, self.idx),
-                            reverse=self.stats.reverse_sort)
-                    )
-
-        return list(sorted_idx)
-
-    def get_yaxis_positions(self):
-        """
-        Determine how seismograms are vertically separated on the Y-Axis when
-        plotting. Allows for constant separation, or absolute separation based
-        on distance or (back)azimuth separation.
-
-        If `sort_by` has 'absolute' in the argument, then we will weight
-        the values defining the Y-Axis. For example, if
-        sort_by=='abs_distance', then the Y-Axis will be a scaled
-        representation of distances.
-
-        :rtype weights_arr: np.array
-        :return: an array of weight values which should be used to place
-            seismograms on the Y-Axis
-        """
-        print(f"determining y-axis positioning for sort: {self.sort_by}")
-
-        # Default weights, constant separation between all seismograms which
-        # takes into account the maximum amplitudes
-        if self.sort_by is None or "abs_" not in self.sort_by:
-            y_axis_range = np.arange(0, len(self.st), 1)
-            weight = self.y_axis_spacing * np.mean(self.max_amplitudes)
-        else:
-            y_axis_range = np.arange(0, len(self.st), 1)
-            # !!! TODO I'm not sure what this is doing, what is expected?
-            if self.sort_by == "abs_distance":
-                # Distance range is in `distance_units` specified by user
-                sort_range = max(self.distances) - min(self.distances)
-            elif self.sort_by == "abs_azimuth":
-                sort_range = max(self.azimuths) - min(self.azimuths)
-            elif self.sort_by == "abs_backazimuth":
-                sort_range = (max(self.backazimuths) - min(self.backazimuths))
-
-            traces_per_unit = len(self.st) / sort_range
-            weight = \
-                self.y_axis_spacing * traces_per_unit * self.max_amplitudes
-
-        y_axis = weight * y_axis_range
-        return y_axis
-
-    def _get_component_order(self):
-        """
-        When we are sorting, we want components to be sorted by the
-        preferred order (i.e, ZRT, Z index is 0, T is 2), which means the
-        components have to be reordered to adhere to the sorting algorithm.
-        ALSO we need to ensure that we honor component order even if
-        everything else is being sorted reverse alphabetically so the
-        components entry needs to be the opposite of stats.reverse_sort
-
-        :rtype: list
-        :return: components converted to integer values which can be used for
-            sorting algorithms.
-        """
-        channels = [_.split(".")[3] for _ in self.station_ids]
-        # ASSUMING component is the last entry in the channel, SEED convention
-        components = [_[-1] for _ in channels]
-        if self.stats.reverse_sort:
-            comp_list = self.components
-        else:
-            comp_list = self.components[::-1]
-        components = [comp_list.index(_) for _ in components]
-
-        return components
-
-    def _sort_by_alphabetical(self):
-        """
-        Sort by full station name, allow choosing sort based on network or
-        station. The expected station code looks like NN.SSS.LL.CCC
-        where N=network, S=station, L=location, C=channel
-
-        :rtype: list
-        :return: a list of code identifiers to be used to sort the idx list
-        """
-        networks = [_.split(".")[0] for _ in self.station_ids]
-        stations = [_.split(".")[1] for _ in self.station_ids]
-        locations = [_.split(".")[2] for _ in self.station_ids]
-        components = self._get_component_order()
-        zipped = zip(networks, stations, locations, components, self.idx)
-        arr_out = np.array(
-            list(zip(*sorted(zipped, reverse=self.stats.reverse_sort)))
-        )
-        # I used the below commented line to check if things were working
-        # by converting the component numbers back into componets to make
-        # sure the intended 'ZRT' was honored for both alphabetical and reverse
-        # arr_out[3] = [complist[int(_)] for _ in arr_out[3]]
-        # print(arr_out)
-
-        return arr_out[-1].astype(int)
-
-    def process_st(self):
-        """
-        Preprocess the Stream with optional filtering in place.
-
-        .. note::
-            Data in memory will be irretrievably altered by running preprocess.
-
-        TODO Add feature to allow list-like periods to individually filter
-            seismograms. At the moment we just apply a blanket filter.
-        """
-        if self.preprocess is None:
-            print("no preprocessing applied")
-            return
-        elif self.preprocess == "st":
-            print(f"preprocessing {len(self.st)}`st` waveforms")
-            preprocess_list = [self.st]
-        elif self.preprocess == "st_syn":
-            print(f"preprocessing {len(self.st_syn)}`st_syn` waveforms")
-            preprocess_list = [self.st_syn]
-        elif self.preprocess == "both":
-            print(f"preprocessing {len(self.st) + len(self.st_syn)} "
-                  f"`st` and `st_syn` waveforms")
-            preprocess_list = [self.st, self.st_syn]
-
-        for st in preprocess_list:
-            # Fill any data gaps with mean of the data, do it on a trace by trace
-            # basis to get individual mean values
-            for tr in st:
-                tr.trim(starttime=tr.stats.starttime, endtime=tr.stats.endtime,
-                        pad=True, fill_value=tr.data.mean())
-            st.detrend("demean")
-            st.taper(max_percentage=0.05, type="cosine")
-
-            # Allow multiple filter options based on user input
-            # Min period but no max period == low-pass
-            if self.max_period_s is not None and self.min_period_s is None:
-                print(f"apply lowpass filter w/ cutoff {1/self.max_period_s}")
-                st.filter("lowpass", freq=1/self.max_period_s, zerophase=True)
-            # Max period but no min period == high-pass
-            elif self.min_period_s is not None and self.max_period_s is None:
-                print(f"apply highpass filter w/ cutoff {1/self.min_period_s}")
-                st.filter("highpass", freq=1/self.min_period_s, zerophase=True)
-            # Both min and max period == band-pass
-            elif self.min_period_s is not None and \
-                    self.max_period_s is not None:
-                print(f"applying bandpass filter w/ "
-                      f"[{1/self.max_period_s}, {self.min_period_s}]")
-                st.filter("bandpass", freqmin=1/self.max_period_s,
-                            freqmax=1/self.min_period_s, zerophase=True)
-            else:
-                print("no filtering applied")
-
-            # Integrate and differentiate N number of times specified by user
-            st.detrend("simple")
-            if self.integrate != 0:
-                if self.integrate < 0:
-                    func = "differentiate"
-                elif self.integrate > 0:
-                    func = "integrate"
-            for i in range(np.abs(self.integrate)):
-                print("{func} all waveform data")
-                getattr(st, func)()
-
     def get_amplitude_scaling(self):
         """
         Scale the amplitudes of all the waveforms by producing a Stream
@@ -763,6 +578,196 @@ class RecordSection:
         w_vector = k_val / (sin_del ** self.geometric_spreading_factor)
 
         return w_vector
+
+    def get_sorted_idx(self):
+        """
+        Sort the source-receiver pairs by the chosen parameters.
+        Always maintains component ordering defined by the user, i.e., for the
+        same station, components will be ordered by the `component` parameter.
+
+        :rtype: list
+        :return: returns an indexing list which is sorted based on the user
+            defined `sort_by` argument.
+        """
+        print(f"determining sort order with parameter: {self.sort_by}")
+
+        if self.sort_by is None:
+            sorted_idx = self.idx
+        elif "alphabetical" in self.sort_by:
+            sorted_idx = self._sort_by_alphabetical()
+        else:
+            components = self._get_component_order()
+            # Azimuthal sorts are allowed to start at a value other than 0
+            # Backazimuth needs to come first because 'azimuth' can return both
+            if "backazimuth" in self.sort_by:
+                sort_list = self.azimiths - self.sort_by_azimuth_start_deg
+            elif "azimuth" in self.sort_by:
+                sort_list = self.backazimuths - self.sort_by_azimuth_start_deg
+            elif "distance" in self.sort_by:
+                sort_list = self.distances
+
+            # Sort by the values, AND the components (e.g., Z->R->T or whatever)
+            _, _, sorted_idx = \
+                zip(*sorted(zip(sort_list, components, self.idx),
+                            reverse=self.stats.reverse_sort)
+                    )
+
+        return list(sorted_idx)
+
+    def _sort_by_alphabetical(self):
+        """
+        Sort by full station name in order. That is, network is sorted, then
+        within network station is sorted, and so on. Components are sorted
+        last and NOT in alphabetical order. They are ordered based on the
+        user-input `components` parameter.
+
+        :rtype: list
+        :return: a list of code identifiers to be used to sort the idx list
+        """
+        networks = [_.split(".")[0] for _ in self.station_ids]
+        stations = [_.split(".")[1] for _ in self.station_ids]
+        locations = [_.split(".")[2] for _ in self.station_ids]
+        components = self._get_component_order()
+        zipped = zip(networks, stations, locations, components, self.idx)
+        arr_out = np.array(
+            list(zip(*sorted(zipped, reverse=self.stats.reverse_sort)))
+        )
+        # I used the below commented line to check if things were working
+        # by converting the component numbers back into componets to make
+        # sure the intended 'ZRT' was honored for both alphabetical and reverse
+        # arr_out[3] = [complist[int(_)] for _ in arr_out[3]]
+        # print(arr_out)
+
+        return arr_out[-1].astype(int)
+
+    def _get_component_order(self):
+        """
+        When we are sorting, we want components to be sorted by the
+        preferred order (i.e, ZRT, Z index is 0, T is 2), which means the
+        components have to be reordered to adhere to the sorting algorithm.
+        ALSO we need to ensure that we honor component order even if
+        everything else is being sorted reverse alphabetically so the
+        components entry needs to be the opposite of stats.reverse_sort
+
+        :rtype: list
+        :return: components converted to integer values which can be used for
+            sorting algorithms.
+        """
+        channels = [_.split(".")[3] for _ in self.station_ids]
+        # ASSUMING component is the last entry in the channel, SEED convention
+        components = [_[-1] for _ in channels]
+        if self.stats.reverse_sort:
+            comp_list = self.components
+        else:
+            comp_list = self.components[::-1]
+        components = [comp_list.index(_) for _ in components]
+
+        return components
+
+    def get_yaxis_positions(self):
+        """
+        Determine how seismograms are vertically separated on the Y-Axis when
+        plotting. Allows for constant separation, or absolute separation based
+        on distance or (back)azimuth separation.
+
+        If `sort_by` has 'absolute' in the argument, then we will weight
+        the values defining the Y-Axis. For example, if
+        sort_by=='abs_distance', then the Y-Axis will be a scaled
+        representation of distances.
+
+        :rtype weights_arr: np.array
+        :return: an array of weight values which should be used to place
+            seismograms on the Y-Axis
+        """
+        print(f"determining y-axis positioning for sort: {self.sort_by}")
+
+        # Default weights, constant separation between all seismograms which
+        # takes into account the maximum amplitudes
+        if self.sort_by is None or "abs_" not in self.sort_by:
+            y_axis_range = np.arange(0, len(self.st), 1)
+            weight = self.y_axis_spacing
+        else:
+            y_axis_range = np.arange(0, len(self.st), 1)
+            # !!! TODO I'm not sure what this is doing, what is expected?
+            if self.sort_by == "abs_distance":
+                # Distance range is in `distance_units` specified by user
+                sort_range = max(self.distances) - min(self.distances)
+            elif self.sort_by == "abs_azimuth":
+                sort_range = max(self.azimuths) - min(self.azimuths)
+            elif self.sort_by == "abs_backazimuth":
+                sort_range = (max(self.backazimuths) - min(self.backazimuths))
+
+            traces_per_unit = len(self.st) / sort_range
+            weight = \
+                self.y_axis_spacing * traces_per_unit * self.max_amplitudes
+
+        y_axis = weight * y_axis_range
+        return y_axis
+
+    def process_st(self):
+        """
+        Preprocess the Stream with optional filtering in place.
+
+        .. note::
+            Data in memory will be irretrievably altered by running preprocess.
+
+        TODO Add feature to allow list-like periods to individually filter
+            seismograms. At the moment we just apply a blanket filter.
+        """
+        if self.preprocess is None:
+            print("no preprocessing applied")
+            return
+        elif self.preprocess == "st":
+            print(f"preprocessing {len(self.st)}`st` waveforms")
+            preprocess_list = [self.st]
+        elif self.preprocess == "st_syn":
+            print(f"preprocessing {len(self.st_syn)}`st_syn` waveforms")
+            preprocess_list = [self.st_syn]
+        elif self.preprocess == "both":
+            print(f"preprocessing {len(self.st) + len(self.st_syn)} "
+                  f"`st` and `st_syn` waveforms")
+            preprocess_list = [self.st, self.st_syn]
+
+        for st in preprocess_list:
+            # Fill any data gaps with mean of the data, do it on a trace by trace
+            # basis to get individual mean values
+            for tr in st:
+                tr.trim(starttime=tr.stats.starttime, endtime=tr.stats.endtime,
+                        pad=True, fill_value=tr.data.mean())
+            st.detrend("demean")
+            st.taper(max_percentage=0.05, type="cosine")
+
+            # Allow multiple filter options based on user input
+            # Min period but no max period == low-pass
+            if self.max_period_s is not None and self.min_period_s is None:
+                print(f"apply lowpass filter w/ cutoff {1/self.max_period_s}")
+                st.filter("lowpass", freq=1/self.max_period_s, zerophase=True)
+            # Max period but no min period == high-pass
+            elif self.min_period_s is not None and self.max_period_s is None:
+                print(f"apply highpass filter w/ cutoff {1/self.min_period_s}")
+                st.filter("highpass", freq=1/self.min_period_s, zerophase=True)
+            # Both min and max period == band-pass
+            elif self.min_period_s is not None and \
+                    self.max_period_s is not None:
+                print(f"applying bandpass filter w/ "
+                      f"[{1/self.max_period_s}, {self.min_period_s}]")
+                st.filter("bandpass", freqmin=1/self.max_period_s,
+                            freqmax=1/self.min_period_s, zerophase=True)
+            else:
+                print("no filtering applied")
+
+            # Integrate and differentiate N number of times specified by user
+            st.detrend("simple")
+            if self.integrate != 0:
+                if self.integrate < 0:
+                    func = "differentiate"
+                elif self.integrate > 0:
+                    func = "integrate"
+            for i in range(np.abs(self.integrate)):
+                print("{func} all waveform data")
+                getattr(st, func)()
+
+
 
     def plot(self, subset=None, page_num=None, **kwargs):
         """
@@ -870,7 +875,7 @@ class RecordSection:
         for azbin in azimuth_bins:
             plt.axhline(y=azbin, c="k", linewidth=2.)
 
-    def _set_y_axis_text_labels(self, start=0, stop=-1):
+    def _set_y_axis_text_labels(self, start=0, stop=-1, location="y_axis"):
         """
         Plot a text label next to each trace describing the station,
         azimuth and source-receiver distance. We need to do this all at once
@@ -885,6 +890,10 @@ class RecordSection:
         :param start: starting index for plotting, default to start 0
         :type stop: int
         :param stop: stop index for plotting, default to end -1
+        :type location: str
+        :param location: location to place the y_axis text labels, available:
+            - y_axis: Place labels along the y-axis (left side of the figure)
+                Will replace the actual y-tick labels so this is probably not
         """
         degree_char = u'\N{DEGREE SIGN}'
 
@@ -904,8 +913,9 @@ class RecordSection:
                 f"{str_id:>{self.stats.longest_id}}|{str_az:>8}|{str_dist:>8}"
             y_tick_labels.append(label)
 
-        self.ax.set_yticks(self.y_axis[start:stop])
-        self.ax.set_yticklabels(y_tick_labels)
+        if location == "y_axis":
+            self.ax.set_yticks(self.y_axis[start:stop])
+            self.ax.set_yticklabels(y_tick_labels)
 
     def _plot_title(self, nwav=None, page_num=None):
         """
@@ -1033,8 +1043,8 @@ def testw_rs():
         st_syn=None,
         # sort_by="alphabetical",
         sort_by="distance_r",
-        # scale_amp="normalize",
-        scale_amp=None,
+        scale_amp="normalize",
+        # scale_amp=None,
         time_shift_s=None,
         time_marker=None,
         min_period_s=2,
@@ -1044,7 +1054,7 @@ def testw_rs():
         integrate=0,
         # xlim_s=[100, 200],
         xlim_s=None,
-        y_axis_spacing=.5,
+        y_axis_spacing=1,
         sort_by_azimuth_start_deg=0,
         distance_units="km",
         geometric_spreading_factor=0.5,
