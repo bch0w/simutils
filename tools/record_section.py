@@ -61,10 +61,11 @@ class RecordSection:
     sorts source-receiver pairs based on User input, and produces record section
     waveform figures
     """
-    def __init__(self, st, st_syn=None, sort_by=None, scale_amp=None,
-                 time_shift_s=None, time_marker=None, min_period_s=None,
-                 max_period_s=None, preprocess="st", max_traces_per_rs=50,
-                 integrate=0, xlim_s=None, components="ZRTNE12",
+    def __init__(self, st, st_syn=None, sort_by="default", scale_amp=None,
+                 time_shift_s=None, move_out=None, time_marker=None,
+                 min_period_s=None, max_period_s=None, preprocess="st",
+                 max_traces_per_rs=50, integrate=0, xlim_s=None,
+                 components="ZRTNE12",
                  y_axis_spacing=1, sort_by_azimuth_start_deg=0.,
                  distance_units="km", geometric_spreading_factor=0.5,
                  geometric_spreading_k_val=None, figsize=(9, 11), show=True,
@@ -118,6 +119,12 @@ class RecordSection:
             2. list (e.g., [5., -2., ... 11.2]), will apply individual time
                 shifts to EACH trace in the stream. The length of this list MUST
                 match the number of traces in your input stream.
+        :type move_out: float
+        :param move_out: Optional. A velocity value that will be used to
+            calculate move out, which will time shift seismograms based on
+            their source receiver distance. This parameter will be ADDED
+            to time_shift_s (both float and list), if it is provided.
+            Should be in units of `distance_units`/s
         :type time_marker: list of float
         :param time_marker: absolute time markers. If this parameter is set,
             `time_shift_s` MUST be set as Option 1 (single float)
@@ -145,7 +152,7 @@ class RecordSection:
             should BEFORE R components for the SAME station.
         :type integrate: int
         :param integrate: apply integration `integrate` times on all traces.
-            accetpable values [-inf, inf], where positive values are integration
+            acceptable values [-inf, inf], where positive values are integration
             and negative values are differentiation
             e.g., if integrate == 2,  will integrate each trace twice.
             or    if integrate == -1, will differentiate once
@@ -195,10 +202,7 @@ class RecordSection:
             self.st_syn = None
 
         # Y-Axis sorting parameters
-        try:
-            self.sort_by = sort_by.lower()
-        except AttributeError:
-            self.sort_by = sort_by
+        self.sort_by = sort_by.lower()
         self.y_axis_spacing = float(y_axis_spacing)
         self.sort_by_azimuth_start_deg = float(sort_by_azimuth_start_deg)
         self.components = str(components)
@@ -209,6 +213,7 @@ class RecordSection:
         self.geometric_spreading_k_val = geometric_spreading_k_val
 
         # Time shift parameters
+        self.move_out = move_out
         self.time_shift_s = time_shift_s
         self.time_marker = time_marker
 
@@ -230,21 +235,22 @@ class RecordSection:
         self.kwargs = Dict(kwargs)
 
         # Run checks to ensure that all the parameters are set properly
+        # And get some new, initial parameters that are required for other
+        # 'get' functions
         self.check_parameters()
         self.stats = self.get_srcrcv_stats()
+        self.distances, self.azimuths, self.backazimuths = \
+            self.get_srcrcv_dist_az_baz()
 
         # Internally used parameters that will be filled out by other functions
         self.f = None
         self.ax = None
-        self.idx = None
-        self.station_ids = None
-        self.max_amplitudes = None
-        self.amplitude_scaling = None
-        self.y_axis = None
-        self.distances = None
-        self.azimuths = None
-        self.backazimuths = None
-        self.sorted_idx = None
+        self.idx = []
+        self.station_ids = []
+        self.max_amplitudes = []
+        self.amplitude_scaling = []
+        self.y_axis = []
+        self.sorted_idx = []
 
     def check_parameters(self):
         """
@@ -269,8 +275,9 @@ class RecordSection:
         if not bool(self.st):
             err.st = f"stream has {len(self.st)} traces, no data"
 
-        # Pysep should have created SAC headers if we want to sort by dist or az
-        if self.sort_by is not None and \
+        # Check that stream has SAC headers if we want to sort by dist or (b)az.
+        # Pysep should have created these
+        if self.sort_by != "default" and \
                 any(_ in self.sort_by for _ in ["azimuth", "distance"]):
             _idx = []
             for i, tr in enumerate(self.st):
@@ -285,23 +292,24 @@ class RecordSection:
             if len(self.st) != len(self.st_syn):
                 err.st_syn = f"length must match `st` (which is {len(self.st)})"
 
-        if self.sort_by is not None:
-            acceptable_sort_by = ["azimuth", "backazimuth", "distance",
-                                  "alphabetical", "abs_azimuth",
-                                  "abs_distance"]
-            acceptable_sort_by += [f"{_}_r" for _ in acceptable_sort_by]
-            acceptable_distance_units = ["km", "km_utm", "deg"]
-            if self.sort_by not in acceptable_sort_by:
-                err.sort_by = f"must be in {acceptable_sort_by}"
+        # Check the `sort_by` sorting parameter options
+        acceptable_sort_by = ["default", "azimuth", "backazimuth",
+                              "distance", "alphabetical", "abs_azimuth",
+                              "abs_distance"]
+        # Allow reverse sorts
+        acceptable_sort_by += [f"{_}_r" for _ in acceptable_sort_by]
+        if self.sort_by not in acceptable_sort_by:
+            err.sort_by = f"must be in {acceptable_sort_by}"
 
-            if "azimuth" in self.sort_by:
-                if not (0 <= self.sort_by_azimuth_start_deg <= 360):
-                    err.sort_by_azimuth_start_deg = f"0 < azi < 360"
+        if "azimuth" in self.sort_by:
+            if not (0 <= self.sort_by_azimuth_start_deg <= 360):
+                err.sort_by_azimuth_start_deg = f"0 < azi < 360"
 
-            if ("distance" in self.sort_by) and \
-                    (self.distance_units not in acceptable_distance_units):
-                err.sort_by_azimuth_start_deg = \
-                    f"must be in {acceptable_distance_units}"
+        acceptable_distance_units = ["km", "km_utm", "deg"]
+        if ("distance" in self.sort_by) and \
+                (self.distance_units not in acceptable_distance_units):
+            err.sort_by_azimuth_start_deg = \
+                f"must be in {acceptable_distance_units}"
 
         if self.scale_amp is not None:
             acceptable_scale_amp = ["normalize", "geometric_spreading"]
@@ -350,6 +358,30 @@ class RecordSection:
             print(out)
             sys.exit(-1)
 
+    def get_skip_idx(self):
+        """
+        Get a list of any traces that don't adhere to user-defined boundaries
+        such as dist, az, baz, id, or component matches. Don't actually remove
+        the traces from the stream but rather just collect indices we can use
+        to skip when plotting
+
+        TODO add distance, azi and backazi criteria
+        :rtype: np.array
+        :return: returns an indexing list which can be used to skip over
+            traces that don't adhere to certain criteria
+        """
+        skip_idx = []
+        for idx in self.idx:
+            tr = self.st[idx]
+            # Component-wise removal
+            if tr.stats.component not in self.components:
+                skip_idx.append(idx)
+            # !!! Add more here
+        print(f"criteria check will remove "
+              f"{len(skip_idx)}/{len(self.st)} traces")
+
+        return np.array(skip_idx)
+
     def get_parameters(self):
         """
         Calculate parameters in a specific order and based on the user-defined
@@ -382,15 +414,48 @@ class RecordSection:
         self.station_ids = np.array([tr.get_id() for tr in self.st])
         self.max_amplitudes = np.array([max(abs(tr.data)) for tr in self.st])
 
-        # Needs to be run as the first 'get' function because other 'get'
-        # functions may require distances or (back)azimuths
-        self.distances, self.azimuths, self.backazimuths = \
-            self.get_srcrcv_dist_az_baz()
-
         # Get array-like factors which control the sort order, amplitudes, etc.
+        sorted_idx = self.get_sorted_idx()
+        skip_idx = self.get_skip_idx()
+        # Remove skip indexes from sorted index to get the final ordered
+        # list of traces to plot
+        # !!! TODO replace this with a list comp
+        for _idx in sorted_idx:
+            if _idx not in skip_idx:
+                self.sorted_idx.append(_idx)
+        self.sorted_idx = np.array(self.sorted_idx)
+
+        self.y_axis = self.get_y_axis_positions()
         self.amplitude_scaling = self.get_amplitude_scaling()
-        self.y_axis = self.get_yaxis_positions()
-        self.sorted_idx = self.get_sorted_idx()  # after get_srcrcv_dist_az_baz
+        self.time_shift_s = self.get_time_shifts()  # OVERWRITES user input
+
+    def get_time_shifts(self):
+        """
+        Very simple function which allows float inputs for time shifts and
+        ensures that time shifts are always per-trace arrays
+
+        :rtype: np.array
+        :return: a stream-lengthed array of time shifts that can be applied
+            per trace
+        """
+        # No user input means time shifts will be 0, so nothing happens
+        time_shift_arr = np.zeros(len(self.st))
+        if self.time_shift_s is not None:
+            # User inputs a static time shift
+            if isinstance(self.time_shift_s, (int, float)):
+                time_shift_arr += self.time_shift_s
+            # User input an array which should have already been checked for legnth
+            else:
+                time_shift_arr = self.time_shift_s
+        time_shift_arr = np.array(time_shift_arr)
+
+        # Further change the time shift if we have move out input
+        if self.move_out is not None:
+            print(f"apply {self.move_out} {self.distance_units}/s move out")
+            move_out_arr = self.distances / self.move_out
+            time_shift_arr -= move_out_arr
+
+        return time_shift_arr
 
     def get_srcrcv_dist_az_baz(self):
         """
@@ -528,12 +593,19 @@ class RecordSection:
         stats.longest_id = max([len(_) for _ in stats.unique_sta_ids])
         stats.nstation_ids = len(stats.unique_sta_ids)
         # Get unique network, station, location and channel codes. Also numbers
-        for i, name in enumerate(["network", "station", "location", "channel"]):
+        for name in ["network", "station", "location", "channel", "component"]:
             stats[f"{name}_codes"] = _unique(
-                [tr.get_id().split(".")[i] for tr in self.st]
+                [getattr(tr.stats, name) for tr in self.st]
             )
             stats[f"n{name}"] = len(stats[f"{name}_codes"])
-        stats.reverse_sort = bool("_r" in self.sort_by)
+        # Include the `not` in `reverse_sort` to make the top of the y-axis the
+        # starting point, which seems more intuitive for record sections, but
+        # is opposite the behavior when you increment from 0
+        stats.reverse_sort = not bool("_r" in self.sort_by)
+
+        # Initiate empty lists for _plot_trace to fill with min and max data
+        # values which can be used for global plotting parameters like xlims
+        stats.xmin, stats.xmax, stats.ymin, stats.ymax = [], [], [], []
 
         return stats
 
@@ -609,18 +681,21 @@ class RecordSection:
 
     def get_sorted_idx(self):
         """
-        Sort the source-receiver pairs by the chosen parameters.
-        Always maintains component ordering defined by the user, i.e., for the
-        same station, components will be ordered by the `component` parameter.
+        Sort the source-receiver pairs by the chosen parameters. Except for in
+        `default` sorting, always maintains component ordering defined by the
+        user, i.e., for the same station, components will be ordered by the
+        `component` parameter.
 
-        :rtype: list
+        :rtype: np.array
         :return: returns an indexing list which is sorted based on the user
             defined `sort_by` argument.
         """
         print(f"determining sort order with parameter: {self.sort_by}")
 
-        if self.sort_by is None:
-            sorted_idx = self.idx
+        # Retain input ordering, don't change anything, allow reversing
+        if "default" in self.sort_by:
+            sorted_idx = sorted(self.idx, reverse=self.stats.reverse_sort)
+        # Sort alphabetically BUT allow component sorting
         elif "alphabetical" in self.sort_by:
             sorted_idx = self._sort_by_alphabetical()
         else:
@@ -628,9 +703,9 @@ class RecordSection:
             # Azimuthal sorts are allowed to start at a value other than 0
             # Backazimuth needs to come first because 'azimuth' can return both
             if "backazimuth" in self.sort_by:
-                sort_list = self.azimiths - self.sort_by_azimuth_start_deg
-            elif "azimuth" in self.sort_by:
                 sort_list = self.backazimuths - self.sort_by_azimuth_start_deg
+            elif "azimuth" in self.sort_by:
+                sort_list = self.azimuths - self.sort_by_azimuth_start_deg
             elif "distance" in self.sort_by:
                 sort_list = self.distances
 
@@ -639,8 +714,9 @@ class RecordSection:
                 zip(*sorted(zip(sort_list, components, self.idx),
                             reverse=self.stats.reverse_sort)
                     )
+        sorted_idx = np.array(list(sorted_idx))
 
-        return list(sorted_idx)
+        return sorted_idx
 
     def _sort_by_alphabetical(self):
         """
@@ -683,16 +759,26 @@ class RecordSection:
         """
         channels = [_.split(".")[3] for _ in self.station_ids]
         # ASSUMING component is the last entry in the channel, SEED convention
+        # TODO Can we use tr.stats.component here?
         components = [_[-1] for _ in channels]
         if self.stats.reverse_sort:
             comp_list = self.components
         else:
             comp_list = self.components[::-1]
-        components = [comp_list.index(_) for _ in components]
 
-        return components
+        # Can't list comp here incase `comp_list` does NOT contain one of the
+        # available components, which will throw a ValueError. Use a random
+        # number to catch these.
+        numbered_components = []
+        for comp in components:
+            try:
+                numbered_components.append(comp_list.index(comp))
+            except ValueError:
+                numbered_components.append(-999)
 
-    def get_yaxis_positions(self):
+        return numbered_components
+
+    def get_y_axis_positions(self):
         """
         Determine how seismograms are vertically separated on the Y-Axis when
         plotting. Allows for constant separation, or absolute separation based
@@ -711,7 +797,8 @@ class RecordSection:
 
         # Default weights provides constant `y_axis_spacing` between seismos
         if self.sort_by is None or "abs_" not in self.sort_by:
-            y_axis = self.y_axis_spacing * np.arange(0, len(self.st), 1)
+            y_range = np.arange(0, len(self.sorted_idx), 1)
+            y_axis = self.y_axis_spacing * y_range
         # Absolute y-axis (i.e., absolute distance or (back)azimuth) will just
         # plot the actual distance or azimuth value
         else:
@@ -737,10 +824,10 @@ class RecordSection:
             print("no preprocessing applied")
             return
         elif self.preprocess == "st":
-            print(f"preprocessing {len(self.st)}`st` waveforms")
+            print(f"preprocessing {len(self.st)} `st` waveforms")
             preprocess_list = [self.st]
         elif self.preprocess == "st_syn":
-            print(f"preprocessing {len(self.st_syn)}`st_syn` waveforms")
+            print(f"preprocessing {len(self.st_syn)} `st_syn` waveforms")
             preprocess_list = [self.st_syn]
         elif self.preprocess == "both":
             print(f"preprocessing {len(self.st) + len(self.st_syn)} "
@@ -786,8 +873,6 @@ class RecordSection:
                 print("{func} all waveform data")
                 getattr(st, func)()
 
-
-
     def plot(self, subset=None, page_num=None, **kwargs):
         """
         Generate record sections based on internal data
@@ -798,21 +883,21 @@ class RecordSection:
             first 10 entries, subset=[0,10]
         """
         if subset is None:
-            start, stop = 0, -1
+            start, stop = 0, None  # None will allow full list traversal
             nwav = len(self.st)
         else:
             start, stop = subset
             nwav = stop - start
 
         print(f"plotting record section for {nwav} waveforms")
+        print("PLOTTING LINE CHECK STARTING FROM BOTTOM")
+        print("\nIDX\tY\t\tID\tDIST\tAZ\tBAZ\tTSHIFT")
         self.f, self.ax = plt.subplots(figsize=self.figsize)
 
         # Allow choosing observed or synthetic data, defaults to boserved
-        for i, st in enumerate([self.st, self.st_syn]):
-            if st is None:
+        for choice in ["st", "st_syn"]:
+            if getattr(self, choice) is None:
                 continue
-            st = st.copy()
-
             # Main plotting call. Indexes should already be sorted
             # Allow different waveform looks based on observed vs. synthetic
             for y_idx, idx in enumerate(self.sorted_idx[start:stop]):
@@ -822,17 +907,25 @@ class RecordSection:
                     y_index = idx
                 else:
                     y_index = y_idx + start
-                self._plot_trace(idx=idx, y_index=y_index, **kwargs)
+                self._plot_trace(idx=idx, y_index=y_index, choice=choice,
+                                 **kwargs)
 
         # Plot other figure objects
-        if self.sort_by and "azimuth" in self.sort_by:
-            self._plot_azimuth_bins()
+        # if self.sort_by and "azimuth" in self.sort_by:
+        #     self._plot_azimuth_bins()
         self._plot_title(nwav=nwav, page_num=page_num)
         self._set_y_axis_text_labels(start=start, stop=stop)
 
         # Finalization chunk
-        plt.xlabel("Time [s]")
-        self.ax.set_xlim(self.xlim_s)
+        if self.time_shift_s.sum() == 0:
+            plt.xlabel("Time [s]")
+        else:
+            plt.xlabel("Relative Time [s]")
+
+        if self.xlim_s is None:
+            self.ax.set_xlim([min(self.stats.xmin), max(self.stats.xmax)])
+        else:
+            self.ax.set_xlim(self.xlim_s)
         self._plot_aesthetic()
         plt.tight_layout()
 
@@ -844,7 +937,7 @@ class RecordSection:
                 save_fid = f"{fid}_{page_num:0>2}{ext}"
             else:
                 save_fid = self.save
-            print(f"saving figure to {save_fid}")
+            print(f"\nsaving figure to {save_fid}")
             plt.savefig(save_fid)
         if self.show:
             plt.show()
@@ -873,19 +966,33 @@ class RecordSection:
         c = choices.index(choice)
         tr = getattr(self, choice)[idx]  # i.e., tr = self.st[idx]
 
-        # Time shift: see if time shift is an array or a constant
-        try:
-            tshift = self.time_shift_s[idx]
-        except TypeError:
-            if self.time_shift_s is None:
-                tshift = 0
-            else:
-                tshift = self.time_shift_s
-        x = tr.times() - tshift
-        # Perform amplitude scaling
-        y = tr.data / self.amplitude_scaling[idx] + self.y_axis[y_index]
-
+        # Plot actual data on with amplitude scaling, time shift, and yoffset
+        tshift =  self.time_shift_s[idx]
+        x = tr.times() + tshift
+        y = tr.data / self.amplitude_scaling[idx] + int(self.y_axis[y_index])
         self.ax.plot(x, y, c=["k", "r"][c],  **self.trace_kwargs)
+
+        # If any sort of time shift has been applied, mark the actual T0
+        if tshift != 0:
+            x0 = -1 * tshift
+            y0 = int(self.y_axis[y_index])
+            self.ax.scatter(x0, y0, c="r", marker="x", s=10)
+            self.ax.text(x0, y0, s=f"{tshift:.2f}s", c="r")
+
+        # Sanity check print station information to check against plot
+        print(f"{idx}"
+              f"\t{int(self.y_axis[y_index])}"
+              f"\t{tr.get_id():<6}"
+              f"\t{self.distances[idx]:6.2f}"
+              f"\t{self.azimuths[idx]:6.2f}"
+              f"\t{self.backazimuths[idx]:6.2f}"
+              f"\t{self.time_shift_s[idx]:4.2f}")
+
+        # Retain some stats for global plot args
+        self.stats.xmin.append(x.min())
+        self.stats.xmax.append(x.max())
+        self.stats.ymin.append(y.min())
+        self.stats.ymax.append(y.max())
 
     def _plot_azimuth_bins(self, azimuth_binsize=45):
         """
@@ -924,8 +1031,7 @@ class RecordSection:
 
         y_tick_labels = []
         for idx in self.sorted_idx[start:stop]:
-            tr = self.st[idx]
-            str_id = f"{tr.get_id()}"
+            str_id = self.station_ids[idx]
             if self.sort_by is not None and "backazimuth" in self.sort_by:
                 # This is named `str_az` but it's actually backazimuths
                 str_az = f"{self.backazimuths[idx]:6.2f}{degree_char}"
@@ -976,9 +1082,11 @@ class RecordSection:
             f"ORIGINTIME: {min([tr.stats.starttime for tr in self.st])}",
             f"Y_FMT: NET.STA.LOC.CHA|{az_str}|DIST",
             f"NWAV: {nwav}; NEVT: {self.stats.nevents}; "
-            f"NSTA: {self.stats.nstation}",
+            f"NSTA: {self.stats.nstation}; "
+            f"COMP: {''.join(self.stats.component_codes)}",
             f"SORT_BY: {self.sort_by}; SCALE_AMP: {self.scale_amp}",
-            f"FILT: [{self.min_period_s}, {self.max_period_s}]s"
+            f"FILT: [{self.min_period_s}, {self.max_period_s}]s; "
+            f"MOVE_OUT: {self.move_out}{self.distance_units}/s",
         ])
 
         self.ax.set_title(title)
@@ -1033,9 +1141,8 @@ def plotw_rs(*args, **kwargs):
     rs = RecordSection(*args, **kwargs)
     rs.process_st()
     rs.get_parameters()
-
     # Simple case where all waveforms will fit on one page
-    if len(rs.st) < rs.max_traces_per_rs:
+    if len(rs.st) <= rs.max_traces_per_rs:
         rs.plot()
     # More complicated case where we need to split onto multiple pages
     else:
@@ -1060,23 +1167,26 @@ def testw_rs():
 
     st = Stream()
     path = "/Users/Chow/Repositories/pysep/20090407201255351"
-    for fid in glob(os.path.join(path, "20090407201255351.??.*.*.*.?"))[:10]:
+    for fid in glob(os.path.join(path, "20090407201255351.??.*.*.*.?"))[:50]:
         st += read(fid)
 
     plotw_rs(
         st,
         st_syn=None,
         # sort_by="alphabetical",
-        sort_by="azimuth",
+        sort_by="distance",
         scale_amp="normalize",
         # scale_amp=None,
         time_shift_s=None,
         time_marker=None,
         min_period_s=2,
         max_period_s=50,
+        move_out=4,
         preprocess="st",
         max_traces_per_rs=50,
         integrate=0,
+        # components="Z",
+        components="ZRTNE12",
         # xlim_s=[100, 200],
         xlim_s=None,
         y_axis_spacing=1,
@@ -1097,7 +1207,40 @@ def testw_rs():
     )
 
 
+def create_examples():
+    """
+    Create example figures with a variety of input parameters to test out the
+    functionality of the plotting script
+
+    Tests:
+        sort_by, xlim, filter, comp, multipage, distance_units
+    """
+    from glob import glob
+    from obspy import read, Stream
+
+    st = Stream()
+    path = "/Users/Chow/Repositories/pysep/20090407201255351"
+    for fid in glob(os.path.join(path, "20090407201255351.??.*.*.*.?"))[:50]:
+        st += read(fid)
+
+    for sort_by in ["default", "default_r", "alphabetical", "alphabetical_r",
+                    "distance", "distance_r", "azimuth", "azimuth_r",
+                    "backazimuth", "backazimuth_r"]:
+        plotw_rs(st, sort_by=sort_by, scale_amp="normalize", min_period_s=2,
+                 max_period_s=50, preprocess="st", max_traces_per_rs=50,
+                 components="ZRTNE12", y_axis_spacing=1, distance_units="km",
+                 figsize=(9, 11), show=False, save=f"./output/rs_{sort_by}.png",
+                 trace_kwargs={"linewidth": 1.}, overwrite=True,)
+
+    plotw_rs(st, sort_by="distance", scale_amp="normalize", min_period_s=2,
+             max_period_s=50, preprocess="st", max_traces_per_rs=50,
+             move_out=4, y_axis_spacing=1, distance_units="km",
+             figsize=(9, 11), show=False, save=f"./output/rs_move_out.png",
+             trace_kwargs={"linewidth": 1.}, overwrite=True, )
+
+
 if __name__ == "__main__":
+    # create_examples()
     testw_rs()
     # plotw_rs()
 
