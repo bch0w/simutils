@@ -931,7 +931,7 @@ class RecordSection:
         self._plot_title(nwav=nwav, page_num=page_num)
         if "abs_" in self.sort_by:
             self._set_y_axis_absolute()
-            self._set_y_axis_text_labels(start=start, stop=stop, loc="x_min")
+            self._set_y_axis_text_labels(start=start, stop=stop, loc="x_max")
         else:
             self._set_y_axis_text_labels(start=start, stop=stop, loc="y_axis")
 
@@ -1097,15 +1097,20 @@ class RecordSection:
             # station information
             self.ax.set_yticks(self.y_axis[start:stop])
             self.ax.set_yticklabels(y_tick_labels)
-        elif loc == "x_min":
-            # Trying to figure out where the minimum X value is on the plot
+        else:
+            # Trying to figure out where the min or max X value is on the plot
+            if loc == "x_min":
+                ha = "left"
+                func = min
+                x_val = func(self.stats.xmin)
+            elif loc == "x_max":
+                ha = "right"
+                func = max
+                x_val = func(self.stats.xmax)
             if self.xlim_s is not None:
-                x_min = min([min(self.xlim_s), min(self.stats.xmin)])
-            else:
-                x_min = min(self.stats.xmin)
-
+                x_val = func([func(self.xlim_s), x_val])
             for idx, s_val in zip(self.sorted_idx[start:stop], y_tick_labels):
-                plt.text(x=x_min, y=self.y_axis[idx], s=s_val)
+                plt.text(x=x_val, y=self.y_axis[idx], s=s_val, ha=ha)
 
     def _plot_title(self, nwav=None, page_num=None):
         """
