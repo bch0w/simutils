@@ -266,7 +266,7 @@ class RecordSection:
         :raises AssertionError: If any parameters are not set as expected by
             plotw_rs functionality
         """
-        print("checking parameter acceptability") 
+        print("checking parameter acceptability")
 
         # Used to keep track of which parameters failed and in what way
         err = Dict()
@@ -419,11 +419,7 @@ class RecordSection:
         skip_idx = self.get_skip_idx()
         # Remove skip indexes from sorted index to get the final ordered
         # list of traces to plot
-        # !!! TODO replace this with a list comp
-        for _idx in sorted_idx:
-            if _idx not in skip_idx:
-                self.sorted_idx.append(_idx)
-        self.sorted_idx = np.array(self.sorted_idx)
+        self.sorted_idx = np.array([_ for _ in sorted_idx if _ not in skip_idx])
 
         self.y_axis = self.get_y_axis_positions()
         self.amplitude_scaling = self.get_amplitude_scaling()
@@ -631,6 +627,21 @@ class RecordSection:
         # Scale by the max amplitude of each trace
         elif self.scale_amp == "normalize":
             amp_scaling = self.max_amplitudes
+            # When using absolute distance scale, scale waveforms to minmax dist
+            if "abs" in self.sort_by:
+                if "distance" in self.sort_by:
+                    print("scaling amplitudes for absolute distance")
+                    # !!! This scale is from trial and error, it may need to be
+                    # !!! made more robust in the future
+                    scale = np.mean(self.distances) / 10
+                elif "backazimuth" in self.sort_by:
+                    print("scaling amplitudes for absolute backazimuth")
+                    scale = self.backazimuths.max() - self.backazimuths.min()
+                elif "azimuth" in self.sort_by:
+                    print("scaling amplitudes for absolute azimuth")
+                    scale = self.azimuths.max() - self.azimuths.min()
+            # Divide to make waveforms larger
+            amp_scaling /= scale
         # Scale by the theoretical geometrical spreading factor
         elif self.scale_amp == "geometric_spreading":
             amp_scaling = self._calculate_geometric_spreading()
@@ -796,18 +807,19 @@ class RecordSection:
         print(f"determining y-axis positioning for sort: {self.sort_by}")
 
         # Default weights provides constant `y_axis_spacing` between seismos
-        if self.sort_by is None or "abs_" not in self.sort_by:
+        if self.sort_by == "default" or "abs_" not in self.sort_by:
             y_range = np.arange(0, len(self.sorted_idx), 1)
             y_axis = self.y_axis_spacing * y_range
         # Absolute y-axis (i.e., absolute distance or (back)azimuth) will just
-        # plot the actual distance or azimuth value
+        # plot the actual distance or azimuth value, make sure to account for
+        # reverse plotting as well
         else:
-            _choices = {"abs_distance": self.distances,
-                        "abs_azimuth": self.azimuths,
-                        "abs_backazimuth": self.backazimuths
-                        }
-            y_axis = _choices[self.sort_by]
-
+            if "backazimuth" in self.sort_by:
+                y_axis = self.backazimuths
+            elif "azimuth" in self.sort_by:
+                y_axis = self.azimuths
+            elif "distance" in self.sort_by:
+                y_axis = self.distances
         return y_axis
 
     def process_st(self):
@@ -884,7 +896,7 @@ class RecordSection:
         """
         if subset is None:
             start, stop = 0, None  # None will allow full list traversal
-            nwav = len(self.st)
+            nwav = len(self.sorted_idx)
         else:
             start, stop = subset
             nwav = stop - start
@@ -910,23 +922,35 @@ class RecordSection:
                 self._plot_trace(idx=idx, y_index=y_index, choice=choice,
                                  **kwargs)
 
-        # Plot other figure objects
+        # Change the aesthetic look of the figure, should be run before other
+        # set functions as they may overwrite what is done here
+        self._set_plot_aesthetic()
+
         # if self.sort_by and "azimuth" in self.sort_by:
         #     self._plot_azimuth_bins()
         self._plot_title(nwav=nwav, page_num=page_num)
-        self._set_y_axis_text_labels(start=start, stop=stop)
+        if "abs_" in self.sort_by:
+            self._set_y_axis_absolute()
+            self._set_y_axis_text_labels(start=start, stop=stop, loc="x_min")
+        else:
+            self._set_y_axis_text_labels(start=start, stop=stop, loc="y_axis")
 
-        # Finalization chunk
+        # X-axis label is different if we time shift
         if self.time_shift_s.sum() == 0:
             plt.xlabel("Time [s]")
         else:
             plt.xlabel("Relative Time [s]")
 
+        # Allow user defined x-axis limits
         if self.xlim_s is None:
             self.ax.set_xlim([min(self.stats.xmin), max(self.stats.xmax)])
         else:
             self.ax.set_xlim(self.xlim_s)
-        self._plot_aesthetic()
+
+        # Reverse the y-axis if we are doing absolute y-axis and reversing
+        if "abs_" in self.sort_by and "_r" in self.sort_by:
+            self.ax.invert_yaxis()
+
         plt.tight_layout()
 
         if self.save:
@@ -967,17 +991,10 @@ class RecordSection:
         tr = getattr(self, choice)[idx]  # i.e., tr = self.st[idx]
 
         # Plot actual data on with amplitude scaling, time shift, and yoffset
-        tshift =  self.time_shift_s[idx]
+        tshift = self.time_shift_s[idx]
         x = tr.times() + tshift
         y = tr.data / self.amplitude_scaling[idx] + int(self.y_axis[y_index])
         self.ax.plot(x, y, c=["k", "r"][c],  **self.trace_kwargs)
-
-        # If any sort of time shift has been applied, mark the actual T0
-        if tshift != 0:
-            x0 = -1 * tshift
-            y0 = int(self.y_axis[y_index])
-            self.ax.scatter(x0, y0, c="r", marker="x", s=10)
-            self.ax.text(x0, y0, s=f"{tshift:.2f}s", c="r")
 
         # Sanity check print station information to check against plot
         print(f"{idx}"
@@ -1007,7 +1024,32 @@ class RecordSection:
         for azbin in azimuth_bins:
             plt.axhline(y=azbin, c="k", linewidth=2.)
 
-    def _set_y_axis_text_labels(self, start=0, stop=-1, location="y_axis"):
+    def _set_y_axis_absolute(self):
+        """
+        If 'abs_' in sort_by, then the Y-axis should be shown in absolute scale.
+        That means we need to format the text labels, add some labelling etc.
+        """
+        degree_char = u'\N{DEGREE SIGN}'
+
+        # Reset tick label size to be larger to match absolute x-axis size
+        ytick_fontsize = self.kwargs.get("ytick_fontsize", 12)
+        self.ax.tick_params(axis="y", labelsize=ytick_fontsize)
+
+        if "distance" in self.sort_by:
+            ytick_minor = self.kwargs.get("ytick_minor", 25)
+            ytick_major = self.kwargs.get("ytick_major", 100)
+            ylabel = f"Distance [{self.distance_units}]"
+        elif "aziumuth" in self.sort_by:
+            ytick_minor = self.kwargs.get("ytick_minor", 45)
+            ytick_major = self.kwargs.get("ytick_major", 90)
+            ylabel = f"Azimuth [{degree_char}]"
+
+        # Set ytick label major and minor which is either dist or az
+        self.ax.yaxis.set_major_locator(MultipleLocator(ytick_major))
+        self.ax.yaxis.set_minor_locator(MultipleLocator(ytick_minor))
+        self.ax.set_ylabel(ylabel)
+
+    def _set_y_axis_text_labels(self, start=0, stop=-1, loc="y_axis"):
         """
         Plot a text label next to each trace describing the station,
         azimuth and source-receiver distance. We need to do this all at once
@@ -1022,11 +1064,14 @@ class RecordSection:
         :param start: starting index for plotting, default to start 0
         :type stop: int
         :param stop: stop index for plotting, default to end -1
-        :type location: str
-        :param location: location to place the y_axis text labels, available:
+        :type loc: str
+        :param loc: location to place the y_axis text labels, available:
             - y_axis: Place labels along the y-axis (left side of the figure)
                 Will replace the actual y-tick labels so this is probably not
+            - x_min: Place labels on the waveforms at the minimum x value
+            - x_max: Place labels on the waveforms at the maximum x value
         """
+        assert loc in ["y_axis", "x_min", "x_max"]
         degree_char = u'\N{DEGREE SIGN}'
 
         y_tick_labels = []
@@ -1039,14 +1084,28 @@ class RecordSection:
                 str_az = f"{self.azimuths[idx]:6.2f}{degree_char}"
             str_dist = f"{self.distances[idx]:5.2f}km"
 
-            # Looks like: NN.SSS.LL.CC  30*  250.03km
+            # Looks like: NN.SSS.LL.CC|30*|250.03km
             label = \
                 f"{str_id:>{self.stats.longest_id}}|{str_az:>8}|{str_dist:>8}"
+            # Add time shift if we have shifted at all
+            if self.time_shift_s[idx] != 0:
+                label += f"|{self.time_shift_s[idx]:.2f}s"
             y_tick_labels.append(label)
 
-        if location == "y_axis":
+        if loc == "y_axis":
+            # For relative plotting (not abs_), replace y_tick labels with
+            # station information
             self.ax.set_yticks(self.y_axis[start:stop])
             self.ax.set_yticklabels(y_tick_labels)
+        elif loc == "x_min":
+            # Trying to figure out where the minimum X value is on the plot
+            if self.xlim_s is not None:
+                x_min = min([min(self.xlim_s), min(self.stats.xmin)])
+            else:
+                x_min = min(self.stats.xmin)
+
+            for idx, s_val in zip(self.sorted_idx[start:stop], y_tick_labels):
+                plt.text(x=x_min, y=self.y_axis[idx], s=s_val)
 
     def _plot_title(self, nwav=None, page_num=None):
         """
@@ -1063,7 +1122,7 @@ class RecordSection:
         # Defines the number of waveforms plotted on a single page, allowing
         # for subsets per page
         if nwav is None:
-            nwav = self.stats.nstation_ids
+            nwav = len(self.sorted_idx)
 
         # Allow appending page numbers to title
         title_top = "RECORD SECTION"
@@ -1076,22 +1135,24 @@ class RecordSection:
         else:
             az_str = "AZ"
 
+        # Get the unique components that have been plotted, only
+        cmp = "".join(np.unique([self.st[i].stats.component
+                                 for i in self.sorted_idx]))
+
         title = "\n".join([
             title_top,
             f"{'/' * len(title_top*2)}",
             f"ORIGINTIME: {min([tr.stats.starttime for tr in self.st])}",
             f"Y_FMT: NET.STA.LOC.CHA|{az_str}|DIST",
             f"NWAV: {nwav}; NEVT: {self.stats.nevents}; "
-            f"NSTA: {self.stats.nstation}; "
-            f"COMP: {''.join(self.stats.component_codes)}",
+            f"NSTA: {self.stats.nstation}; COMP: {cmp}",
             f"SORT_BY: {self.sort_by}; SCALE_AMP: {self.scale_amp}",
             f"FILT: [{self.min_period_s}, {self.max_period_s}]s; "
-            f"MOVE_OUT: {self.move_out}{self.distance_units}/s",
+            f"MOVE_OUT: {self.move_out or 0}{self.distance_units}/s",
         ])
-
         self.ax.set_title(title)
 
-    def _plot_aesthetic(self):
+    def _set_plot_aesthetic(self):
         """
         Give a nice look to the output figure by creating thicc borders on the
         axis, adjusting fontsize etc. All plot aesthetics should be placed here
@@ -1173,22 +1234,21 @@ def testw_rs():
     plotw_rs(
         st,
         st_syn=None,
-        # sort_by="alphabetical",
-        sort_by="distance",
+        # sort_by="distance",
+        sort_by="abs_distance_r",
         scale_amp="normalize",
         # scale_amp=None,
         time_shift_s=None,
         time_marker=None,
         min_period_s=2,
         max_period_s=50,
-        move_out=4,
+        # move_out=4,
         preprocess="st",
         max_traces_per_rs=50,
         integrate=0,
-        # components="Z",
-        components="ZRTNE12",
-        # xlim_s=[100, 200],
-        xlim_s=None,
+        components="Z",
+        # components="ZRTNE12",
+        #xlim_s=[50, 250],
         y_axis_spacing=1,
         sort_by_azimuth_start_deg=0,
         distance_units="km",
