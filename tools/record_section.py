@@ -108,6 +108,9 @@ class RecordSection:
             - None: Not set, no amplitude scaling, waveforms shown raw
             - 'normalize': scale each trace by the maximum amplitude,
                 i.e., > a /= max(abs(a))  # where 'a' is time series amplitudes
+            - 'global_norm': scale by the largest amplitude to be displayed on
+                the screen. Will not consider waveforms which have been 
+                excluded on other basis (e.g., wrong component)
             - 'geometric_spreading': scale amplitudes globally by predicting the
                 expected geometric spreading amplitude reduction and correcting
                 for this factor. Requires `geometric_spreading_factor`, optional
@@ -312,7 +315,8 @@ class RecordSection:
                 f"must be in {acceptable_distance_units}"
 
         if self.scale_amp is not None:
-            acceptable_scale_amp = ["normalize", "geometric_spreading"]
+            acceptable_scale_amp = ["normalize", "global_norm",
+                                    "geometric_spreading"]
             if self.scale_amp not in acceptable_scale_amp:
                 err.scale_amp = f"must be in {acceptable_scale_amp}"
 
@@ -637,11 +641,17 @@ class RecordSection:
                 elif "backazimuth" in self.sort_by:
                     print("scaling amplitudes for absolute backazimuth")
                     scale = self.backazimuths.max() - self.backazimuths.min()
+                    scale /= 100
                 elif "azimuth" in self.sort_by:
                     print("scaling amplitudes for absolute azimuth")
                     scale = self.azimuths.max() - self.azimuths.min()
-            # Divide to make waveforms larger
-            amp_scaling /= scale
+                    scale /= 50
+                # Divide to make waveforms larger
+                amp_scaling /= scale
+        # Scale by the largest amplitude shown
+        elif self.scale_amp == "global_norm":
+            global_max = self.max_amplitudes[self.sorted_idx].max()
+            amp_scaling = np.ones(len(self.st)) * global_max
         # Scale by the theoretical geometrical spreading factor
         elif self.scale_amp == "geometric_spreading":
             amp_scaling = self._calculate_geometric_spreading()
@@ -926,8 +936,9 @@ class RecordSection:
         # set functions as they may overwrite what is done here
         self._set_plot_aesthetic()
 
-        # if self.sort_by and "azimuth" in self.sort_by:
-        #     self._plot_azimuth_bins()
+        if self.sort_by and "azimuth" in self.sort_by:
+            self._plot_azimuth_bins()
+
         self._plot_title(nwav=nwav, page_num=page_num)
         if "abs_" in self.sort_by:
             self._set_y_axis_absolute()
@@ -1013,16 +1024,32 @@ class RecordSection:
 
     def _plot_azimuth_bins(self, azimuth_binsize=45):
         """
-        If plotting by azimuth, create visual bin separators
+        If plotting by azimuth, create visual bin separators so the user has
+        a visual understanding of radiation patterns etc.
         """
         azimuth_bins = np.arange(self.sort_by_azimuth_start_deg,
-                                 self.sort_by_azimuth_start_deg + 360,
+                                 self.sort_by_azimuth_start_deg + 365,
                                  azimuth_binsize)
-
-        # Make sure that the bins go from 0 <= azimuth_bins <= 360
-        azimuth_bins = azimuth_bins % 360
-        for azbin in azimuth_bins:
-            plt.axhline(y=azbin, c="k", linewidth=2.)
+        if "abs" in self.sort_by:
+            # Make sure that the bins go from 0 <= azimuth_bins <= 360
+            azimuth_bins = azimuth_bins % 361
+            for azbin in azimuth_bins:
+                plt.axhline(y=azbin, c="k", linewidth=2., linestyle="--")
+        else:
+            # Brute force determine where these azimuth bins would fit into the 
+            # actual plotted azimuths, draw a line between adjacent seismograms
+            # i.e., iterating and looking if the bin value fits between
+            # two adjacent azimuth values
+            for azbin in azimuth_bins:
+                for i, idx in enumerate(self.sorted_idx[1:]):
+                    idx_minus_one = self.sorted_idx[i] 
+                    azi_low = self.azimuths[idx]
+                    azi_high = self.azimuths[idx_minus_one]
+                    if azi_low <= azbin <= azi_high:
+                        mid_y_val = np.mean([self.y_axis[i], self.y_axis[i+1]])
+                        plt.axhline(y=mid_y_val, c="r", linewidth=1.5, 
+                                    linestyle="--")
+                        break
 
     def _set_y_axis_absolute(self):
         """
@@ -1039,7 +1066,7 @@ class RecordSection:
             ytick_minor = self.kwargs.get("ytick_minor", 25)
             ytick_major = self.kwargs.get("ytick_major", 100)
             ylabel = f"Distance [{self.distance_units}]"
-        elif "aziumuth" in self.sort_by:
+        elif "azimuth" in self.sort_by:
             ytick_minor = self.kwargs.get("ytick_minor", 45)
             ytick_major = self.kwargs.get("ytick_major", 90)
             ylabel = f"Azimuth [{degree_char}]"
@@ -1208,7 +1235,7 @@ def plotw_rs(*args, **kwargs):
     rs.process_st()
     rs.get_parameters()
     # Simple case where all waveforms will fit on one page
-    if len(rs.st) <= rs.max_traces_per_rs:
+    if len(rs.sorted_idx) <= rs.max_traces_per_rs:
         rs.plot()
     # More complicated case where we need to split onto multiple pages
     else:
@@ -1232,30 +1259,30 @@ def testw_rs():
     from obspy import read, Stream
 
     st = Stream()
-    path = "/Users/Chow/Repositories/pysep/20090407201255351"
-    for fid in glob(os.path.join(path, "20090407201255351.??.*.*.*.?"))[:50]:
+    path = "./events/socal"
+    for fid in glob(os.path.join(path, "2*.?"))[:]:
         st += read(fid)
 
     plotw_rs(
         st,
         st_syn=None,
-        # sort_by="distance",
-        sort_by="abs_distance_r",
-        scale_amp="normalize",
-        # scale_amp=None,
+        # sort_by="azimuth",
+        sort_by="azimuth",
+        scale_amp="global_norm",
+        # scale_amp="normalize",
         time_shift_s=None,
         time_marker=None,
         min_period_s=2,
         max_period_s=50,
-        # move_out=4,
+        move_out=4,
         preprocess="st",
-        max_traces_per_rs=50,
+        max_traces_per_rs=9999,
         integrate=0,
+        # components="Z",
         components="Z",
-        # components="ZRTNE12",
         #xlim_s=[50, 250],
         y_axis_spacing=1,
-        sort_by_azimuth_start_deg=0,
+        # sort_by_azimuth_start_deg=90,
         distance_units="km",
         geometric_spreading_factor=0.5,
         geometric_spreading_k_val=None,
@@ -1288,14 +1315,26 @@ def create_examples():
     for fid in glob(os.path.join(path, "20090407201255351.??.*.*.*.?"))[:50]:
         st += read(fid)
 
-    for sort_by in ["default", "default_r", "alphabetical", "alphabetical_r",
-                    "distance", "distance_r", "azimuth", "azimuth_r",
-                    "backazimuth", "backazimuth_r"]:
-        plotw_rs(st, sort_by=sort_by, scale_amp="normalize", min_period_s=2,
-                 max_period_s=50, preprocess="st", max_traces_per_rs=50,
+    # Set some default values for all examples
+    min_period, max_period = [2, 50]
+    scale_amp = "normalize"
+
+    for sort_by in ["default", "alphabetical"]:
+        plotw_rs(st, sort_by=sort_by, scale_amp="normalize", 
+                 min_period_s=min_period, max_period_s=max_period, 
+                 preprocess="st", max_traces_per_rs=50,
                  components="ZRTNE12", y_axis_spacing=1, distance_units="km",
                  figsize=(9, 11), show=False, save=f"./output/rs_{sort_by}.png",
                  trace_kwargs={"linewidth": 1.}, overwrite=True,)
+
+    for sort_by_base in ["distance", "azimuth", "backazimuth"]:
+        for sort_by in [f"abs_{sort_by_base}", f"{sort_by_base}_r"
+                        f"abs_{sort_by_base}_r"]:
+            plotw_rs(st, sort_by=sort_by, scale_amp="normalize", min_period_s=2,
+                     max_period_s=50, preprocess="st", max_traces_per_rs=50,
+                     components="ZRTNE12", y_axis_spacing=1, distance_units="km",
+                     figsize=(9, 11), show=False, save=f"./output/rs_{sort_by}.png",
+                     trace_kwargs={"linewidth": 1.}, overwrite=True,)
 
     plotw_rs(st, sort_by="distance", scale_amp="normalize", min_period_s=2,
              max_period_s=50, preprocess="st", max_traces_per_rs=50,
