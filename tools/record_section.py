@@ -16,13 +16,41 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
     obspy >= 1.2 (expected to bring in numpy and matplotlib)
 
 .. rubric::
-    Example code block working with pysep for data download
-    $ python
+    1) Print the help message
+    $ python record_section.py -h
+
+    2) Example code blocks working with pysep for socal event data download
+    # cd path/to/pysep
+    $ python rungetwaveform.py event_input_mtuq2022 2  # 20200404015318920
+
+    a) Plot with default values
+    $ python record_section.py --pysep_path 20200404015318920
+
+    b) Plot filtered data with a 4km/s move out
+    $ python record_section.py --pysep_path 20200404015318920 \
+        --move_out 4 --min_period_s 2 --max_period_s 50 --overwrite
+
+    c) Plot filtered transverse component sorted by azimuth scaled
+        by the maximum amplitude of ALL traces shown on the figure. Scale
+        amplitudes by factor 2 for better visualization and start azimuth
+        plotting at 180*
+    $ python record_section.py --pysep_path 20200404015318920 \
+        --sort_by azimuth --scale_by global_norm --components T \
+        --min_period_s 2 --max_period_s 30 --move_out 4 \
+        --max_traces_per_rs 100 --amplitude_scale_factor 2 \
+        --azimuth_start_deg 180 --overwrite
+
+    d) Plot filtered radial and transverse component sorted by absolute distance
+    $ python record_section.py --pysep_path 20200404015318920 \
+        --sort_by abs_distance --components Z --min_period_s 2 \
+        --max_period_s 50 --overwrite
+
 
 """
 import os
 import sys
 import argparse
+import textwrap
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -31,6 +59,10 @@ from datetime import datetime
 from matplotlib.ticker import MultipleLocator
 from obspy import read, Stream
 from obspy.geodetics import (kilometers2degrees, gps2dist_azimuth)
+
+
+# Unicode degree symbol for plot text
+DEG = u"\N{DEGREE SIGN}"
 
 
 def myround(x, base=5, choice="near"):
@@ -77,7 +109,7 @@ class RecordSection:
                  preprocess="st", max_traces_per_rs=50, integrate=0,
                  xlim_s=None, components="ZRTNE12", y_label_loc="default",
                  y_axis_spacing=1,
-                 amplitude_scale_factor=1, sort_by_azimuth_start_deg=0.,
+                 amplitude_scale_factor=1, azimuth_start_deg=0.,
                  distance_units="km", geometric_spreading_factor=0.5,
                  geometric_spreading_k_val=None, figsize=(9, 11), show=True,
                  save="./record_section.png", overwrite=False,
@@ -104,15 +136,15 @@ class RecordSection:
             - 'azimuth': sort by source-receiver azimuth (deg) with constant
                 vertical spacing
             - 'backazimuth': sort by source-receiver backazimuth (deg) with
-                constant vertical spacing. Requires `sort_by_azimuth_start_deg`
+                constant vertical spacing. Requires `azimuth_start_deg`
             - 'distance': sort by source-receiver distance (km) with constant
-                vertical spacing. Requires `sort_by_azimuth_start_deg` AND
+                vertical spacing. Requires `azimuth_start_deg` AND
                 `distance_units`
             - 'abs_distance': absolute vertical spacing of waveforms defined by
                 source-receiver distance (km). Requires `distance_units`
             - 'abs_azimuth': absolute vertical spacing of waveforms defined
                 by source-receiver azimuth (deg). Requires
-                `sort_by_azimuth_start_deg`
+                `azimuth_start_deg`
             - 'abs_backazimuth': absolute vertical spacing of waveforms by
                 source-receiver backazimuth (deg).
             - '*_r': Add a '_r' to any of the values about to REVERSE the sort,
@@ -199,8 +231,8 @@ class RecordSection:
             - 'x_min': Place labels on top of the waveforms at the global max
                 x-value on the figure
             - None: Don't plot any text labels
-        :type sort_by_azimuth_start_deg: float
-        :param sort_by_azimuth_start_deg: azimuthal angle for the top record,
+        :type azimuth_start_deg: float
+        :param azimuth_start_deg: azimuthal angle for the top record,
             applied to any Y-axis sorting which has 'azimuth' in its name.
             Set to 0 for default behavior
         :type distance_units: str
@@ -246,8 +278,6 @@ class RecordSection:
         assert(st), \
             "Stream object not found, please check inputs `st` and `pysep_path"
 
-        import pdb;pdb.set_trace()
-
         # User defined parameters, do some type-setting
         self.st = st.copy()
         try:
@@ -258,7 +288,7 @@ class RecordSection:
         # Y-Axis sorting parameters
         self.sort_by = sort_by.lower()
         self.y_axis_spacing = float(y_axis_spacing)
-        self.sort_by_azimuth_start_deg = float(sort_by_azimuth_start_deg)
+        self.azimuth_start_deg = float(azimuth_start_deg)
         self.components = str(components)
 
         # Amplitude scaling parameters
@@ -357,13 +387,13 @@ class RecordSection:
             err.sort_by = f"must be in {acceptable_sort_by}"
 
         if "azimuth" in self.sort_by:
-            if not (0 <= self.sort_by_azimuth_start_deg <= 360):
-                err.sort_by_azimuth_start_deg = f"0 < azi < 360"
+            if not (0 <= self.azimuth_start_deg <= 360):
+                err.azimuth_start_deg = f"0 < azi < 360"
 
         acceptable_distance_units = ["km", "km_utm", "deg"]
         if ("distance" in self.sort_by) and \
                 (self.distance_units not in acceptable_distance_units):
-            err.sort_by_azimuth_start_deg = \
+            err.azimuth_start_deg = \
                 f"must be in {acceptable_distance_units}"
 
         if self.scale_by is not None:
@@ -798,9 +828,9 @@ class RecordSection:
             # Azimuthal sorts are allowed to start at a value other than 0
             # Backazimuth needs to come first because 'azimuth' can return both
             if "backazimuth" in self.sort_by:
-                sort_list = self.backazimuths - self.sort_by_azimuth_start_deg
+                sort_list = (self.backazimuths - self.azimuth_start_deg) % 360
             elif "azimuth" in self.sort_by:
-                sort_list = self.azimuths - self.sort_by_azimuth_start_deg
+                sort_list = (self.azimuths - self.azimuth_start_deg) % 360
             elif "distance" in self.sort_by:
                 sort_list = self.distances
 
@@ -1076,38 +1106,59 @@ class RecordSection:
         self.stats.ymin.append(y.min())
         self.stats.ymax.append(y.max())
 
-    def _plot_azimuth_bins(self, azimuth_binsize=45):
+    def _plot_azimuth_bins(self):
         """
         If plotting by azimuth, create visual bin separators so the user has
         a visual understanding of radiation patterns etc.
         """
-        c = self.kwargs.get("azimuth_bin_c", "r")
-        lw = self.kwargs.get("azimuth_bin_lw", 2.)
-        ls = self.kwargs.get("azimuth_bin_ls", "--")
+        azimuth_binsize = self.kwargs.get("azimuth_binsize", 45)
 
-        azimuth_bins = np.arange(self.sort_by_azimuth_start_deg,
-                                 self.sort_by_azimuth_start_deg + 365,
+        # Look of the azimuth bin lines
+        c = self.kwargs.get("azimuth_bin_c", "r")
+        lw = self.kwargs.get("azimuth_bin_lw", 1.)
+        ls = self.kwargs.get("azimuth_bin_ls", "-")
+
+        azimuth_bins = np.arange(self.azimuth_start_deg,
+                                 self.azimuth_start_deg + 360,
                                  azimuth_binsize)
+        # Make sure that the bins go from 0 <= azimuth_bins <= 360
+        azimuth_bins = azimuth_bins % 360
+
+        # In an absolute plot, the y values are simple the azimuth bins
         if "abs" in self.sort_by:
-            # Make sure that the bins go from 0 <= azimuth_bins <= 360
-            azimuth_bins = azimuth_bins % 361
-            for azbin in azimuth_bins:
-                plt.axhline(y=azbin, c=c, linewidth=lw, linestyle=ls)
+            y_vals = azimuth_bins
+        # In a relative plot, the y values need to be found between seismograms
         else:
+            y_vals = []
             # Brute force determine where these azimuth bins would fit into the 
             # actual plotted azimuths, draw a line between adjacent seismograms
             # i.e., iterating and looking if the bin value fits between
             # two adjacent azimuth values
             for azbin in azimuth_bins:
-                for i, idx in enumerate(self.sorted_idx[1:]):
-                    idx_minus_one = self.sorted_idx[i] 
-                    azi_low = self.azimuths[idx]
-                    azi_high = self.azimuths[idx_minus_one]
-                    if azi_low <= azbin <= azi_high:
-                        mid_y_val = np.mean([self.y_axis[i], self.y_axis[i+1]])
-                        plt.axhline(y=mid_y_val, c=c, linewidth=lw,
-                                    linestyle=ls)
-                        break
+                # Edge case for 0 deg azimuth bin which will not evaluate
+                # in the loop below
+                if azbin == 0:
+                    i = np.argmin(self.azimuths[self.sorted_idx])
+                    j = np.argmax(self.azimuths[self.sorted_idx])
+                else:
+                    for i, idx in enumerate(self.sorted_idx[1:]):
+                        j = i + 1
+                        idx_minus_one = self.sorted_idx[i]
+                        azi_low = self.azimuths[idx]
+                        azi_high = self.azimuths[idx_minus_one]
+                        if azi_low <= azbin <= azi_high:
+                            break
+                # Plot in between two adjacent seismograms
+                y_vals.append(np.mean([self.y_axis[i],  self.y_axis[j]]))
+
+        for y, y_val in enumerate(y_vals):
+            # Dealing with the case where two bins occupy the same space,
+            # only plot the first one that occurs
+            if y_val == y_vals[y-1]:
+                continue
+            plt.axhline(y=y_val, c=c, linewidth=lw, linestyle=ls)
+            plt.text(x=max(self.stats.xmax), y=y_val,
+                     s=f"{azimuth_bins[y]}{DEG}", c=c, ha="right")
 
     def _plot_axes(self, start=0, stop=None):
         """
@@ -1187,8 +1238,6 @@ class RecordSection:
         If 'abs_' in sort_by, then the Y-axis should be shown in absolute scale.
         That means we need to format the text labels, add some labelling etc.
         """
-        degree_char = u'\N{DEGREE SIGN}'
-
         # Reset tick label size to be larger to match absolute x-axis size
         ytick_fontsize = self.kwargs.get("ytick_fontsize", 12)
         self.ax.tick_params(axis="y", labelsize=ytick_fontsize)
@@ -1200,7 +1249,7 @@ class RecordSection:
         elif "azimuth" in self.sort_by:
             ytick_minor = self.kwargs.get("ytick_minor", 45)
             ytick_major = self.kwargs.get("ytick_major", 90)
-            ylabel = f"Azimuth [{degree_char}]"
+            ylabel = f"Azimuth [{DEG}]"
 
         # Set ytick label major and minor which is either dist or az
         self.ax.yaxis.set_major_locator(MultipleLocator(ytick_major))
@@ -1231,16 +1280,14 @@ class RecordSection:
         """
         c = self.kwargs.get("y_label_c", "k")
 
-        degree_char = u'\N{DEGREE SIGN}'
-
         y_tick_labels = []
         for idx in self.sorted_idx[start:stop]:
             str_id = self.station_ids[idx]
             if self.sort_by is not None and "backazimuth" in self.sort_by:
                 # This is named `str_az` but it's actually backazimuths
-                str_az = f"{self.backazimuths[idx]:6.2f}{degree_char}"
+                str_az = f"{self.backazimuths[idx]:6.2f}{DEG}"
             else:
-                str_az = f"{self.azimuths[idx]:6.2f}{degree_char}"
+                str_az = f"{self.azimuths[idx]:6.2f}{DEG}"
             str_dist = f"{self.distances[idx]:5.2f}km"
 
             # Looks like: NN.SSS.LL.CC|30*|250.03km
@@ -1326,7 +1373,8 @@ class RecordSection:
             f"{y_fmt}",
             f"NWAV: {nwav}; NEVT: {self.stats.nevents}; "
             f"NSTA: {self.stats.nstation}; COMP: {cmp}",
-            f"SORT_BY: {self.sort_by}; SCALE_BY: {self.scale_by}",
+            f"SORT_BY: {self.sort_by}; "
+            f"SCALE_BY: {self.scale_by} * {self.amplitude_scale_factor}",
             f"FILT: [{self.min_period_s}, {self.max_period_s}]s; "
             f"MOVE_OUT: {self.move_out or 0}{self.distance_units}/s",
         ])
@@ -1406,24 +1454,64 @@ def parse_args():
     BUT also limits the flexibility of the code because things like
     long lists are prohibitively verbose and not included in the arguments.
 
-    .. warning::
+    .. note::
         Not all parameters are set here, some are left as default values
+        Also some parameters are set different than the class defaults, so that
+        when the user runs record_section without arguments, they get a
+        reasonable result
 
     .. note::
         Do NOT use the command line if you want to exploit the expanded
         capabilities of the record section plotter, rather script it or call
         from an interactive environment.
     """
-    parser = argparse.ArgumentParser(description="Input basic plotw_rs params")
+    parser = argparse.ArgumentParser(
+        description="Input basic plotw_rs params",
+        formatter_class=argparse.RawTextHelpFormatter,
+                                     )
 
     parser.add_argument("--pysep_path", default="./", type=str, nargs="?",
                         help="path to Pysep output, which is expected to "
                              "contain trace-wise SAC waveform files which will "
                              "be read")
-    parser.add_argument("--sort_by", default="default", type=str, nargs="?",
-                        help="How to sort the Y-axis of the record section")
-    parser.add_argument("--scale_by", default=None, type=str, nargs="?",
-                        help="How to sort the Y-axis of the record section")
+    parser.add_argument("--sort_by", default="distance", type=str, nargs="?",
+                        help=textwrap.dedent("""
+            How to sort the Y-axis of the record section
+            - None: Not set, don't sort, just iterate directly through Stream
+            - 'alphabetical': sort alphabetically
+            - 'azimuth': sort by source-receiver azimuth (deg) with constant
+                vertical spacing
+            - 'backazimuth': sort by source-receiver backazimuth (deg) with
+                constant vertical spacing. Requires `azimuth_start_deg`
+            - 'distance': sort by source-receiver distance (km) with constant
+                vertical spacing. Requires `azimuth_start_deg` AND
+                `distance_units`
+            - 'abs_distance': absolute vertical spacing of waveforms defined by
+                source-receiver distance (km). Requires `distance_units`
+            - 'abs_azimuth': absolute vertical spacing of waveforms defined
+                by source-receiver azimuth (deg). Requires
+                `azimuth_start_deg`
+            - 'abs_backazimuth': absolute vertical spacing of waveforms by
+                source-receiver backazimuth (deg).
+            - '*_r': Add a '_r' to any of the values about to REVERSE the sort,
+                e.g., alphabetical_r sort will go Z->A"
+                """)
+                        )
+    parser.add_argument("--scale_by", default="normalize", type=str, nargs="?",
+                        help=textwrap.dedent("""
+            How to sort the Y-axis of the record section
+            - None: Not set, no amplitude scaling, waveforms shown raw
+            - 'normalize': scale each trace by the maximum amplitude,
+                i.e., > a /= max(abs(a))  # where 'a' is time series amplitudes
+            - 'global_norm': scale by the largest amplitude to be displayed on
+                the screen. Will not consider waveforms which have been 
+                excluded on other basis (e.g., wrong component)
+            - 'geometric_spreading': scale amplitudes globally by predicting the
+                expected geometric spreading amplitude reduction and correcting
+                for this factor. Requires `geometric_spreading_factor`, optional
+                `geometric_spreading_k_val`
+                """)
+                        )
     parser.add_argument("--time_shift_s", default=None, type=float, nargs="?",
                         help="Set a constant time shift in unit: seconds")
     parser.add_argument("--move_out", default=None, type=float, nargs="?",
@@ -1455,12 +1543,13 @@ def parse_args():
                         help="For relative sorting, the y-axis spacing between "
                              "adjacent seismograms. If waveforms are "
                              "normalized then a default value of 1 is usually "
+                             "normalized then a default value of 1 is usually "
                              "fine")
     parser.add_argument("--amplitude_scale_factor", default=1, type=float,
                         nargs="?",
                         help="A user dial allowing waveform amplitudes to be"
                              "scaled by an arbitrary float value")
-    parser.add_argument("--sort_by_azimuth_start_deg", default=0, type=float,
+    parser.add_argument("--azimuth_start_deg", default=0, type=float,
                         nargs="?",
                         help="When sorting by azimuth, choose the default "
                              "starting value, with azimuth 0 <= az <= 360")
@@ -1469,6 +1558,8 @@ def parse_args():
     parser.add_argument("--save", default="./record_section.png", type=str,
                         nargs="?",
                         help="Path to save the resulting record section fig")
+    parser.add_argument("--overwrite", default=False, action="store_true",
+                        help="overwrite existing figure if path exists")
 
     return parser.parse_args()
 
