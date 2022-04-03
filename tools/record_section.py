@@ -42,10 +42,19 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
 
     d) Plot filtered radial and transverse component sorted by absolute distance
     $ python record_section.py --pysep_path 20200404015318920 \
-        --sort_by abs_distance --components Z --min_period_s 2 \
-        --max_period_s 50 --overwrite
+        --sort_by abs_distance_r --components Z --min_period_s 2 \
+        --max_period_s 50 --amplitude_scale_factor 0.25 --overwrite
 
-
+    3) Example code block from inside a Python interactive environment
+    Assuming we have downloaded the event from pysep
+    >>> import os
+    >>> from glob import glob
+    >>> from obspy import read
+    >>> from record_section import plotw_rs
+    >>> st = Stream()
+    >>> for fid in glob(os.path.join("20200404015318920", "*.?")):
+    >>>     st += read(fid)
+    >>> plotw_rs(st=st, sort_by="distance_r")
 """
 import os
 import sys
@@ -1089,7 +1098,7 @@ class RecordSection:
         tshift = self.time_shift_s[idx]
         x = tr.times() + tshift
         y = tr.data / self.amplitude_scaling[idx] + int(self.y_axis[y_index])
-        self.ax.plot(x, y, c=["k", "r"][c], linewidth=linewidth)
+        self.ax.plot(x, y, c=["k", "r"][c], linewidth=linewidth, zorder=10)
 
         # Sanity check print station information to check against plot
         print(f"{idx}"
@@ -1156,7 +1165,7 @@ class RecordSection:
             # only plot the first one that occurs
             if y_val == y_vals[y-1]:
                 continue
-            plt.axhline(y=y_val, c=c, linewidth=lw, linestyle=ls)
+            plt.axhline(y=y_val, c=c, linewidth=lw, linestyle=ls, zorder=9)
             plt.text(x=max(self.stats.xmax), y=y_val,
                      s=f"{azimuth_bins[y]}{DEG}", c=c, ha="right")
 
