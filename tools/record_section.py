@@ -11,14 +11,23 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
     Translated to Python by Nealy Sims (1/2021)
     Upgraded by Aakash Gupta (9/2021)
     Refactored by Bryant Chow (3/2022)
+
+.. requires::
+    obspy >= 1.2 (expected to bring in numpy and matplotlib)
+
+.. rubric::
+
 """
 import os
 import sys
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
+from glob import glob
 from datetime import datetime
 from matplotlib.ticker import MultipleLocator
+from obspy import read, Stream
 from obspy.geodetics import (kilometers2degrees, degrees2kilometers,
                              gps2dist_azimuth)
 
@@ -61,21 +70,25 @@ class RecordSection:
     sorts source-receiver pairs based on User input, and produces record section
     waveform figures
     """
-    def __init__(self, st, st_syn=None, sort_by="default", scale_amp=None,
-                 time_shift_s=None, move_out=None, time_marker=None,
-                 min_period_s=None, max_period_s=None, preprocess="st",
-                 max_traces_per_rs=50, integrate=0, xlim_s=None,
-                 components="ZRTNE12",
-                 y_axis_spacing=1, sort_by_azimuth_start_deg=0.,
+    def __init__(self, pysep_path=None, st=None, st_syn=None, sort_by="default",
+                 scale_by=None, time_shift_s=None, move_out=None,
+                 time_marker=None, min_period_s=None, max_period_s=None,
+                 preprocess="st", max_traces_per_rs=50, integrate=0,
+                 xlim_s=None, components="ZRTNE12", y_label_loc="default",
+                 y_axis_spacing=1,
+                 amplitude_scale_factor=1, sort_by_azimuth_start_deg=0.,
                  distance_units="km", geometric_spreading_factor=0.5,
                  geometric_spreading_k_val=None, figsize=(9, 11), show=True,
                  save="./record_section.png", overwrite=False,
-                 trace_kwargs=None, **kwargs):
+                 **kwargs):
         """
         Set the default record section plotting parameters and enforce types
         Run some internal parameter derivation functions by manipulating input
         data and parameters.
 
+        :type pysep_path: str
+        :param pysep_path: path to Pysep output, which is expected to contain
+            trace-wise SAC waveform files which will be read
         :type st: obspy.core.stream.Stream
         :param st: Stream objects containing observed time series to be plotted
             on the record section. Can contain any number of traces
@@ -103,8 +116,8 @@ class RecordSection:
                 source-receiver backazimuth (deg).
             - '*_r': Add a '_r' to any of the values about to REVERSE the sort,
                 e.g., alphabetical_r sort will go Z->A
-        :type scale_amp: list
-        :param scale_amp: scale amplitude of waveforms by available:
+        :type scale_by: list
+        :param scale_by: scale amplitude of waveforms by available:
             - None: Not set, no amplitude scaling, waveforms shown raw
             - 'normalize': scale each trace by the maximum amplitude,
                 i.e., > a /= max(abs(a))  # where 'a' is time series amplitudes
@@ -121,6 +134,14 @@ class RecordSection:
                 that number (i.e., -10.2 second time shift applied)
             2. list (e.g., [5., -2., ... 11.2]), will apply individual time
                 shifts to EACH trace in the stream. The length of this list MUST
+                match the number of traces in your input stream.
+        :type amplitude_scale_factor: float OR list of float
+        :param amplitude_scale_factor: apply scale factor to all amplitudes.
+            Used as a dial to adjust amplitudes manually. Defaults to 1.
+            Two options:
+            1. float (e.g., 1.2), will multiply ALL waveforms by that number
+            2. list (e.g., [5., -2., ... 11.2]), will apply individual amplitude
+                scale to EACH trace in the stream. The length of this list MUST
                 match the number of traces in your input stream.
         :type move_out: float
         :param move_out: Optional. A velocity value that will be used to
@@ -164,6 +185,19 @@ class RecordSection:
         :param y_axis_spacing: spacing between adjacent seismograms applied to
             Y-axis on relative (not absolute) scales.
             Set to 1 for default behavior
+        :type y_label_loc: str
+        :param y_label_loc: Location to place waveform labels on the y-axis
+            - 'default': auto choose the best location based on `sort_by`
+            - 'y_axis': Replace tick labels on the y-axis (left side of figure),
+                This won't work if using absolute sorting and will be over
+                written by 'default'
+            - 'y_axis_right': Replace tick labels on the right side of the y-axis
+                Also won't work with absolute sorting
+            - 'x_min': Place labels on top of the waveforms at the global min
+                x-value on the figure
+            - 'x_min': Place labels on top of the waveforms at the global max
+                x-value on the figure
+            - None: Don't plot any text labels
         :type sort_by_azimuth_start_deg: float
         :param sort_by_azimuth_start_deg: azimuthal angle for the top record,
             applied to any Y-axis sorting which has 'azimuth' in its name.
@@ -175,7 +209,7 @@ class RecordSection:
             'km_utm': kilometers on flat plane, UTM coordinate system
         :type geometric_spreading_factor: float
         :param geometric_spreading_factor: geometrical spreading factor when
-            using the `scale_amp` parameter. Defaults to 0.5 for surface waves.
+            using the `scale_by` parameter. Defaults to 0.5 for surface waves.
             Use values of 0.5 to 1.0 for regional surface waves
         :type geometric_spreading_k_val: float
         :param geometric_spreading_k_val: K value used to scale the geometric
@@ -197,6 +231,20 @@ class RecordSection:
         :return: a Dictionary object containing all the user set parameters
         :raises AssertionError: if any parameters are set incorrectly
         """
+        # Read files from path if provided
+        if pysep_path is not None and os.path.exists(pysep_path):
+            # Expected file format: 20200404015318920.CI.LRL..BH.r
+            fids = glob(os.path.join(pysep_path, "*.*.*.*.*.?"))
+            print(f"Reading {len(fids)} files from: {pysep_path}")
+            if fids:
+                # Overwrite stream, so reading takes precedence
+                st = Stream()
+                for fid in fids:
+                    st += read(fid)
+
+        assert(st), \
+            "Stream object not found, please check inputs `st` and `pysep_path"
+
         # User defined parameters, do some type-setting
         self.st = st.copy()
         try:
@@ -211,7 +259,8 @@ class RecordSection:
         self.components = str(components)
 
         # Amplitude scaling parameters
-        self.scale_amp = scale_amp
+        self.scale_by = scale_by
+        self.amplitude_scale_factor = amplitude_scale_factor
         self.geometric_spreading_factor = float(geometric_spreading_factor)
         self.geometric_spreading_k_val = geometric_spreading_k_val
 
@@ -230,11 +279,11 @@ class RecordSection:
         # Plotting parameters
         self.xlim_s = xlim_s
         self.distance_units = distance_units.lower()
+        self.y_label_loc = y_label_loc
         self.figsize = figsize
         self.show = bool(show)
         self.save = save
         self.overwrite = bool(overwrite)
-        self.trace_kwargs = Dict(trace_kwargs)
         self.kwargs = Dict(kwargs)
 
         # Run checks to ensure that all the parameters are set properly
@@ -314,16 +363,27 @@ class RecordSection:
             err.sort_by_azimuth_start_deg = \
                 f"must be in {acceptable_distance_units}"
 
-        if self.scale_amp is not None:
-            acceptable_scale_amp = ["normalize", "global_norm",
+        if self.scale_by is not None:
+            acceptable_scale_by = ["normalize", "global_norm",
                                     "geometric_spreading"]
-            if self.scale_amp not in acceptable_scale_amp:
-                err.scale_amp = f"must be in {acceptable_scale_amp}"
+            if self.scale_by not in acceptable_scale_by:
+                err.scale_by = f"must be in {acceptable_scale_by}"
 
         if self.time_shift_s is not None:
-            acceptable_time_shift_s = [1, len(self.st)]
-            if len(self.time_shift_s) not in acceptable_time_shift_s:
+            acceptable_time_shift_s = [int, float, list]
+            if type(self.time_shift_s) not in acceptable_time_shift_s:
                 err.time_shift_s = f"must be in {acceptable_time_shift_s}"
+            if isinstance(self.time_shift_s, list) and \
+                    len(self.time_shift_s) != len(self.st):
+                err.time_shift_s = f"must be list of length {len(self.st)}"
+
+        # Defaults to float value of 1
+        acceptable_scale_factor = [int, float, list]
+        if type(self.amplitude_scale_factor) not in acceptable_scale_factor:
+            err.amplitude_scale_factor = f"must be in {acceptable_scale_factor}"
+        if isinstance(self.amplitude_scale_factor, list) and \
+                len(self.amplitude_scale_factor) != len(self.st):
+            err.amplitude_scale_factor = f"must be list length {len(self.st)}"
 
         if self.time_marker is not None:
             if (self.time_shift_s is not None) and (self.time_shift_s != 1):
@@ -344,6 +404,14 @@ class RecordSection:
                 err.xlim_s = f"must be of length 2, [start, stop]"
             elif self.xlim_s[0] > self.xlim_s[1]:
                 err.xlim_s = f"start time must be less than stop time"
+
+        acceptable_y_label_loc = ["default", "y_axis", "y_axis_right", "x_min",
+                                  "x_max", None]
+        if self.y_label_loc not in acceptable_y_label_loc:
+            err.y_label_loc = f"must be in {acceptable_y_label_loc}"
+        if "abs" in self.sort_by and "y_axis" in self.sort_by:
+            err.y_label_loc = (f"absolute sorting means 'y_axis' label loc is" 
+                               f"not available")
 
         if len(self.figsize) != 2:
             err.figsize = "must be tuple defining (horizontal, vertical) extent"
@@ -623,20 +691,19 @@ class RecordSection:
         :return: an array corresponding to the Stream indexes which provides
             a per-trace scaling coefficient
         """
-        print(f"determining amplitude scaling with: {self.scale_amp}")
+        print(f"determining amplitude scaling with: {self.scale_by}")
 
         # Don't scale by anything
-        if self.scale_amp is None:
+        if self.scale_by is None:
             amp_scaling = np.ones(len(self.st))
         # Scale by the max amplitude of each trace
-        elif self.scale_amp == "normalize":
+        elif self.scale_by == "normalize":
             amp_scaling = self.max_amplitudes
             # When using absolute distance scale, scale waveforms to minmax dist
             if "abs" in self.sort_by:
                 if "distance" in self.sort_by:
                     print("scaling amplitudes for absolute distance")
-                    # !!! This scale is from trial and error, it may need to be
-                    # !!! made more robust in the future
+                    # We want
                     scale = np.mean(self.distances) / 10
                 elif "backazimuth" in self.sort_by:
                     print("scaling amplitudes for absolute backazimuth")
@@ -649,12 +716,16 @@ class RecordSection:
                 # Divide to make waveforms larger
                 amp_scaling /= scale
         # Scale by the largest amplitude shown
-        elif self.scale_amp == "global_norm":
+        elif self.scale_by == "global_norm":
             global_max = self.max_amplitudes[self.sorted_idx].max()
             amp_scaling = np.ones(len(self.st)) * global_max
         # Scale by the theoretical geometrical spreading factor
-        elif self.scale_amp == "geometric_spreading":
+        elif self.scale_by == "geometric_spreading":
             amp_scaling = self._calculate_geometric_spreading()
+
+        # Apply manual scale factor if provided, default value is 1 so nothing
+        # Divide because the amplitude scale divides the data array
+        amp_scaling /= self.amplitude_scale_factor
 
         return amp_scaling
 
@@ -940,29 +1011,7 @@ class RecordSection:
             self._plot_azimuth_bins()
 
         self._plot_title(nwav=nwav, page_num=page_num)
-        if "abs_" in self.sort_by:
-            self._set_y_axis_absolute()
-            self._set_y_axis_text_labels(start=start, stop=stop, loc="x_max")
-        else:
-            self._set_y_axis_text_labels(start=start, stop=stop, loc="y_axis")
-
-        # X-axis label is different if we time shift
-        if self.time_shift_s.sum() == 0:
-            plt.xlabel("Time [s]")
-        else:
-            plt.xlabel("Relative Time [s]")
-
-        # Allow user defined x-axis limits
-        if self.xlim_s is None:
-            self.ax.set_xlim([min(self.stats.xmin), max(self.stats.xmax)])
-        else:
-            self.ax.set_xlim(self.xlim_s)
-
-        # Reverse the y-axis if we are doing absolute y-axis and reversing
-        if "abs_" in self.sort_by and "_r" in self.sort_by:
-            self.ax.invert_yaxis()
-
-        plt.tight_layout()
+        self._plot_axes(start=start, stop=stop)
 
         if self.save:
             # Allow appending page numbers to figure names,
@@ -995,6 +1044,8 @@ class RecordSection:
         :param choice: choice of 'st' or 'st_syn' depending on whether you want
             to plot the observed or synthetic waveforms
         """
+        linewidth = self.kwargs.get("trace_lw", 1)
+
         # Used to differentiate the two types of streams for plotting diffs
         choices = ["st", "st_syn"]
         assert (choice in choices)
@@ -1005,7 +1056,7 @@ class RecordSection:
         tshift = self.time_shift_s[idx]
         x = tr.times() + tshift
         y = tr.data / self.amplitude_scaling[idx] + int(self.y_axis[y_index])
-        self.ax.plot(x, y, c=["k", "r"][c],  **self.trace_kwargs)
+        self.ax.plot(x, y, c=["k", "r"][c], linewidth=linewidth)
 
         # Sanity check print station information to check against plot
         print(f"{idx}"
@@ -1027,6 +1078,10 @@ class RecordSection:
         If plotting by azimuth, create visual bin separators so the user has
         a visual understanding of radiation patterns etc.
         """
+        c = self.kwargs.get("azimuth_bin_c", "r")
+        lw = self.kwargs.get("azimuth_bin_lw", 2.)
+        ls = self.kwargs.get("azimuth_bin_ls", "--")
+
         azimuth_bins = np.arange(self.sort_by_azimuth_start_deg,
                                  self.sort_by_azimuth_start_deg + 365,
                                  azimuth_binsize)
@@ -1034,7 +1089,7 @@ class RecordSection:
             # Make sure that the bins go from 0 <= azimuth_bins <= 360
             azimuth_bins = azimuth_bins % 361
             for azbin in azimuth_bins:
-                plt.axhline(y=azbin, c="k", linewidth=2., linestyle="--")
+                plt.axhline(y=azbin, c=c, linewidth=lw, linestyle=ls)
         else:
             # Brute force determine where these azimuth bins would fit into the 
             # actual plotted azimuths, draw a line between adjacent seismograms
@@ -1047,9 +1102,82 @@ class RecordSection:
                     azi_high = self.azimuths[idx_minus_one]
                     if azi_low <= azbin <= azi_high:
                         mid_y_val = np.mean([self.y_axis[i], self.y_axis[i+1]])
-                        plt.axhline(y=mid_y_val, c="r", linewidth=1.5, 
-                                    linestyle="--")
+                        plt.axhline(y=mid_y_val, c=c, linewidth=lw,
+                                    linestyle=ls)
                         break
+
+    def _plot_axes(self, start=0, stop=None):
+        """
+        Contains the logic in how to handle the x- and y-axis labels, ticks etc.
+
+        Logic options for how to plot the y-axis:
+        - Relative: Relative plotting means the yticklabels will get replaced
+            by station information. This can either be on the right or left
+            side but will be attached to the actual axis
+        - Absolute: Absolute plotting means the y-axis actual represents
+            something (e.g., distance, azimuth). That means labels can not
+            replace the y-ticks and they have to be placed within the figure
+
+        .. note::
+            Relative plotting can also place labels OFF the y-axis, at which
+            point the y-axis is turned off because it contains no usable
+            information
+
+        :type start: int
+        :param start: optional starting index for creating text labels
+        :type stop: int
+        :param stop: optional stop index for creating text labels
+        """
+        # Sort out how the y-axis will be labeled with station information and
+        # dist/azimuth if we're doing absolute sorting
+        if "abs_" in self.sort_by:
+            self._set_y_axis_absolute()
+            if self.y_label_loc is not None:
+                # By default, place absolute sorted labels at xmin
+                if self.y_label_loc == "default":
+                    loc = "x_min"
+                else:
+                    loc = self.y_label_loc
+                self._set_y_axis_text_labels(start=start, stop=stop, loc=loc)
+        elif self.y_label_loc is not None:
+            # By default, relative plotting shows labels on the right side
+            if self.y_label_loc == "default":
+                loc = "y_axis"
+            else:
+                loc = self.y_label_loc
+            self._set_y_axis_text_labels(start=start, stop=stop, loc=loc)
+        print(f"placing station labels on y-axis at: {loc}")
+
+        # User requests that we turn off y-axis
+        if self.y_label_loc is None:
+            print(f"user requests turning off y-axis w/ `y_label_loc`== None")
+            self.ax.get_yaxis().set_visible(False)
+        # OR EDGE CASE: Relative plotting but labels are not placed on the
+        # y-axis turn off the y-axis cause it doesn't mean anything at this point
+        elif self.y_label_loc not in ["default", "y_axis", "y_axis_right"] and \
+                "abs" not in self.sort_by:
+            print("turning off y-axis as it contains no information")
+            self.ax.get_yaxis().set_visible(False)
+
+        # Reverse the y-axis if we are doing absolute y-axis and reversing
+        if "abs_" in self.sort_by and "_r" in self.sort_by:
+            print("user requests inverting y-axis with absolute reverse sort")
+            self.ax.invert_yaxis()
+
+        # X-axis label is different if we time shift
+        if self.time_shift_s.sum() == 0:
+            plt.xlabel("Time [s]")
+        else:
+            plt.xlabel("Relative Time [s]")
+
+        # Allow user defined x-axis limits
+        if self.xlim_s is None:
+            self.ax.set_xlim([min(self.stats.xmin), max(self.stats.xmax)])
+        else:
+            self.ax.set_xlim(self.xlim_s)
+
+        plt.tight_layout()
+
 
     def _set_y_axis_absolute(self):
         """
@@ -1098,7 +1226,8 @@ class RecordSection:
             - x_min: Place labels on the waveforms at the minimum x value
             - x_max: Place labels on the waveforms at the maximum x value
         """
-        assert loc in ["y_axis", "x_min", "x_max"]
+        c = self.kwargs.get("y_label_c", "k")
+
         degree_char = u'\N{DEGREE SIGN}'
 
         y_tick_labels = []
@@ -1119,7 +1248,7 @@ class RecordSection:
                 label += f"|{self.time_shift_s[idx]:.2f}s"
             y_tick_labels.append(label)
 
-        if loc == "y_axis":
+        if "y_axis" in loc:
             # For relative plotting (not abs_), replace y_tick labels with
             # station information
             self.ax.set_yticks(self.y_axis[start:stop])
@@ -1136,8 +1265,19 @@ class RecordSection:
                 x_val = func(self.stats.xmax)
             if self.xlim_s is not None:
                 x_val = func([func(self.xlim_s), x_val])
-            for idx, s_val in zip(self.sorted_idx[start:stop], y_tick_labels):
-                plt.text(x=x_val, y=self.y_axis[idx], s=s_val, ha=ha)
+
+            # Plotting y-axis labels for absolute scales
+            if len(self.y_axis) == len(self.st):
+                for idx, s in zip(self.sorted_idx[start:stop], y_tick_labels):
+                    plt.text(x=x_val, y=self.y_axis[idx], s=s, ha=ha, c=c)
+            # Plotting y-axis labels for relative scales
+            elif len(self.y_axis) == len(y_tick_labels):
+                for y, s in zip(self.y_axis, y_tick_labels):
+                    plt.text(x=x_val, y=y, s=s, ha=ha, c=c)
+
+        if loc == "y_axis_right":
+            self.ax.yaxis.tick_right()
+            self.ax.yaxis.set_label_position("right")
 
     def _plot_title(self, nwav=None, page_num=None):
         """
@@ -1171,14 +1311,19 @@ class RecordSection:
         cmp = "".join(np.unique([self.st[i].stats.component
                                  for i in self.sorted_idx]))
 
+        # Y_FMT will include time shift IF there are time shifts
+        y_fmt = f"Y_FMT: NET.STA.LOC.CHA|{az_str}|DIST"
+        if self.time_shift_s.sum() != 0:
+            y_fmt += "|TSHIFT"
+
         title = "\n".join([
             title_top,
             f"{'/' * len(title_top*2)}",
             f"ORIGINTIME: {min([tr.stats.starttime for tr in self.st])}",
-            f"Y_FMT: NET.STA.LOC.CHA|{az_str}|DIST",
+            f"{y_fmt}",
             f"NWAV: {nwav}; NEVT: {self.stats.nevents}; "
             f"NSTA: {self.stats.nstation}; COMP: {cmp}",
-            f"SORT_BY: {self.sort_by}; SCALE_AMP: {self.scale_amp}",
+            f"SORT_BY: {self.sort_by}; SCALE_BY: {self.scale_by}",
             f"FILT: [{self.min_period_s}, {self.max_period_s}]s; "
             f"MOVE_OUT: {self.move_out or 0}{self.distance_units}/s",
         ])
@@ -1251,6 +1396,32 @@ def plotw_rs(*args, **kwargs):
     print(f"FINISHED RECORD SECTION (t={_end - _start}s)")
 
 
+def parse_args():
+    """
+    Parse command line arguments to set record section parameters dynamically
+    """
+    parser = argparse.ArgumentParser(description="Input plotw_rs parameters")
+    parser.add_argument("--pysep_path", default="./", type=str, nargs="?"
+                        help="path to Pysep output, which is expected to "
+                             "contain trace-wise SAC waveform files which will "
+                             "be read")
+    parser.add_argument("--sort_by", default="deafult", type=str, nargs="?",
+                        help="")
+
+    # pysep_path = None, st = None, st_syn = None, sort_by = "default",
+    # scale_by = None, time_shift_s = None, move_out = None,
+    # time_marker = None, min_period_s = None, max_period_s = None,
+    # preprocess = "st", max_traces_per_rs = 50, integrate = 0,
+    # xlim_s = None, components = "ZRTNE12", y_label_loc = "default",
+    # y_axis_spacing = 1,
+    # amplitude_scale_factor = 1, sort_by_azimuth_start_deg = 0.,
+    # distance_units = "km", geometric_spreading_factor = 0.5,
+    # geometric_spreading_k_val = None, figsize = (9, 11), show = True,
+    # save = "./record_section.png", overwrite = False,
+
+
+
+
 def testw_rs():
     """
     Testing function for dev purposes, to be deleted when published
@@ -1267,9 +1438,9 @@ def testw_rs():
         st,
         st_syn=None,
         # sort_by="azimuth",
-        sort_by="azimuth",
-        scale_amp="global_norm",
-        # scale_amp="normalize",
+        sort_by="distance",
+        # scale_by="global_norm",
+        scale_by="normalize",
         time_shift_s=None,
         time_marker=None,
         min_period_s=2,
@@ -1282,6 +1453,8 @@ def testw_rs():
         components="Z",
         #xlim_s=[50, 250],
         y_axis_spacing=1,
+        y_label_loc="default",
+        amplitude_scale_factor=1,
         # sort_by_azimuth_start_deg=90,
         distance_units="km",
         geometric_spreading_factor=0.5,
@@ -1289,13 +1462,11 @@ def testw_rs():
         figsize=(9, 11),
         show=False,
         save="./output/record_section.png",
-        trace_kwargs={
-            "linewidth": 1.
-        },
         overwrite=True,
         # Kwargs below
         xtick_minor=25,
         xtick_major=50,
+        trace_lw=1.
     )
 
 
@@ -1317,33 +1488,34 @@ def create_examples():
 
     # Set some default values for all examples
     min_period, max_period = [2, 50]
-    scale_amp = "normalize"
+    scale_by = "normalize"
 
     for sort_by in ["default", "alphabetical"]:
-        plotw_rs(st, sort_by=sort_by, scale_amp="normalize", 
+        plotw_rs(st, sort_by=sort_by, scale_by="normalize", 
                  min_period_s=min_period, max_period_s=max_period, 
                  preprocess="st", max_traces_per_rs=50,
                  components="ZRTNE12", y_axis_spacing=1, distance_units="km",
                  figsize=(9, 11), show=False, save=f"./output/rs_{sort_by}.png",
-                 trace_kwargs={"linewidth": 1.}, overwrite=True,)
+                 overwrite=True,)
 
     for sort_by_base in ["distance", "azimuth", "backazimuth"]:
         for sort_by in [f"abs_{sort_by_base}", f"{sort_by_base}_r"
                         f"abs_{sort_by_base}_r"]:
-            plotw_rs(st, sort_by=sort_by, scale_amp="normalize", min_period_s=2,
+            plotw_rs(st, sort_by=sort_by, scale_by="normalize", min_period_s=2,
                      max_period_s=50, preprocess="st", max_traces_per_rs=50,
                      components="ZRTNE12", y_axis_spacing=1, distance_units="km",
-                     figsize=(9, 11), show=False, save=f"./output/rs_{sort_by}.png",
-                     trace_kwargs={"linewidth": 1.}, overwrite=True,)
+                     figsize=(9, 11), show=False,
+                     save=f"./output/rs_{sort_by}.png", overwrite=True,)
 
-    plotw_rs(st, sort_by="distance", scale_amp="normalize", min_period_s=2,
+    plotw_rs(st, sort_by="distance", scale_by="normalize", min_period_s=2,
              max_period_s=50, preprocess="st", max_traces_per_rs=50,
              move_out=4, y_axis_spacing=1, distance_units="km",
              figsize=(9, 11), show=False, save=f"./output/rs_move_out.png",
-             trace_kwargs={"linewidth": 1.}, overwrite=True, )
+             overwrite=True, )
 
 
 if __name__ == "__main__":
+    parse_args()
     # create_examples()
     testw_rs()
     # plotw_rs()
