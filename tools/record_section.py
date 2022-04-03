@@ -16,6 +16,8 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
     obspy >= 1.2 (expected to bring in numpy and matplotlib)
 
 .. rubric::
+    Example code block working with pysep for data download
+    $ python
 
 """
 import os
@@ -28,8 +30,7 @@ from glob import glob
 from datetime import datetime
 from matplotlib.ticker import MultipleLocator
 from obspy import read, Stream
-from obspy.geodetics import (kilometers2degrees, degrees2kilometers,
-                             gps2dist_azimuth)
+from obspy.geodetics import (kilometers2degrees, gps2dist_azimuth)
 
 
 def myround(x, base=5, choice="near"):
@@ -244,6 +245,8 @@ class RecordSection:
 
         assert(st), \
             "Stream object not found, please check inputs `st` and `pysep_path"
+
+        import pdb;pdb.set_trace()
 
         # User defined parameters, do some type-setting
         self.st = st.copy()
@@ -512,13 +515,13 @@ class RecordSection:
             # User inputs a static time shift
             if isinstance(self.time_shift_s, (int, float)):
                 time_shift_arr += self.time_shift_s
-            # User input an array which should have already been checked for legnth
+            # User input an array which should have already been checked for len
             else:
                 time_shift_arr = self.time_shift_s
         time_shift_arr = np.array(time_shift_arr)
 
         # Further change the time shift if we have move out input
-        if self.move_out is not None:
+        if self.move_out:
             print(f"apply {self.move_out} {self.distance_units}/s move out")
             move_out_arr = self.distances / self.move_out
             time_shift_arr -= move_out_arr
@@ -1399,124 +1402,77 @@ def plotw_rs(*args, **kwargs):
 def parse_args():
     """
     Parse command line arguments to set record section parameters dynamically
+    This arg parser provides a simplified interface for working with plotw_rs
+    BUT also limits the flexibility of the code because things like
+    long lists are prohibitively verbose and not included in the arguments.
+
+    .. warning::
+        Not all parameters are set here, some are left as default values
+
+    .. note::
+        Do NOT use the command line if you want to exploit the expanded
+        capabilities of the record section plotter, rather script it or call
+        from an interactive environment.
     """
-    parser = argparse.ArgumentParser(description="Input plotw_rs parameters")
-    parser.add_argument("--pysep_path", default="./", type=str, nargs="?"
+    parser = argparse.ArgumentParser(description="Input basic plotw_rs params")
+
+    parser.add_argument("--pysep_path", default="./", type=str, nargs="?",
                         help="path to Pysep output, which is expected to "
                              "contain trace-wise SAC waveform files which will "
                              "be read")
-    parser.add_argument("--sort_by", default="deafult", type=str, nargs="?",
-                        help="")
+    parser.add_argument("--sort_by", default="default", type=str, nargs="?",
+                        help="How to sort the Y-axis of the record section")
+    parser.add_argument("--scale_by", default=None, type=str, nargs="?",
+                        help="How to sort the Y-axis of the record section")
+    parser.add_argument("--time_shift_s", default=None, type=float, nargs="?",
+                        help="Set a constant time shift in unit: seconds")
+    parser.add_argument("--move_out", default=None, type=float, nargs="?",
+                        help="Set a constant velocity-based move out in units:"
+                             "`distance_units`/s")
+    parser.add_argument("--min_period_s", default=None, type=float, nargs="?",
+                        help="Minimum filter period in unit seconds.")
+    parser.add_argument("--max_period_s", default=None, type=float, nargs="?",
+                        help="Maximum filter period in unit seconds.")
+    parser.add_argument("--max_traces_per_rs", default=50, type=int, nargs="?",
+                        help="Max waveforms to show on one page. If the number "
+                             "of waveforms to show exceeds this value, "
+                             "multiple pages will be saved")
+    parser.add_argument("--integrate", default=0, type=int, nargs="?",
+                        help="Integrate (positive values) or differentiate "
+                             "(negative values) `integrate` times. e.g., -2 "
+                             "will differentiate all waveforms twice.")
+    parser.add_argument("--xlim_s", default=None, type=int, nargs="+",
+                        help="Min and max x limits in units seconds. Input as "
+                             "a list, e.g., --xlim_s 10 200 ...")
+    parser.add_argument("--components", default="ZRTNE12", type=str, nargs="?",
+                        help="Ordered component list specifying 1) which "
+                             "components will be shown, and in what order. "
+                             "e.g., 'ZR' will show only Z and R components "
+                             "with Z sorted above R.")
+    parser.add_argument("--y_label_loc", default="default", type=str, nargs="?",
+                        help="Station information label location on the y-axis")
+    parser.add_argument("--y_axis_spacing", default=1, type=float, nargs="?",
+                        help="For relative sorting, the y-axis spacing between "
+                             "adjacent seismograms. If waveforms are "
+                             "normalized then a default value of 1 is usually "
+                             "fine")
+    parser.add_argument("--amplitude_scale_factor", default=1, type=float,
+                        nargs="?",
+                        help="A user dial allowing waveform amplitudes to be"
+                             "scaled by an arbitrary float value")
+    parser.add_argument("--sort_by_azimuth_start_deg", default=0, type=float,
+                        nargs="?",
+                        help="When sorting by azimuth, choose the default "
+                             "starting value, with azimuth 0 <= az <= 360")
+    parser.add_argument("--distance_units", default="km", type=str,
+                        nargs="?", help="Set units when sorting by distance")
+    parser.add_argument("--save", default="./record_section.png", type=str,
+                        nargs="?",
+                        help="Path to save the resulting record section fig")
 
-    # pysep_path = None, st = None, st_syn = None, sort_by = "default",
-    # scale_by = None, time_shift_s = None, move_out = None,
-    # time_marker = None, min_period_s = None, max_period_s = None,
-    # preprocess = "st", max_traces_per_rs = 50, integrate = 0,
-    # xlim_s = None, components = "ZRTNE12", y_label_loc = "default",
-    # y_axis_spacing = 1,
-    # amplitude_scale_factor = 1, sort_by_azimuth_start_deg = 0.,
-    # distance_units = "km", geometric_spreading_factor = 0.5,
-    # geometric_spreading_k_val = None, figsize = (9, 11), show = True,
-    # save = "./record_section.png", overwrite = False,
-
-
-
-
-def testw_rs():
-    """
-    Testing function for dev purposes, to be deleted when published
-    """
-    from glob import glob
-    from obspy import read, Stream
-
-    st = Stream()
-    path = "./events/socal"
-    for fid in glob(os.path.join(path, "2*.?"))[:]:
-        st += read(fid)
-
-    plotw_rs(
-        st,
-        st_syn=None,
-        # sort_by="azimuth",
-        sort_by="distance",
-        # scale_by="global_norm",
-        scale_by="normalize",
-        time_shift_s=None,
-        time_marker=None,
-        min_period_s=2,
-        max_period_s=50,
-        move_out=4,
-        preprocess="st",
-        max_traces_per_rs=9999,
-        integrate=0,
-        # components="Z",
-        components="Z",
-        #xlim_s=[50, 250],
-        y_axis_spacing=1,
-        y_label_loc="default",
-        amplitude_scale_factor=1,
-        # sort_by_azimuth_start_deg=90,
-        distance_units="km",
-        geometric_spreading_factor=0.5,
-        geometric_spreading_k_val=None,
-        figsize=(9, 11),
-        show=False,
-        save="./output/record_section.png",
-        overwrite=True,
-        # Kwargs below
-        xtick_minor=25,
-        xtick_major=50,
-        trace_lw=1.
-    )
-
-
-def create_examples():
-    """
-    Create example figures with a variety of input parameters to test out the
-    functionality of the plotting script
-
-    Tests:
-        sort_by, xlim, filter, comp, multipage, distance_units
-    """
-    from glob import glob
-    from obspy import read, Stream
-
-    st = Stream()
-    path = "/Users/Chow/Repositories/pysep/20090407201255351"
-    for fid in glob(os.path.join(path, "20090407201255351.??.*.*.*.?"))[:50]:
-        st += read(fid)
-
-    # Set some default values for all examples
-    min_period, max_period = [2, 50]
-    scale_by = "normalize"
-
-    for sort_by in ["default", "alphabetical"]:
-        plotw_rs(st, sort_by=sort_by, scale_by="normalize", 
-                 min_period_s=min_period, max_period_s=max_period, 
-                 preprocess="st", max_traces_per_rs=50,
-                 components="ZRTNE12", y_axis_spacing=1, distance_units="km",
-                 figsize=(9, 11), show=False, save=f"./output/rs_{sort_by}.png",
-                 overwrite=True,)
-
-    for sort_by_base in ["distance", "azimuth", "backazimuth"]:
-        for sort_by in [f"abs_{sort_by_base}", f"{sort_by_base}_r"
-                        f"abs_{sort_by_base}_r"]:
-            plotw_rs(st, sort_by=sort_by, scale_by="normalize", min_period_s=2,
-                     max_period_s=50, preprocess="st", max_traces_per_rs=50,
-                     components="ZRTNE12", y_axis_spacing=1, distance_units="km",
-                     figsize=(9, 11), show=False,
-                     save=f"./output/rs_{sort_by}.png", overwrite=True,)
-
-    plotw_rs(st, sort_by="distance", scale_by="normalize", min_period_s=2,
-             max_period_s=50, preprocess="st", max_traces_per_rs=50,
-             move_out=4, y_axis_spacing=1, distance_units="km",
-             figsize=(9, 11), show=False, save=f"./output/rs_move_out.png",
-             overwrite=True, )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    parse_args()
-    # create_examples()
-    testw_rs()
-    # plotw_rs()
+    plotw_rs(**vars(parse_args()))
 
