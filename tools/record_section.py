@@ -27,7 +27,7 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
 
     a) Plot a record section for the socal event with default values
 
-        $ python record_section.py --pysep_path 20200404015318920
+        $ python record_section.py --pysep_path 20200404015318920 
 
     b) Plot high-passed data with 7 km/s move out (focused on direct arrivals),
         show direct arrivals through to surface waves for all traces, thin lines
@@ -35,31 +35,35 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
 
         $ python record_section.py --pysep_path 20200404015318920 \
             --move_out 7 --min_period_s 1 --xlim_s 100 175 \
-            --max_traces_per_rs 125 --linewidth .25 --overwrite
+            --linewidth .25 --max_traces_per_rs 50 --overwrite
 
     c) Plot bandpassed data with 4 km/s move out (focused on surface waves),   
-        include up to 100 traces per figure, and thicken up default linewidth
+        thicken up default linewidth and increase spacing between adjacent 
+        seismograms 
 
         $ python record_section.py --pysep_path 20200404015318920 \
             --move_out 4 --min_period_s 2 --max_period_s 50 \
-            --max_traces_per_rs 125 --overwrite
+            --y_axis_spacing 2 --overwrite
 
-    d) Plot filtered transverse component, sort by azimuth, scale by the 
+    d) Plot bandpassed transverse component, sort by azimuth, scale by the 
         maximum amplitude of ALL traces shown on the figure. 
-        Additionally scale amplitudes by factor 2 for better visualization,
+        Scale amplitudes by factor 2 for better visualization
         and start azimuth plotting at 180* (as opposed to default 0*).
 
         $ python record_section.py --pysep_path 20200404015318920 \
             --sort_by azimuth --scale_by global_norm --components T \
             --min_period_s 2 --max_period_s 30 --move_out 4 \
-            --amplitude_scale_factor 2 --azimuth_start_deg 180 --overwrite
+            --amplitude_scale_factor 2 --azimuth_start_deg 180 \
+            --linewidth 1 --overwrite
 
-    e) Plot filtered radial and transverse component sorted by absolute distance
-        Reduce amplitudes by 1/4 (0.25), overwrite existing figures
+    e) Plot bandpassed vertical components sorted by absolute distance.
+        Reduce amplitudes by 1/4 (0.25). Set y label fontsize smaller than 
+        default and at the max X value of the figure (far to the right)
 
         $ python record_section.py --pysep_path 20200404015318920 \
             --sort_by abs_distance_r --components Z --min_period_s 2 \
-            --max_period_s 50 --amplitude_scale_factor 0.25 --overwrite
+            --max_period_s 50 --amplitude_scale_factor 0.25 \
+            --y_label_loc x_max --y_label_fontsize 7 --overwrite
 
     3) From the Python interpreter: this is an example code block that can be
         written into a Python script or run from inside a Python interactive 
@@ -133,7 +137,7 @@ class RecordSection:
     def __init__(self, pysep_path=None, st=None, st_syn=None, sort_by="default",
                  scale_by=None, time_shift_s=None, move_out=None,
                  min_period_s=None, max_period_s=None,
-                 preprocess="st", max_traces_per_rs=50, integrate=0,
+                 preprocess="st", max_traces_per_rs=None, integrate=0,
                  xlim_s=None, components="ZRTNE12", y_label_loc="default",
                  y_axis_spacing=1, amplitude_scale_factor=1, 
                  azimuth_start_deg=0., distance_units="km", 
@@ -220,7 +224,7 @@ class RecordSection:
             - None: do not run preprocessing step (including filter)
         :type max_traces_per_rs: int
         :param max_traces_per_rs: maximum number of traces to show on a single
-            record section plot
+            record section plot. Defaults to all traces in the Stream
         :type xlim_s: list of float
         :param xlim_s: [start, stop] in units of time, seconds, to set the
             xlimits of the figure
@@ -322,7 +326,7 @@ class RecordSection:
         self.min_period_s = min_period_s
         self.max_period_s = max_period_s
         self.preprocess = preprocess
-        self.max_traces_per_rs = int(max_traces_per_rs)
+        self.max_traces_per_rs = max_traces_per_rs
         self.integrate = int(integrate)
 
         # Plotting parameters
@@ -443,6 +447,12 @@ class RecordSection:
             acceptable_preprocess = ["both", "st"]
             if self.preprocess not in acceptable_preprocess:
                 err.preprocess = f"must be in {acceptable_preprocess}"
+
+        # Overwrite the max traces per record section, enforce type int
+        if self.max_traces_per_rs is None:
+            self.max_traces_per_rs = int(len(self.st))
+        else:
+            self.max_traces_per_rs = int(self.max_traces_per_rs)
 
         if self.xlim_s is not None:
             if len(self.xlim_s) != 2:
@@ -1154,7 +1164,7 @@ class RecordSection:
         
         # These are still the entire waveform
         x = tr.times() + tshift
-        y = tr.data / self.amplitude_scaling[idx] + int(self.y_axis[y_index])
+        y = tr.data / self.amplitude_scaling[idx] + self.y_axis[y_index]
 
         # Truncate waveforms to get figure scaling correct. 
         start, stop = self.xlim[idx]
@@ -1188,8 +1198,9 @@ class RecordSection:
 
         # Look of the azimuth bin lines
         c = self.kwargs.get("azimuth_bin_c", "r")
-        lw = self.kwargs.get("azimuth_bin_lw", 1.)
+        lw = self.kwargs.get("azimuth_bin_lw", .75)
         ls = self.kwargs.get("azimuth_bin_ls", "-")
+        z = self.kwargs.get("azimuth_bin_zorder", 5)
 
         azimuth_bins = np.arange(self.azimuth_start_deg,
                                  self.azimuth_start_deg + 360,
@@ -1200,38 +1211,45 @@ class RecordSection:
         # In an absolute plot, the y values are simply the azimuth bins
         if "abs" in self.sort_by:
             y_vals = azimuth_bins
+            s_vals = [f"{azbin}{DEG}" for azbin in azimuth_bins]
         # In a relative plot, the y values need to be found between seismograms
         else:
-            y_vals = []
+            s_vals, y_vals = [], []
             # Brute force determine where these azimuth bins would fit into the 
             # actual plotted azimuths, draw a line between adjacent seismograms
             # i.e., iterating and looking if the bin value fits between
             # two adjacent azimuth values
             for azbin in azimuth_bins:
-                # Edge case for 0 deg azimuth bin which will not evaluate
-                # in the loop below
+                # Edge case for 0 deg azimuth bin since azimuth wraps on 0
+                # Look for the top minimum azimuth value, place line above that
                 if azbin == 0:
-                    i = np.argmin(self.azimuths[self.sorted_idx])
-                    j = np.argmax(self.azimuths[self.sorted_idx])
+                    dy = abs(self.y_axis[1] - self.y_axis[0])
+                    azis = self.azimuths[self.sorted_idx]
+                    i = max(np.where(azis == azis.min())[0])
+                    y_vals.append(self.y_axis[i] + dy/2)
                 else:
                     for i, idx in enumerate(self.sorted_idx[1:]):
                         j = i + 1
                         idx_minus_one = self.sorted_idx[i]
                         azi_low = self.azimuths[idx]
                         azi_high = self.azimuths[idx_minus_one]
+                        # Break if bin is in between azi values for two seismos
                         if azi_low <= azbin <= azi_high:
                             break
-                # Mean gives the space in between two adjacent seismograms
-                y_vals.append(np.mean([self.y_axis[i],  self.y_axis[j]]))
+                    else:
+                        continue
+                    # Mean gives the space in between two adjacent seismograms
+                    y_vals.append(np.mean([self.y_axis[i],  self.y_axis[j]]))
 
-        for y, y_val in enumerate(y_vals):
+                s_vals.append(f"{azbin}{DEG}")
+
+        for y, (s_val, y_val) in enumerate(zip(s_vals, y_vals)):
             # Dealing with the case where two bins occupy the same space,
             # only plot the first one that occurs
             if y_val == y_vals[y-1]:
                 continue
-            plt.axhline(y=y_val, c=c, linewidth=lw, linestyle=ls, zorder=9)
-            plt.text(x=max(self.stats.xmax), y=y_val,
-                     s=f"{azimuth_bins[y]}{DEG}", c=c, ha="right")
+            plt.axhline(y=y_val, c=c, linewidth=lw, linestyle=ls, zorder=z)
+            plt.text(x=max(self.stats.xmax), y=y_val, s=s_val, c=c, ha="right")
 
     def _plot_axes(self, start=0, stop=None):
         """
@@ -1357,6 +1375,7 @@ class RecordSection:
             - x_max: Place labels on the waveforms at the maximum x value
         """
         c = self.kwargs.get("y_label_c", "k")
+        fontsize = self.kwargs.get("y_label_fontsize", 10)
 
         y_tick_labels = []
         for idx in self.sorted_idx[start:stop]:
@@ -1366,7 +1385,14 @@ class RecordSection:
                 str_az = f"{self.backazimuths[idx]:6.2f}{DEG}"
             else:
                 str_az = f"{self.azimuths[idx]:6.2f}{DEG}"
-            str_dist = f"{self.distances[idx]:5.2f}km"
+
+            # Allow degree distance to use the unicode * symbol
+            if self.distance_units == "deg":
+                du = DEG
+            else: 
+                du = self.distance_units
+
+            str_dist = f"{self.distances[idx]:5.2f}{du}"
 
             # Looks something like: NN.SSS.LL.CC|30*|250.03km
             label = \
@@ -1397,11 +1423,12 @@ class RecordSection:
             # Plotting y-axis labels for absolute scales
             if len(self.y_axis) == len(self.st):
                 for idx, s in zip(self.sorted_idx[start:stop], y_tick_labels):
-                    plt.text(x=x_val, y=self.y_axis[idx], s=s, ha=ha, c=c)
+                    plt.text(x=x_val, y=self.y_axis[idx], s=s, ha=ha, c=c,
+                             fontsize=fontsize)
             # Plotting y-axis labels for relative scales
             elif len(self.y_axis) == len(y_tick_labels):
                 for y, s in zip(self.y_axis, y_tick_labels):
-                    plt.text(x=x_val, y=y, s=s, ha=ha, c=c)
+                    plt.text(x=x_val, y=y, s=s, ha=ha, c=c, fontsize=fontsize)
 
         if loc == "y_axis_right":
             self.ax.yaxis.tick_right()
@@ -1478,6 +1505,7 @@ class RecordSection:
         title_fontsize = self.kwargs.get("title_fontsize", 10)
         xtick_minor = self.kwargs.get("xtick_minor", 25)
         xtick_major = self.kwargs.get("xtick_major", 100)
+        spine_zorder = self.kwargs.get("spine_zorder", 8)
 
         # Re-set font sizes for labels already created
         self.ax.title.set_fontsize(title_fontsize)
@@ -1490,6 +1518,10 @@ class RecordSection:
         # Thicken up the bounding axis lines
         for axis in ["top", "bottom", "left", "right"]:
             self.ax.spines[axis].set_linewidth(axis_linewidth)
+
+        # Set spines above azimuth bins
+        for spine in self.ax.spines.values():
+            spine.set_zorder(spine_zorder)
 
         # Set xtick label major and minor which is assumed to be a time series
         self.ax.xaxis.set_major_locator(MultipleLocator(xtick_major))
@@ -1605,7 +1637,7 @@ def parse_args():
                         help="Minimum filter period in unit seconds.")
     parser.add_argument("--max_period_s", default=None, type=float, nargs="?",
                         help="Maximum filter period in unit seconds.")
-    parser.add_argument("--max_traces_per_rs", default=50, type=int, nargs="?",
+    parser.add_argument("--max_traces_per_rs", default=None, nargs="?",
                         help="Max waveforms to show on one page. If the number "
                              "of waveforms to show exceeds this value, "
                              "multiple pages will be saved")
