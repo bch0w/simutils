@@ -31,19 +31,22 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
 
     b) Plot high-passed data with 7 km/s move out (focused on direct arrivals),
         show direct arrivals through to surface waves for all traces, thin lines
-        to accentuate high frequencies. Overwrite previous figure
+        to accentuate high frequencies. Overwrite previous figure and split
+        figure onto multiple pages
 
         $ python record_section.py --pysep_path 20200404015318920 \
             --move_out 7 --min_period_s 1 --xlim_s 100 175 \
-            --linewidth .25 --max_traces_per_rs 50 --overwrite
+            --linewidth .25 --max_traces_per_rs 60 --overwrite
 
-    c) Plot bandpassed data with 4 km/s move out (focused on surface waves),   
+    c) Plot bandpassed data with 4 km/s move out (focused on surface waves),
+        horizontal components only (radial, transverse),
         thicken up default linewidth and increase spacing between adjacent 
         seismograms 
 
         $ python record_section.py --pysep_path 20200404015318920 \
-            --move_out 4 --min_period_s 2 --max_period_s 50 \
-            --y_axis_spacing 2 --overwrite
+            --components RT --move_out 4 --min_period_s 2 --max_period_s 50 \
+            --xlim_s 50 200 --y_axis_spacing 3 --linewidth 1 \
+            --amplitude_scale_factor 4 --overwrite 
 
     d) Plot bandpassed transverse component, sort by azimuth, scale by the 
         maximum amplitude of ALL traces shown on the figure. 
@@ -63,7 +66,8 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
         $ python record_section.py --pysep_path 20200404015318920 \
             --sort_by abs_distance_r --components Z --min_period_s 2 \
             --max_period_s 50 --amplitude_scale_factor 0.25 \
-            --y_label_loc x_max --y_label_fontsize 7 --overwrite
+            --y_label_loc x_max --y_label_fontsize 7 --overwrite \
+            --linewidth 1
 
     3) From the Python interpreter: this is an example code block that can be
         written into a Python script or run from inside a Python interactive 
