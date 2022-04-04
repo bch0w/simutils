@@ -15,46 +15,64 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
 .. requires::
     obspy >= 1.2 (expected to bring in numpy and matplotlib)
 
-.. rubric::
-    1) Print the help message
+.. rubric:: Examples
+    1) Print the help message to see available options and flags
     $ python record_section.py -h
 
-    2) Example code blocks working with pysep for socal event data download
-    # cd path/to/pysep
-    $ python rungetwaveform.py event_input_mtuq2022 2  # 20200404015318920
+    2) From the command line: The following example code blocks work with pysep 
+        to download data for a southern California event.
 
-    a) Plot with default values
-    $ python record_section.py --pysep_path 20200404015318920
+        # cd path/to/pysep
+        $ python rungetwaveform.py event_input_mtuq2022 2  # 20200404015318920
 
-    b) Plot filtered data with a 4km/s move out
-    $ python record_section.py --pysep_path 20200404015318920 \
-        --move_out 4 --min_period_s 2 --max_period_s 50 --overwrite
+    a) Plot a record section for the socal event with default values
 
-    c) Plot filtered transverse component sorted by azimuth scaled
-        by the maximum amplitude of ALL traces shown on the figure. Scale
-        amplitudes by factor 2 for better visualization and start azimuth
-        plotting at 180*
-    $ python record_section.py --pysep_path 20200404015318920 \
-        --sort_by azimuth --scale_by global_norm --components T \
-        --min_period_s 2 --max_period_s 30 --move_out 4 \
-        --max_traces_per_rs 100 --amplitude_scale_factor 2 \
-        --azimuth_start_deg 180 --overwrite
+        $ python record_section.py --pysep_path 20200404015318920
 
-    d) Plot filtered radial and transverse component sorted by absolute distance
-    $ python record_section.py --pysep_path 20200404015318920 \
-        --sort_by abs_distance_r --components Z --min_period_s 2 \
-        --max_period_s 50 --amplitude_scale_factor 0.25 --overwrite
+    b) Plot high-passed data with 7 km/s move out (focused on direct arrivals),
+        show direct arrivals through to surface waves for all traces, thin lines
+        to accentuate high frequencies. Overwrite previous figure
 
-    3) Example code block from inside a Python interactive environment
-    Assuming we have downloaded the event from pysep
-    >>> import os
-    >>> from glob import glob
-    >>> from obspy import read
-    >>> from record_section import plotw_rs
-    >>> st = Stream()
-    >>> for fid in glob(os.path.join("20200404015318920", "*.?")):
-    >>>     st += read(fid)
-    >>> plotw_rs(st=st, sort_by="distance_r")
+        $ python record_section.py --pysep_path 20200404015318920 \
+            --move_out 7 --min_period_s 1 --xlim_s 100 175 \
+            --max_traces_per_rs 125 --linewidth .25 --overwrite
+
+    c) Plot bandpassed data with 4 km/s move out (focused on surface waves),   
+        include up to 100 traces per figure, and thicken up default linewidth
+
+        $ python record_section.py --pysep_path 20200404015318920 \
+            --move_out 4 --min_period_s 2 --max_period_s 50 \
+            --max_traces_per_rs 125 --overwrite
+
+    d) Plot filtered transverse component, sort by azimuth, scale by the 
+        maximum amplitude of ALL traces shown on the figure. 
+        Additionally scale amplitudes by factor 2 for better visualization,
+        and start azimuth plotting at 180* (as opposed to default 0*).
+
+        $ python record_section.py --pysep_path 20200404015318920 \
+            --sort_by azimuth --scale_by global_norm --components T \
+            --min_period_s 2 --max_period_s 30 --move_out 4 \
+            --amplitude_scale_factor 2 --azimuth_start_deg 180 --overwrite
+
+    e) Plot filtered radial and transverse component sorted by absolute distance
+        Reduce amplitudes by 1/4 (0.25), overwrite existing figures
+
+        $ python record_section.py --pysep_path 20200404015318920 \
+            --sort_by abs_distance_r --components Z --min_period_s 2 \
+            --max_period_s 50 --amplitude_scale_factor 0.25 --overwrite
+
+    3) From the Python interpreter: this is an example code block that can be
+        written into a Python script or run from inside a Python interactive 
+        environment. Code block assumes we have downloaded event data with Pysep
+
+        >>> import os
+        >>> from glob import glob
+        >>> from obspy import read
+        >>> from record_section import plotw_rs
+        >>> st = Stream()
+        >>> for fid in glob(os.path.join("20200404015318920", "*.?")):
+        >>>     st += read(fid)
+        >>> plotw_rs(st=st, sort_by="distance_r")
 """
 import os
 import sys
@@ -77,7 +95,6 @@ DEG = u"\N{DEGREE SIGN}"
 def myround(x, base=5, choice="near"):
     """
     Round value x to nearest base, round 'up','down' or to 'near'est base
-    Copied from Pyatoa
 
     :type x: float
     :param x: value to be rounded
@@ -98,7 +115,7 @@ def myround(x, base=5, choice="near"):
 
 
 class Dict(dict):
-    """Easy dictionary overload for nicer get/set attribute characteristics"""
+    """Simple dictionary overload for nicer get/set attribute characteristics"""
     def __setattr__(self, key, value):
         self[key] = value
 
@@ -108,23 +125,23 @@ class Dict(dict):
 
 class RecordSection:
     """
-    Record section plotting tool which takes ObsPy streams and preprocesses and
-    sorts source-receiver pairs based on User input, and produces record section
-    waveform figures
+    Record section plotting tool which takes ObsPy streams and 
+    1) preprocesses and filters waveforms,
+    2) sorts source-receiver pairs based on User input, 
+    3) produces record section waveform figures.
     """
     def __init__(self, pysep_path=None, st=None, st_syn=None, sort_by="default",
                  scale_by=None, time_shift_s=None, move_out=None,
-                 time_marker=None, min_period_s=None, max_period_s=None,
+                 min_period_s=None, max_period_s=None,
                  preprocess="st", max_traces_per_rs=50, integrate=0,
                  xlim_s=None, components="ZRTNE12", y_label_loc="default",
-                 y_axis_spacing=1,
-                 amplitude_scale_factor=1, azimuth_start_deg=0.,
-                 distance_units="km", geometric_spreading_factor=0.5,
-                 geometric_spreading_k_val=None, figsize=(9, 11), show=True,
-                 save="./record_section.png", overwrite=False,
-                 **kwargs):
+                 y_axis_spacing=1, amplitude_scale_factor=1, 
+                 azimuth_start_deg=0., distance_units="km", 
+                 geometric_spreading_factor=0.5, geometric_spreading_k_val=None, 
+                 figsize=(9, 11), show=True, save="./record_section.png", 
+                 overwrite=False, **kwargs):
         """
-        Set the default record section plotting parameters and enforce types
+        Set the default record section plotting parameters and enforce types.
         Run some internal parameter derivation functions by manipulating input
         data and parameters.
 
@@ -136,28 +153,26 @@ class RecordSection:
             on the record section. Can contain any number of traces
         :type st_syn: obspy.core.stream.Stream
         :param st_syn: Stream objects containing synthetic time series to be
-            plotted on the record section. Must contain the same number of
-                traces as `st`
+            plotted on the record section. Must be same length as `st`
         :type sort_by: str
         :param sort_by: How to sort the Y-axis of the record section, available:
-            - None: Not set, don't sort, just iterate directly through Stream
-            - 'alphabetical': sort alphabetically
+            - 'default': Don't sort, just iterate directly through Stream
+            - 'alphabetical': sort alphabetically A->Z. Components sorted 
+                separately with parameter `components`
             - 'azimuth': sort by source-receiver azimuth (deg) with constant
-                vertical spacing
+                vertical spacing on the y-axis. Requires `azimuth_start_deg`
             - 'backazimuth': sort by source-receiver backazimuth (deg) with
                 constant vertical spacing. Requires `azimuth_start_deg`
             - 'distance': sort by source-receiver distance (km) with constant
-                vertical spacing. Requires `azimuth_start_deg` AND
-                `distance_units`
+                vertical spacing. Requires `distance_units`
             - 'abs_distance': absolute vertical spacing of waveforms defined by
-                source-receiver distance (km). Requires `distance_units`
+                source-receiver distance. Requires `distance_units`
             - 'abs_azimuth': absolute vertical spacing of waveforms defined
-                by source-receiver azimuth (deg). Requires
-                `azimuth_start_deg`
+                by source-receiver azimuth (deg).
             - 'abs_backazimuth': absolute vertical spacing of waveforms by
                 source-receiver backazimuth (deg).
             - '*_r': Add a '_r' to any of the values about to REVERSE the sort,
-                e.g., alphabetical_r sort will go Z->A
+                e.g., 'alphabetical_r' sort will go Z->A
         :type scale_by: list
         :param scale_by: scale amplitude of waveforms by available:
             - None: Not set, no amplitude scaling, waveforms shown raw
@@ -166,10 +181,12 @@ class RecordSection:
             - 'global_norm': scale by the largest amplitude to be displayed on
                 the screen. Will not consider waveforms which have been 
                 excluded on other basis (e.g., wrong component)
-            - 'geometric_spreading': scale amplitudes globally by predicting the
+                i.e., > st[i].max /= max([max(abs(tr.data)) for tr in st])
+            - 'geometric_spreading': TODO this is not implemented yet.
+                scale amplitudes globally by predicting the
                 expected geometric spreading amplitude reduction and correcting
-                for this factor. Requires `geometric_spreading_factor`, optional
-                `geometric_spreading_k_val`
+                for this factor. Requires `geometric_spreading_factor`, and 
+                optional `geometric_spreading_k_val`
         :type time_shift_s: float OR list of float
         :param time_shift_s: apply static time shift to waveforms, two options:
             1. float (e.g., -10.2), will shift ALL waveforms by
@@ -191,19 +208,16 @@ class RecordSection:
             their source receiver distance. This parameter will be ADDED
             to time_shift_s (both float and list), if it is provided.
             Should be in units of `distance_units`/s
-        :type time_marker: list of float
-        :param time_marker: absolute time markers. If this parameter is set,
-            `time_shift_s` MUST be set as Option 1 (single float)
         :type min_period_s: float
         :param min_period_s: minimum filter period in seconds
         :type max_period_s: float
         :param max_period_s: maximum filter period in seconds
         :type preprocess: str
         :param preprocess: choose which data to preprocess, options are:
-            - 'st': process waveforms in st
+            - 'st': process waveforms in st (default)
             - 'st_syn': process waveforms in st_syn. st still must be given
             - 'both': process waveforms in both st and st_syn
-            - None: do not run preprocessing
+            - None: do not run preprocessing step (including filter)
         :type max_traces_per_rs: int
         :param max_traces_per_rs: maximum number of traces to show on a single
             record section plot
@@ -222,30 +236,29 @@ class RecordSection:
             and negative values are differentiation
             e.g., if integrate == 2,  will integrate each trace twice.
             or    if integrate == -1, will differentiate once
-            or    if integrate == 0,  do nothing
+            or    if integrate == 0,  do nothing (default)
         :type y_axis_spacing: float
         :param y_axis_spacing: spacing between adjacent seismograms applied to
-            Y-axis on relative (not absolute) scales.
-            Set to 1 for default behavior
+            Y-axis on relative (not absolute) scales. Defaults to 1.
         :type y_label_loc: str
         :param y_label_loc: Location to place waveform labels on the y-axis
             - 'default': auto choose the best location based on `sort_by`
             - 'y_axis': Replace tick labels on the y-axis (left side of figure),
-                This won't work if using absolute sorting and will be over
+                This won't work if using absolute sorting and will be over-
                 written by 'default'
-            - 'y_axis_right': Replace tick labels on the right side of the y-axis
-                Also won't work with absolute sorting
+            - 'y_axis_right': Replace tick labels on the right side of the 
+                y-axis. This option won't work with absolute sorting
             - 'x_min': Place labels on top of the waveforms at the global min
                 x-value on the figure
             - 'x_min': Place labels on top of the waveforms at the global max
                 x-value on the figure
             - None: Don't plot any text labels
         :type azimuth_start_deg: float
-        :param azimuth_start_deg: azimuthal angle for the top record,
-            applied to any Y-axis sorting which has 'azimuth' in its name.
+        :param azimuth_start_deg: If sorting by azimuth, this defines the 
+            azimuthal angle for the waveform at the top of the figure.
             Set to 0 for default behavior
         :type distance_units: str
-        :param distance_units: Y-axis units epicentral distance record sections
+        :param distance_units: Y-axis units when sorting by epicentral distance
             'km': kilometers on the sphere
             'deg': degrees on the sphere
             'km_utm': kilometers on flat plane, UTM coordinate system
@@ -258,7 +271,7 @@ class RecordSection:
             spreading factor (TODO figure out what this actually is)
         :type figsize: tuple of float
         :param figsize: size the of the figure, passed into plt.subplots()
-         :type show: bool
+        :type show: bool
         :param show: show the figure as a graphical output
         :type save: str
         :param save: path to save output figure, will create the parent
@@ -266,11 +279,6 @@ class RecordSection:
         :type overwrite: bool
         :param overwrite: if the path defined by `save` exists, will overwrite
             the existing figure
-        :type kwargs: dict
-        :param kwargs: keyword arguments, expected as a dictionary, will be
-            passed around to plotting functions.
-        :rtype: Dict
-        :return: a Dictionary object containing all the user set parameters
         :raises AssertionError: if any parameters are set incorrectly
         """
         # Read files from path if provided
@@ -309,7 +317,6 @@ class RecordSection:
         # Time shift parameters
         self.move_out = move_out
         self.time_shift_s = time_shift_s
-        self.time_marker = time_marker
 
         # Filtering parameters
         self.min_period_s = min_period_s
@@ -344,6 +351,7 @@ class RecordSection:
         self.max_amplitudes = []
         self.amplitude_scaling = []
         self.y_axis = []
+        self.xlim = []  # unit: samples
         self.sorted_idx = []
 
     def check_parameters(self):
@@ -355,7 +363,7 @@ class RecordSection:
             Not using assertions here because we want all incorrect parameters
             to be evaluated together and displayed at once, that way the user
             doesn't have to run this function multiple times to figure out how
-            to set their parameters correct
+            to set their parameters correctly
 
         :raises AssertionError: If any parameters are not set as expected by
             plotw_rs functionality
@@ -427,11 +435,6 @@ class RecordSection:
                 len(self.amplitude_scale_factor) != len(self.st):
             err.amplitude_scale_factor = f"must be list length {len(self.st)}"
 
-        if self.time_marker is not None:
-            if (self.time_shift_s is not None) and (self.time_shift_s != 1):
-                err.time_marker = ("time_shift_s cannot be variable when "
-                                        "using this option")
-
         if self.min_period_s is not None and self.max_period_s is not None:
             if self.min_period_s >= self.max_period_s:
                 err.min_period_s = "must be less than `max_period_s`"
@@ -477,9 +480,10 @@ class RecordSection:
         Get a list of any traces that don't adhere to user-defined boundaries
         such as dist, az, baz, id, or component matches. Don't actually remove
         the traces from the stream but rather just collect indices we can use
-        to skip when plotting
+        to skip when plotting.
 
-        TODO add distance, azi and backazi criteria
+        TODO add distance, azi and backazi skip criteria
+
         :rtype: np.array
         :return: returns an indexing list which can be used to skip over
             traces that don't adhere to certain criteria
@@ -499,7 +503,11 @@ class RecordSection:
     def get_parameters(self):
         """
         Calculate parameters in a specific order and based on the user-defined
-        information. Definitions of parameters are below:
+        information.
+
+        .. note::
+            The order of function calls here is important! Some of the 'get' 
+            functions require the results of other 'get' functions. 
 
         Calculated Parameters
         ::
@@ -512,6 +520,8 @@ class RecordSection:
                 abs max amplitudes of each trace, used for normalization
             np.array amplitude_scaling:
                 An array to scale amplitudes based on user choices
+            np.array time_shift_s:
+                An array to time shift time series based on user choices
             np.array y_axis:
                 Y-Axis values based on sorting algorithm, used for plotting
             np.array distances:
@@ -524,135 +534,60 @@ class RecordSection:
                 sorted indexing on all the traces of the stream based on the
                 chosen sorting algorithm
         """
+        # Extract basic information from the Stream
         self.idx = np.arange(0, len(self.st), 1)
         self.station_ids = np.array([tr.get_id() for tr in self.st])
-        self.max_amplitudes = np.array([max(abs(tr.data)) for tr in self.st])
 
-        # Get array-like factors which control the sort order, amplitudes, etc.
+        self.time_shift_s = self.get_time_shifts()  # !!! OVERWRITES user input
+        self.xlim = self.get_xlims()
+
+        # Max amplitudes should be RELATIVE to what were showing (e.g., if
+        # zoomed in on the P-wave, max amplitude should NOT be the surface wave)
+        for tr, xlim in zip(self.st, self.xlim):
+            start, stop = xlim
+            self.max_amplitudes.append(max(abs(tr.data[start:stop])))
+        self.max_amplitudes = np.array(self.max_amplitudes)
+
+        # Figure out which indices we'll be plotting
         sorted_idx = self.get_sorted_idx()
         skip_idx = self.get_skip_idx()
-        # Remove skip indexes from sorted index to get the final ordered
-        # list of traces to plot
+        # Remove skip indexes from sorted index to get the final ordered list
         self.sorted_idx = np.array([_ for _ in sorted_idx if _ not in skip_idx])
 
+        # Figure out how to manipulate each of the traces in the Stream
         self.y_axis = self.get_y_axis_positions()
         self.amplitude_scaling = self.get_amplitude_scaling()
-        self.time_shift_s = self.get_time_shifts()  # OVERWRITES user input
 
-    def get_time_shifts(self):
+    def get_xlims(self):
         """
-        Very simple function which allows float inputs for time shifts and
-        ensures that time shifts are always per-trace arrays
-
-        :rtype: np.array
-        :return: a stream-lengthed array of time shifts that can be applied
-            per trace
-        """
-        # No user input means time shifts will be 0, so nothing happens
-        time_shift_arr = np.zeros(len(self.st))
-        if self.time_shift_s is not None:
-            # User inputs a static time shift
-            if isinstance(self.time_shift_s, (int, float)):
-                time_shift_arr += self.time_shift_s
-            # User input an array which should have already been checked for len
-            else:
-                time_shift_arr = self.time_shift_s
-        time_shift_arr = np.array(time_shift_arr)
-
-        # Further change the time shift if we have move out input
-        if self.move_out:
-            print(f"apply {self.move_out} {self.distance_units}/s move out")
-            move_out_arr = self.distances / self.move_out
-            time_shift_arr -= move_out_arr
-
-        return time_shift_arr
-
-    def get_srcrcv_dist_az_baz(self):
-        """
-        Convenience function to wrap _get_srcrcv_info_trace into a loop over the
-        whole stream and return lists of distances, azimuths, and backazimuths
-
-        :rtype distances: np.array
-        :return distances: source-receiver distances in user-defined units in
-            the original order of Stream
-        :rtype azimuths: np.array
-        :return azimuths: source-receiver azimuths (deg) in the original
-            order of Stream
-        :rtype backazimuths: np.array
-        :return backazimuths: source-receiver azimuths (deg) in the original
-            order of Stream
-        """
-        print("calculating source-receiver distance and (back)azimuths")
-
-        distances, azimuths, backazimuths = [], [], []
-        for tr in self.st:
-            gcd, az, baz = self._get_srcrcv_dist_az_baz_trace(tr=tr)
-            distances.append(gcd)
-            azimuths.append(az)
-            backazimuths.append(baz)
-
-        distances = np.array(distances)
-        azimuths = np.array(azimuths)
-        backazimuths = np.array(backazimuths)
-
-        return distances, azimuths, backazimuths
-
-    def _get_srcrcv_dist_az_baz_trace(self, tr=None, idx=0):
-        """
-        Check the source-receiver characteristics such as src-rcv distance,
-        azimuth, backazimuth for a given trace.
+        The x-limits of each trace depend on the overall time shift (either 
+        static or applied through move out), as well as the sampling rate of
+        each trace (which can vary). Retrieve an index-dependent list of
+        x-limits which can be used to truncate the time series during plotting.
 
         .. note::
-            This script ASSUMES that SAC headers have been written to the
-            traces. Otherwise we will need more complicated ways to get
-            event lat and lon
+            Requires that get_time_shifts() has already been run
 
-        :type tr: obspy.core.trace.Trace
-        :param tr: trace to get srcrcv information for. If None, will use `idx`
-        :type idx: int
-        :param idx: if no trace given, give index to check self.st (Stream),
-            defaults to index 0
-        :rtype gcdist: float
-        :return gcdist: great circle distance in units specified by
-            `distance_units`, can be 'km' or 'deg'
-        :rtype az: float
-        :return az: azimuth (degrees) between source and receiver
-        :rtype baz: float
-        :return baz: azimuth (degrees) between source and receiver
+        :rtype: np.array
+        :return: an array of tuples defining the start and stop indices for EACH
+            trace to be used during plotting. Already includes time shift 
+            information so xlim can be applied DIRECTLY to the time shifted data
         """
-        # Default to the first trace in the Stream
-        if tr is None:
-            tr = self.st[int(idx)]
-        try:
-            dist = tr.stats.sac.dist  # units: km
-            az = tr.stats.sac.az        # units: deg
-            baz = tr.stats.sac.baz      # units: deg
-        except AttributeError:
-            # If for whatever reason SAC headers dont contain this info already
-            # Use ObsPy to get great circle distance, azimuth and backazimuth
-            dist, az, baz = gps2dist_azimuth(lat1=tr.stats.sac.evla,
-                                             lon1=tr.stats.sac.evlo,
-                                             lat2=tr.stats.sac.stla,
-                                             lon2=tr.stats.sac.stlo)
-            dist *= 1E-3   # units: m -> km
+        xlim = []
+        if self.xlim_s is None:
+            # None's will index the entire trace
+            xlim = np.array([(None, None) for _ in range(len(self.st))])
+        else:
+            # Looping to allow for delta varying among traces,
+            # AND apply the time shift so that indices can be used directly in
+            # the plotting function
+            for tr, tshift in zip(self.st, self.time_shift_s):
+                start, stop = [int(_/tr.stats.delta) for _ in self.xlim_s]
+                sshift = int(tshift / tr.stats.delta)  # unit: samples
+                xlim.append((start-sshift, stop-sshift))
 
-        # Ensure that 0 <= (b)az <= 360
-        az = az % 360
-        baz = baz % 360
-
-        # Make sure distance is in the correct units, default units 'km'
-        if self.distance_units == "deg":
-            dist = kilometers2degrees(dist)  # units: km -> deg
-        elif self.distance_units == "km_utm":
-            # Overwrite `dist`, could probably skip that calc above but
-            # leaving for now as I don't think this option will be used heavily.
-            dist_deg = np.sqrt(
-                ((tr.stats.sac.stlo - tr.stats.sac.evlo) ** 2) /
-                ((tr.stats.sac.stla - tr.stats.sac.evla) ** 2)
-            )
-            dist = kilometers2degrees(dist_deg)  # units: km
-
-        return dist, az, baz
+        xlim = np.array(xlim)
+        return xlim
 
     def get_srcrcv_stats(self):
         """
@@ -702,28 +637,149 @@ class RecordSection:
         stats.unique_sta_ids = _unique([tr.get_id() for tr in self.st])
         stats.longest_id = max([len(_) for _ in stats.unique_sta_ids])
         stats.nstation_ids = len(stats.unique_sta_ids)
+
         # Get unique network, station, location and channel codes. Also numbers
         for name in ["network", "station", "location", "channel", "component"]:
             stats[f"{name}_codes"] = _unique(
                 [getattr(tr.stats, name) for tr in self.st]
             )
             stats[f"n{name}"] = len(stats[f"{name}_codes"])
-        # Include the `not` in `reverse_sort` to make the top of the y-axis the
+
+        # We use `not` in `reverse_sort` to make the top of the y-axis the
         # starting point, which seems more intuitive for record sections, but
         # is opposite the behavior when you increment from 0
         stats.reverse_sort = not bool("_r" in self.sort_by)
 
-        # Initiate empty lists for _plot_trace to fill with min and max data
+        # Initiate empty lists for _plot_trace() to fill with min and max data
         # values which can be used for global plotting parameters like xlims
         stats.xmin, stats.xmax, stats.ymin, stats.ymax = [], [], [], []
 
         return stats
 
+    def get_time_shifts(self):
+        """
+        Very simple function which allows float inputs for time shifts and
+        ensures that time shifts are always per-trace arrays
+        Applies the move out by calculating a time shift using src-rcv distance
+
+        :rtype: np.array
+        :return: a stream-lengthed array of time shifts that can be applied
+            per trace
+        """
+        # No user input means time shifts will be 0, so nothing happens
+        time_shift_arr = np.zeros(len(self.st))
+        if self.time_shift_s is not None:
+            # User inputs a static time shift
+            if isinstance(self.time_shift_s, (int, float)):
+                time_shift_arr += self.time_shift_s
+            # User input an array which should have already been checked for len
+            else:
+                time_shift_arr = self.time_shift_s
+        time_shift_arr = np.array(time_shift_arr)
+
+        # Further change the time shift if we have move out input
+        if self.move_out:
+            print(f"apply {self.move_out} {self.distance_units}/s move out")
+            move_out_arr = self.distances / self.move_out
+            time_shift_arr -= move_out_arr
+
+        return time_shift_arr
+
+    def get_srcrcv_dist_az_baz(self):
+        """
+        Convenience function to wrap _get_srcrcv_dist_az_baz_trace into a loop 
+        over the whole stream and return lists of distances, azimuths, and 
+        backazimuths
+
+        :rtype distances: np.array
+        :return distances: source-receiver distances in user-defined units in
+            the original order of Stream
+        :rtype azimuths: np.array
+        :return azimuths: source-receiver azimuths (deg) in the original
+            order of Stream
+        :rtype backazimuths: np.array
+        :return backazimuths: source-receiver azimuths (deg) in the original
+            order of Stream
+        """
+        print("calculating source-receiver distance and (back)azimuths")
+
+        distances, azimuths, backazimuths = [], [], []
+        for tr in self.st:
+            gcd, az, baz = self._get_srcrcv_dist_az_baz_trace(tr=tr)
+            distances.append(gcd)
+            azimuths.append(az)
+            backazimuths.append(baz)
+
+        distances = np.array(distances)
+        azimuths = np.array(azimuths)
+        backazimuths = np.array(backazimuths)
+
+        return distances, azimuths, backazimuths
+
+    def _get_srcrcv_dist_az_baz_trace(self, tr=None, idx=0):
+        """
+        Check the source-receiver characteristics such as src-rcv distance,
+        azimuth, backazimuth for a given trace.
+
+        .. note::
+            This function ASSUMES that SAC headers have been written to the
+            traces. Otherwise we will need more complicated ways to get
+            event lat and lon
+
+        :type tr: obspy.core.trace.Trace
+        :param tr: trace to get srcrcv information for. If None, will use `idx`
+        :type idx: int
+        :param idx: if `tr`==None, user can provide index of self.st (Stream)
+            defaults to index 0
+        :rtype gcdist: float
+        :return gcdist: great circle distance in units specified by
+            `distance_units`, can be 'km' or 'deg'
+        :rtype az: float
+        :return az: azimuth (degrees) between source and receiver
+        :rtype baz: float
+        :return baz: azimuth (degrees) between source and receiver
+        """
+        # Default to the first trace in the Stream
+        if tr is None:
+            tr = self.st[int(idx)]
+        try:
+            dist = tr.stats.sac.dist  # units: km
+            az = tr.stats.sac.az        # units: deg
+            baz = tr.stats.sac.baz      # units: deg
+        except AttributeError:
+            # If for whatever reason SAC headers dont contain this info already
+            # Use ObsPy to get great circle distance, azimuth and backazimuth
+            dist, az, baz = gps2dist_azimuth(lat1=tr.stats.sac.evla,
+                                             lon1=tr.stats.sac.evlo,
+                                             lat2=tr.stats.sac.stla,
+                                             lon2=tr.stats.sac.stlo)
+            dist *= 1E-3   # units: m -> km
+
+        # Ensure that 0 <= (b)az <= 360
+        az = az % 360
+        baz = baz % 360
+
+        # Make sure distance is in the correct units, default units 'km'
+        if self.distance_units == "deg":
+            dist = kilometers2degrees(dist)  # units: km -> deg
+        elif self.distance_units == "km_utm":
+            # Overwrite `dist`, could probably skip that calc above but
+            # leaving for now as I don't think this option will be used heavily.
+            dist_deg = np.sqrt(
+                ((tr.stats.sac.stlo - tr.stats.sac.evlo) ** 2) /
+                ((tr.stats.sac.stla - tr.stats.sac.evla) ** 2)
+            )
+            dist = kilometers2degrees(dist_deg)  # units: km
+
+        return dist, az, baz
+
     def get_amplitude_scaling(self):
         """
         Scale the amplitudes of all the waveforms by producing a Stream
         dependent scale factor based on user choice. It is expected that the
-        output array will be DIVIDED by the data arrays
+        output array will be DIVIDED by the data arrays:
+
+        i.e., st[i].data /= self.amplitude_scaling[i]
 
         .. note::
             Needs to be run AFTER preprocessing because filtering etc. will
@@ -745,7 +801,6 @@ class RecordSection:
             if "abs" in self.sort_by:
                 if "distance" in self.sort_by:
                     print("scaling amplitudes for absolute distance")
-                    # We want
                     scale = np.mean(self.distances) / 10
                 elif "backazimuth" in self.sort_by:
                     print("scaling amplitudes for absolute backazimuth")
@@ -766,7 +821,8 @@ class RecordSection:
             amp_scaling = self._calculate_geometric_spreading()
 
         # Apply manual scale factor if provided, default value is 1 so nothing
-        # Divide because the amplitude scale divides the data array
+        # Divide because the amplitude scale divides the data array, which means
+        # `amplitude_scale_factor` will be MULTIPLIED by the data array
         amp_scaling /= self.amplitude_scale_factor
 
         return amp_scaling
@@ -795,13 +851,14 @@ class RecordSection:
             geometrical spreading factor. This is meant to be MULTIPLIED by the
             data arrays
         """
+        raise NotImplementedError("This function is currently work in progress")
+
         print("calculating geometrical spreading for amplitude normalization")
 
         # Create a sinusoidal function based on distances in degrees
         sin_del = np.sin(np.array(self.dist) / (180 / np.pi))
 
-        # !!! TODO look at Stein and Wysession and figure out what these vector
-        # !!! TODO names are, sort of ambiguous right meow
+        # !!! TODO Stein and Wysession and figure out vector names
         if self.geometric_spreading_k_val is not None:
             k_vector = self.max_amplitudes * \
                        (sin_del ** self.geometric_spreading_factor)
@@ -826,12 +883,13 @@ class RecordSection:
         """
         print(f"determining sort order with parameter: {self.sort_by}")
 
-        # Retain input ordering, don't change anything, allow reversing
+        # Retain input ordering but run sorting to allow reversing
         if "default" in self.sort_by:
             sorted_idx = sorted(self.idx, reverse=self.stats.reverse_sort)
         # Sort alphabetically BUT allow component sorting
         elif "alphabetical" in self.sort_by:
             sorted_idx = self._sort_by_alphabetical()
+        # Sort by dist, az or baz
         else:
             components = self._get_component_order()
             # Azimuthal sorts are allowed to start at a value other than 0
@@ -855,12 +913,12 @@ class RecordSection:
     def _sort_by_alphabetical(self):
         """
         Sort by full station name in order. That is, network is sorted, then
-        within network station is sorted, and so on. Components are sorted
+        within network, station is sorted, and so on. Components are sorted
         last and NOT in alphabetical order. They are ordered based on the
         user-input `components` parameter.
 
-        :rtype: list
-        :return: a list of code identifiers to be used to sort the idx list
+        :rtype: np.array
+        :return: indexing of networks and stations sorted alphabetically
         """
         networks = [_.split(".")[0] for _ in self.station_ids]
         stations = [_.split(".")[1] for _ in self.station_ids]
@@ -870,11 +928,6 @@ class RecordSection:
         arr_out = np.array(
             list(zip(*sorted(zipped, reverse=self.stats.reverse_sort)))
         )
-        # I used the below commented line to check if things were working
-        # by converting the component numbers back into componets to make
-        # sure the intended 'ZRT' was honored for both alphabetical and reverse
-        # arr_out[3] = [complist[int(_)] for _ in arr_out[3]]
-        # print(arr_out)
 
         return arr_out[-1].astype(int)
 
@@ -893,7 +946,6 @@ class RecordSection:
         """
         channels = [_.split(".")[3] for _ in self.station_ids]
         # ASSUMING component is the last entry in the channel, SEED convention
-        # TODO Can we use tr.stats.component here?
         components = [_[-1] for _ in channels]
         if self.stats.reverse_sort:
             comp_list = self.components
@@ -918,14 +970,9 @@ class RecordSection:
         plotting. Allows for constant separation, or absolute separation based
         on distance or (back)azimuth separation.
 
-        If `sort_by` has 'absolute' in the argument, then we will weight
-        the values defining the Y-Axis. For example, if
-        sort_by=='abs_distance', then the Y-Axis will be a scaled
-        representation of distances.
-
-        :rtype weights_arr: np.array
-        :return: an array of weight values which should be used to place
-            seismograms on the Y-Axis
+        :rtype: np.array
+        :return: an array of actual y-axis positions that can be passed directly
+            to plt.plot() (or similar)
         """
         print(f"determining y-axis positioning for sort: {self.sort_by}")
 
@@ -934,8 +981,7 @@ class RecordSection:
             y_range = np.arange(0, len(self.sorted_idx), 1)
             y_axis = self.y_axis_spacing * y_range
         # Absolute y-axis (i.e., absolute distance or (back)azimuth) will just
-        # plot the actual distance or azimuth value, make sure to account for
-        # reverse plotting as well
+        # plot the actual distance or azimuth value
         else:
             if "backazimuth" in self.sort_by:
                 y_axis = self.backazimuths
@@ -943,6 +989,7 @@ class RecordSection:
                 y_axis = self.azimuths
             elif "distance" in self.sort_by:
                 y_axis = self.distances
+
         return y_axis
 
     def process_st(self):
@@ -970,8 +1017,8 @@ class RecordSection:
             preprocess_list = [self.st, self.st_syn]
 
         for st in preprocess_list:
-            # Fill any data gaps with mean of the data, do it on a trace by trace
-            # basis to get individual mean values
+            # Fill any data gaps with mean of the data, do it on a trace by 
+            # trace basis to get individual mean values
             for tr in st:
                 tr.trim(starttime=tr.stats.starttime, endtime=tr.stats.endtime,
                         pad=True, fill_value=tr.data.mean())
@@ -1010,12 +1057,17 @@ class RecordSection:
 
     def plot(self, subset=None, page_num=None, **kwargs):
         """
-        Generate record sections based on internal data
+        Plot record sections based on all the available information
 
         :type subset: list of int
         :param subset: subset of `sorted_idx` if there are too many waveforms to
             plot on one page (set by `max_traces_per_rs`). e.g., to get the
             first 10 entries, subset=[0,10]
+        :type page_num: int
+        :param page_num: If multiple pages are required due to exceeding 
+            `max_traces_per_rs`, page_num will make adjustments to the figure
+            name and title to differentiate different pages of the same record
+            section
         """
         if subset is None:
             start, stop = 0, None  # None will allow full list traversal
@@ -1025,19 +1077,22 @@ class RecordSection:
             nwav = stop - start
 
         print(f"plotting record section for {nwav} waveforms")
+
+        # Do a text output of station information so the user can check
+        # that the plot is doing things correctly
         print("PLOTTING LINE CHECK STARTING FROM BOTTOM")
-        print("\nIDX\tY\t\tID\tDIST\tAZ\tBAZ\tTSHIFT")
+        print("\nIDX\tY\t\tID\tDIST\tAZ\tBAZ\tTSHIFT\tYABSMAX")
         self.f, self.ax = plt.subplots(figsize=self.figsize)
 
-        # Allow choosing observed or synthetic data, defaults to boserved
+        # Allow choosing observed or synthetic data, defaults to observed
+        # Allow different waveform looks based on observed vs. synthetic
         for choice in ["st", "st_syn"]:
             if getattr(self, choice) is None:
                 continue
             # Main plotting call. Indexes should already be sorted
-            # Allow different waveform looks based on observed vs. synthetic
             for y_idx, idx in enumerate(self.sorted_idx[start:stop]):
                 # Absolute scaling requires plotting actual dist or az values
-                # relative scaling just requires a linear index to stack seismos
+                # Relative scaling just requires a linear index to stack seismos
                 if "abs_" in self.sort_by:
                     y_index = idx
                 else:
@@ -1049,9 +1104,11 @@ class RecordSection:
         # set functions as they may overwrite what is done here
         self._set_plot_aesthetic()
 
+        # Partition the figure by user-specified azimuth bins 
         if self.sort_by and "azimuth" in self.sort_by:
             self._plot_azimuth_bins()
 
+        # Finalize the figure accoutrements
         self._plot_title(nwav=nwav, page_num=page_num)
         self._plot_axes(start=start, stop=stop)
 
@@ -1071,9 +1128,7 @@ class RecordSection:
     def _plot_trace(self, idx, y_index, choice="st"):
         """
         Plot a single trace on the record section, with amplitude scaling,
-        time shifts, etc.s
-
-        Kwargs passed to matplotlib.pyplot.plot()
+        time shifts, etc. Observed waveforms are black, synthetics are red.
 
         :type idx: int
         :param idx: index of the trace to plot and all trace-ordered values like
@@ -1086,7 +1141,7 @@ class RecordSection:
         :param choice: choice of 'st' or 'st_syn' depending on whether you want
             to plot the observed or synthetic waveforms
         """
-        linewidth = self.kwargs.get("trace_lw", 1)
+        linewidth = self.kwargs.get("linewidth", .25)
 
         # Used to differentiate the two types of streams for plotting diffs
         choices = ["st", "st_syn"]
@@ -1094,10 +1149,18 @@ class RecordSection:
         c = choices.index(choice)
         tr = getattr(self, choice)[idx]  # i.e., tr = self.st[idx]
 
-        # Plot actual data on with amplitude scaling, time shift, and yoffset
+        # Plot actual data on with amplitude scaling, time shift, and y-offset
         tshift = self.time_shift_s[idx]
+        
+        # These are still the entire waveform
         x = tr.times() + tshift
         y = tr.data / self.amplitude_scaling[idx] + int(self.y_axis[y_index])
+
+        # Truncate waveforms to get figure scaling correct. 
+        start, stop = self.xlim[idx]
+        x = x[start:stop]
+        y = y[start:stop]
+
         self.ax.plot(x, y, c=["k", "r"][c], linewidth=linewidth, zorder=10)
 
         # Sanity check print station information to check against plot
@@ -1107,7 +1170,8 @@ class RecordSection:
               f"\t{self.distances[idx]:6.2f}"
               f"\t{self.azimuths[idx]:6.2f}"
               f"\t{self.backazimuths[idx]:6.2f}"
-              f"\t{self.time_shift_s[idx]:4.2f}")
+              f"\t{self.time_shift_s[idx]:4.2f}"
+              f"\t{self.max_amplitudes[idx]:.2E}")
 
         # Retain some stats for global plot args
         self.stats.xmin.append(x.min())
@@ -1133,7 +1197,7 @@ class RecordSection:
         # Make sure that the bins go from 0 <= azimuth_bins <= 360
         azimuth_bins = azimuth_bins % 360
 
-        # In an absolute plot, the y values are simple the azimuth bins
+        # In an absolute plot, the y values are simply the azimuth bins
         if "abs" in self.sort_by:
             y_vals = azimuth_bins
         # In a relative plot, the y values need to be found between seismograms
@@ -1157,7 +1221,7 @@ class RecordSection:
                         azi_high = self.azimuths[idx_minus_one]
                         if azi_low <= azbin <= azi_high:
                             break
-                # Plot in between two adjacent seismograms
+                # Mean gives the space in between two adjacent seismograms
                 y_vals.append(np.mean([self.y_axis[i],  self.y_axis[j]]))
 
         for y, y_val in enumerate(y_vals):
@@ -1216,7 +1280,7 @@ class RecordSection:
             print(f"user requests turning off y-axis w/ `y_label_loc`== None")
             self.ax.get_yaxis().set_visible(False)
         # OR EDGE CASE: Relative plotting but labels are not placed on the
-        # y-axis turn off the y-axis cause it doesn't mean anything at this point
+        # y-axis, turn off the y-axis cause it doesn't mean anything anymore
         elif self.y_label_loc not in ["default", "y_axis", "y_axis_right"] and \
                 "abs" not in self.sort_by:
             print("turning off y-axis as it contains no information")
@@ -1241,7 +1305,6 @@ class RecordSection:
 
         plt.tight_layout()
 
-
     def _set_y_axis_absolute(self):
         """
         If 'abs_' in sort_by, then the Y-axis should be shown in absolute scale.
@@ -1252,8 +1315,12 @@ class RecordSection:
         self.ax.tick_params(axis="y", labelsize=ytick_fontsize)
 
         if "distance" in self.sort_by:
-            ytick_minor = self.kwargs.get("ytick_minor", 25)
-            ytick_major = self.kwargs.get("ytick_major", 100)
+            if "km" in self.distance_units:
+                ytick_minor = self.kwargs.get("ytick_minor", 25)
+                ytick_major = self.kwargs.get("ytick_major", 100)
+            elif "deg" in self.distance_units:
+                ytick_minor = self.kwargs.get("ytick_minor", 0.25)
+                ytick_major = self.kwargs.get("ytick_major", 1.0)
             ylabel = f"Distance [{self.distance_units}]"
         elif "azimuth" in self.sort_by:
             ytick_minor = self.kwargs.get("ytick_minor", 45)
@@ -1283,7 +1350,9 @@ class RecordSection:
         :type loc: str
         :param loc: location to place the y_axis text labels, available:
             - y_axis: Place labels along the y-axis (left side of the figure)
-                Will replace the actual y-tick labels so this is probably not
+                Will replace the actual y-tick labels so not applicable for
+                absolute sorting which requries the y-axis labels
+            - y_axis_right: same as `y_axis` but set on the right side of figure
             - x_min: Place labels on the waveforms at the minimum x value
             - x_max: Place labels on the waveforms at the maximum x value
         """
@@ -1299,7 +1368,7 @@ class RecordSection:
                 str_az = f"{self.azimuths[idx]:6.2f}{DEG}"
             str_dist = f"{self.distances[idx]:5.2f}km"
 
-            # Looks like: NN.SSS.LL.CC|30*|250.03km
+            # Looks something like: NN.SSS.LL.CC|30*|250.03km
             label = \
                 f"{str_id:>{self.stats.longest_id}}|{str_az:>8}|{str_dist:>8}"
             # Add time shift if we have shifted at all
@@ -1342,6 +1411,7 @@ class RecordSection:
         """
         Create the title of the plot based on event and station information
         Allow dynamic creation of title based on user input parameters
+
         TODO Can we make this two-column to save space?
 
         :type nwav: int
@@ -1391,7 +1461,7 @@ class RecordSection:
 
     def _set_plot_aesthetic(self):
         """
-        Give a nice look to the output figure by creating thicc borders on the
+        Give a nice look to the output figure by creating thick borders on the
         axis, adjusting fontsize etc. All plot aesthetics should be placed here
         so it's easiest to find.
 
@@ -1431,7 +1501,8 @@ class RecordSection:
 
 def plotw_rs(*args, **kwargs):
     """
-    Main. Run the record section plotting functions in order.
+    Main call function. Run the record section plotting functions in order.
+    Contains the logic for breaking up figure into multiple pages.
     """
     _start = datetime.now()
     print(f"STARTING RECORD SECTION PLOTTER")
@@ -1460,13 +1531,17 @@ def parse_args():
     """
     Parse command line arguments to set record section parameters dynamically
     This arg parser provides a simplified interface for working with plotw_rs
-    BUT also limits the flexibility of the code because things like
-    long lists are prohibitively verbose and not included in the arguments.
+    BUT it limits the flexibility of the code because things like long lists 
+    are prohibitively verbose and not included in the arguments.
+
+    Kwargs can be passed in in the same format thanks to:
+        https://stackoverflow.com/questions/37367331/is-it-possible-to-use-\
+                argparse-to-capture-an-arbitrary-set-of-optional-arguments
 
     .. note::
         Not all parameters are set here, some are left as default values
         Also some parameters are set different than the class defaults, so that
-        when the user runs record_section without arguments, they get a
+        when the user runs record_section.py without arguments, they get a
         reasonable result
 
     .. note::
@@ -1569,6 +1644,14 @@ def parse_args():
                         help="Path to save the resulting record section fig")
     parser.add_argument("--overwrite", default=False, action="store_true",
                         help="overwrite existing figure if path exists")
+
+    # Keyword arguments can be passed directly to the argparser in the same 
+    # format as the above kwargs (e.g., --linewidth 2), but they will not have 
+    # help messages or type checking
+    parsed, unknown = parser.parse_known_args()
+    for arg in unknown:
+        if arg.startswith(("-", "--")):
+            parser.add_argument(arg.split("=")[0])
 
     return parser.parse_args()
 
