@@ -1,5 +1,6 @@
 .DS_Store
 .png
+.swp
 .idea/
 output/
 meshing/__pycache__/
