@@ -232,13 +232,15 @@ def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):
     # Proj doesn't accept negative zones                                         
     utm_zone = abs(utm_zone)                                                     
                                                                                  
+    # !!! Outdated method of calling Proj
     # Proj requires a string to tell it how to convert the coordinates           
-    # !!! Update to the newest syntax of pyproj, these projstrs are outdated
-    projstr = (f"+proj=utm +zone={utm_zone}, +{direction} +ellps=WGS84"          
-               " +datum=WGS84 +units=m +no_defs")                                
-                                                                                 
+    # projstr = (f"+proj=utm +zone={utm_zone}, +{direction} +ellps=WGS84"          
+    #            " +datum=WGS84 +units=m +no_defs")                                
+    # my_proj = Proj(projstr)                           
+
     # Initiate a Proj object and convert the coordinates                         
-    my_proj = Proj(projstr)                                                      
+    my_proj = Proj(proj="utm", zone=abs(utm_zone), south=True, ellps="WGS84",
+                   datum="WGS84", units="m", no_defs=True)
     x_or_lon, y_or_lat = my_proj(lon_or_x, lat_or_y, inverse=inverse)            
                                                                                  
     return x_or_lon, y_or_lat            
@@ -400,7 +402,9 @@ def number_of_processors(nproc, x_length, y_length):
     else:
         short_direction = "y"
 
-    logger.info(f"\tshort direction is {short_direction}")
+    logger.info(f"\tx-axis length = {x_length}")
+    logger.info(f"\ty-axis length = {y_length}")
+    logger.info(f"\tshort direction is '{short_direction}'")
 
     # Start guessing processor ratios at the square root, until 2 integers found
     guess_a = round(np.sqrt(ratio * nproc))
@@ -534,6 +538,7 @@ def number_of_elements(nproc_x, nproc_y, x_length, y_length, grid_space,
                 f"\tDY = {dy:.4f}km")
 
     logger.info("\tNote: if values below too large, adjust 'shortest_period_s'")
+    logger.info("\tNote: if values below too small, check  'suppress_utm_proj'")
     logger.info(f"\tGRID_SPACE_H - DX = {abs(dx-grid_space)}")
     logger.info(f"\tGRID_SPACE_H - DY = {abs(dy-grid_space)}")
 
