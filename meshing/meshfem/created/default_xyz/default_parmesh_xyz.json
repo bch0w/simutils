@@ -31,7 +31,7 @@
         [7500, 9000, 4500, 9999, 1000]
     ],
     "nproc": 84,
-    "grid_space_top_hv": [5, 5],
+    "grid_space_top_hv": [5,5],
     "shortest_period_s": 12,
     "vs_min_km_per_s": 3.25,
     "points_per_wl": 5,

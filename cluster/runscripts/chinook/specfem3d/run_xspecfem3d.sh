@@ -1,14 +1,14 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xspecfem3D
-#SBATCH --nodes=1
-#SBATCH --ntasks=40
-#SBATCH --cpus-per-task=1
-#SBATCH --clusters=maui
-#SBATCH --account=nesi00263
-#SBATCH --partition=nesi_research
+#SBATCH --ntasks=56
+#SBATCH --tasks-per-node=28
+#SBATCH --partition=t2small
 #SBATCH --time 00:25:00
 #SBATCH --output=specfem3D_%j.out
+
+ulimit -s unlimited
+ulimit -l unlimited
 
 # Get the number of processors from Par_file, ignore comments
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`

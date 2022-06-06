@@ -1,0 +1,116 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'tag': 'nalaska_c2s_alpha', 'dir_name': './created/cube2sph/nalaska_alpha', 'lat_min': -444779.7, 'lat_max': 444779.7, 'lon_min': -1612326.4, 'lon_max': 1612326.4, 'utm_projection': -99, 'suppress_utm_proj': True, 'mesh_depth_km': 600.0, 'mesh_top_km': -6.0, 'doubling_layers': [60, 140], 'interfaces': [24.4, 40, 80, 220, 400], 'interface_fids': ['interface_24p4.dat', 'interface_40.dat', 'interface_80.dat', 'interface_220.dat', 'interface_400.dat'], 'interface_increase': [1, 2, 2, 2, 1], 'regions': [8, 50], 'materials': [[4400, 7500, 4500, 9999, 1000], [4400, 7500, 4500, 9999, 1000], [4400, 7500, 4500, 9999, 1000]], 'nproc': 56, 'grid_space_top_hv': [8, 4], 'shortest_period_s': 12, 'vs_min_km_per_s': 3.0, 'points_per_wl': 5, 'top_vertical_element_ratio': 1.0}
+
+PARAMETERS FOR: nalaska_c2s_alpha
+	tag: nalaska_c2s_alpha
+	dir_name: ./created/cube2sph/nalaska_alpha
+	lat_min: -444779.7
+	lat_max: 444779.7
+	lon_min: -1612326.4
+	lon_max: 1612326.4
+	utm_projection: -99
+	suppress_utm_proj: True
+	mesh_depth_km: 600.0
+	mesh_top_km: -6.0
+	doubling_layers: [60, 140]
+	interfaces: [24.4, 40, 80, 220, 400]
+	interface_fids: ['interface_24p4.dat', 'interface_40.dat', 'interface_80.dat', 'interface_220.dat', 'interface_400.dat']
+	interface_increase: [1, 2, 2, 2, 1]
+	regions: [8, 50]
+	materials: [[4400, 7500, 4500, 9999, 1000], [4400, 7500, 4500, 9999, 1000], [4400, 7500, 4500, 9999, 1000]]
+	nproc: 56
+	grid_space_top_hv: [8, 4]
+	shortest_period_s: 12
+	vs_min_km_per_s: 3.0
+	points_per_wl: 5
+	top_vertical_element_ratio: 1.0
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 8
+	MIN GRID SPACE VERTICAL: 4
+CALCULATING NUMBER OF PROCESSORS
+	short direction is y
+	NPROC_X = 14
+	NPROC_Y = 4
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 448
+	NEX_Y = 128
+	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
+		NEX_X: 448 -> 448
+	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
+		NEX_Y: 128 -> 128
+	DX = 7.1979km
+	DY = 6.9497km
+	Note: if values below too large, adjust 'shortest_period_s'
+	GRID_SPACE_H - DX = 0.8021142857142864
+	GRID_SPACE_H - DY = 1.0503171874999992
+SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY
+	DZ = (dx + dy)/2 * 1.0 ~= 7
+CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)
+	2 layers of 7km between 24.4km and 40km (14 km)
+	3 layers of 14km between 40km and 80km (42 km)
+	5 layers of 28km between 80km and 220km (140 km)
+	3 layers of 56km between 220km and 400km (168 km)
+	4 layers of 56km between 400km and 600.0km (224 km)
+	NLAYERS = 5
+	NELEMENTS_Z = 18
+	NUM ELEM PER LAYER FROM BOTTOM = [4, 3, 5, 3, 3]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	depth 140km is approx element 10 at depth 141.00km
+	depth 60km is approx element 12 at depth 85.00km
+	NDOUBLING LAYERS = [10, 12]
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 3
+	depth 50km is approx element 13 at depth 57.00km
+	depth 8km is approx element 16 at depth 15.00km
+	depth -6.0km is top of mesh -6.0km
+	REGION STARTING ELEMENT = [18, 16, 13]
+MESH HAS THE APPROXIMATE FORM
+	18/00; Z~= -6.00km
+		Top of Mesh
+		Interface (vertical x1)
+		Region 1 begins
+		dx=7.20, dy=6.95, dz=7
+	17/01; Z~=-13.00km
+	16/02; Z~=-20.00km
+		Region 2 begins
+		dx=7.20, dy=6.95, dz=7
+	15/03; Z~=-27.00km
+		Interface (vertical x2)
+		dx=7.20, dy=6.95, dz=14
+	14/04; Z~=-41.00km
+	13/05; Z~=-55.00km
+		Region 3 begins
+		dx=7.20, dy=6.95, dz=14
+	12/06; Z~=-69.00km
+		Interface (vertical x2)
+		Doubling (horizontal doubling)
+		dx=14.40, dy=13.90, dz=28
+	11/07; Z~=-97.00km
+	10/08; Z~=-125.00km
+		Doubling (horizontal doubling)
+		dx=28.79, dy=27.80, dz=28
+	09/09; Z~=-153.00km
+	08/10; Z~=-181.00km
+	07/11; Z~=-209.00km
+		Interface (vertical x2)
+		dx=28.79, dy=27.80, dz=56
+	06/12; Z~=-265.00km
+	05/13; Z~=-321.00km
+	04/14; Z~=-377.00km
+		Interface (vertical x1)
+		dx=28.79, dy=27.80, dz=56
+	03/15; Z~=-433.00km
+	02/16; Z~=-489.00km
+	01/17; Z~=-545.00km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+WRITING INTERACE interface_24p4.dat
+WRITING INTERACE interface_40.dat
+WRITING INTERACE interface_80.dat
+WRITING INTERACE interface_220.dat
+WRITING INTERACE interface_400.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	APPRX_NUM_ELEM = 462336

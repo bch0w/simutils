@@ -16,6 +16,7 @@ BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
 
 # Make the Database directory
 mkdir -p ${BASEMPIDIR}
+mkdir -p MESH
 
 echo "xmeshfem3D on ${NPROC} processors"
 echo
