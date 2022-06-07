@@ -1,8 +1,8 @@
 #!/bin/sh                                                                        
                                                                                  
 #SBATCH --job-name=combine_vol_data_vtk
-#SBATCH --ntasks=48                                                              
-#SBATCH --tasks-per-node=24                                                      
+#SBATCH --ntasks=1
+#SBATCH --tasks-per-node=1
 #SBATCH --partition=debug                                                        
 #SBATCH --time=00:02:00                                                          
 #SBATCH --output=combine_vol_data_vtk_%j.log
