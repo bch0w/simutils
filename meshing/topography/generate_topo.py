@@ -451,6 +451,48 @@ def call_mesh_nalaska():
          x_max=x_max, y_min=y_min, y_max=y_max, spacing_m=spacing_m, 
          border_m=border_m, utm_projection=utm_projection, plot=True)
 
+def call_mesh_nz():
+    """
+    Create Topography file for the North Island New Zealand
+    """
+    # Set parameters here
+    tag = "topo_c2s_utm60s"
+    utm_projection = -60
+    method = "meshfem"
+    coords = "latlon"
+    buffer_m = 0  # 10E3  # add some wiggle room if the bounds are precise
+    plot = True
+    if coords == "latlon":
+        lat_min = -41.6
+        lat_max = -34.3
+        lon_min = 172.5
+        lon_max = 179.0
+        x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
+        x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
+    elif coords == "xyz":
+        x_min = 125E3
+        x_max = 725E3
+        y_min = 5150E3
+        y_max = 5950E3
+    moho = -100E3
+    spacing_m = 1E3
+
+    if buffer_m is not None:
+        x_min -= buffer_m
+        y_min -= buffer_m
+        x_max += buffer_m
+        y_max += buffer_m
+
+    # Load the topography file to be interpolated, can use multiple files if
+    # your domain extends beyond a single file
+    path = ("/home/bchow/Work/data/topography/*.nc")
+    srtm_files = glob(path)
+    if not srtm_files:
+        sys.exit("No .nc files found, please check your path")
+
+    main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m, plot)
+
+
 if __name__ == "__main__":
     # call_mesh_nz()
     call_mesh_nalaska()
