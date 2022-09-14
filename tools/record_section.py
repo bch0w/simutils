@@ -13,6 +13,7 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
     Refactored by Bryant Chow (3/2022)
 
 .. requires::
+    python >= 3.6
     obspy >= 1.2 (expected to bring in numpy and matplotlib)
 
 .. rubric:: Examples
@@ -34,6 +35,7 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
         to accentuate high frequencies. Overwrite previous figure and split
         figure onto multiple pages
 
+<<<<<<< Updated upstream
         $ python record_section.py --pysep_path 20200404015318920 \
             --move_out 7 --min_period_s 1 --xlim_s 100 175 \
             --linewidth .25 --max_traces_per_rs 60 --overwrite
@@ -81,6 +83,18 @@ based on source-receiver characteristics (i.e., src-rcv distance, backazimuth).
         >>> for fid in glob(os.path.join("20200404015318920", "*.?")):
         >>>     st += read(fid)
         >>> plotw_rs(st=st, sort_by="distance_r")
+=======
+    3) Example code block from inside a Python interactive environment
+    Assuming we have downloaded the event from pysep in Step 2
+    >>> import os
+    >>> from glob import glob
+    >>> from obspy import read
+    >>> from record_section import plotw_rs
+    >>> st = Stream()
+    >>> for fid in glob(os.path.join("20200404015318920", "*.?")):
+    >>>     st += read(fid)
+    >>> plotw_rs(st=st, sort_by="distance_r")
+>>>>>>> Stashed changes
 """
 import os
 import sys
