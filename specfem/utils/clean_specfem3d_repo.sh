@@ -22,6 +22,7 @@ rm -rf utils/Visualization
 rm -rf utils/unused_routines
 
 # Remove a few very large examples
+rm -rf EXAMPLES/oldstuff
 rm -rf EXAMPLES/CPML_examples
 rm -rf EXAMPLES/analytic_examples
 rm -rf EXAMPLES/fault_examples
@@ -32,7 +33,4 @@ rm -rf EXAMPLES/homogeneous_poroelastic
 rm -rf EXAMPLES/meshfem3D_examples/cavity
 rm -rf EXAMPLES/meshfem3D_examples/simple_model
 rm -rf EXAMPLES/meshfem3D_examples/*/REF_SEIS*
-
-# Remove some smalle rexamples
-rm -rf EXAMPLES/
 
