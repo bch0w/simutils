@@ -1,11 +1,4 @@
-<<<<<<< HEAD
-.idea/
-*.swp
-meshing/__pycache__/
-=======
-output/
->>>>>>> b7ef57df0faf758f13dec9c81ddd2cee8919c672
-specfem/semslicer/xsemslicer
+**.DS_Store
 **.swp
 
 # Byte-compiled / optimized / DLL files
