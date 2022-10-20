@@ -1,14 +1,15 @@
 #!/bin/sh
 
 #SBATCH --job-name=xgenerate_databases
-#SBATCH --ntasks=56
-#SBATCH --tasks-per-node=28
-#SBATCH --partition=t2small
-#SBATCH --time=00:20:00
+#SBATCH --ntasks=4
+#SBATCH --tasks-per-node=24
+#SBATCH --partition=debug
+#SBATCH --time=00:05:00
 #SBATCH --output=generate_databases_%j.out
 
 ulimit -s unlimited
 ulimit -l unlimited
+umask 022
 
 # get the number of processors, ignoring comments in the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
@@ -21,7 +22,7 @@ mkdir -p ${BASEMPIDIR}
 echo "xgenerate_databases ${NPROC} processors"
 echo
 echo "`date`"
-time srun -n ${NPROC} ./bin/xgenerate_databases
+time mpiexec -n ${NPROC} ./bin/xgenerate_databases
 
 # checks exit code
 if [[ $? -ne 0 ]]; then exit 1; fi

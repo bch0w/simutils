@@ -1,14 +1,15 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xspecfem3D
-#SBATCH --ntasks=56
-#SBATCH --tasks-per-node=28
-#SBATCH --partition=t2small
-#SBATCH --time 00:25:00
+#SBATCH --ntasks=4
+#SBATCH --tasks-per-node=24
+#SBATCH --partition=debug
+#SBATCH --time 00:05:00
 #SBATCH --output=specfem3D_%j.out
 
 ulimit -s unlimited
 ulimit -l unlimited
+umask 022
 
 # Get the number of processors from Par_file, ignore comments
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
@@ -20,7 +21,7 @@ mkdir -p $BASEMPIDIR
 # This is a MPI simulation
 echo "xspecfem3d ${NPROC} processors"
 echo
-time srun -n ${NPROC} ./bin/xspecfem3D
+time mpiexec -n ${NPROC} ./bin/xspecfem3D
 
 # checks exit code
 if [[ $? -ne 0 ]]; then exit 1; fi
