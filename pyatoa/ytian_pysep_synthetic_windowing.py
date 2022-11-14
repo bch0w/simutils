@@ -12,7 +12,7 @@ from glob import glob
 from obspy import read, UTCDateTime, Stream, read_events
 from pyatoa import Config, Manager, logger
 
-from pyatoa.utils.process import remove_zero_pad
+from pyatoa.utils.process import zero_pad, remove_zero_pad
 from pyatoa.utils.read import read_sem
 from pyflex import logger as pflogger
 
@@ -55,6 +55,7 @@ cfg = Config(
         max_period=40,
         filter_corners=4,
         start_pad=start_pad,
+        pyflex_preset="custom",
         adj_src_type="cc", 
 
         # vvvv IMPORTANT PyFlex windowing parameters vvvv
@@ -102,6 +103,7 @@ station_codes = glob(os.path.join(path_to_synthetics, "*.semd"))
 station_codes = [os.path.basename(_) for _ in station_codes]
 station_codes = [f"{_.split('.')[0]}.{_.split('.')[1]}" for _ in station_codes]
 
+# for station_code in ["AK.NEA2"]:
 for station_code in set(sorted(station_codes)):
     print(f"\t{station_code}")
     net, sta = station_code.split(".")
@@ -139,12 +141,18 @@ for station_code in set(sorted(station_codes)):
            
         # Run generalized processing and windowing
         mgmt = Manager(config=cfg, st_obs=st_obs, st_syn=st_syn, event=event)
+
+        # Zero pad synthetics so that data are not cut off prematurely
+        zero_pad_samp = len(mgmt.st_syn[0].data) // 3 
+        zero_pad_s = zero_pad_samp * mgmt.st_syn[0].stats.delta
+        mgmt.st_syn = zero_pad(mgmt.st_syn, zero_pad_s, before=True, after=True)
+
+        # Cut start and end times, match npts and sampling rate
         mgmt.standardize()
 
         # Preprocess and zero pad data by 1/3 trace length
-        zero_pad_samp = len(mgmt.st_obs[0].data) // 3 
-        zero_pad_s = zero_pad_samp * mgmt.st_obs[0].stats.delta
-        mgmt.preprocess(zero_pad_s=zero_pad_s)
+        # mgmt.preprocess(zero_pad_s=zero_pad_s)
+        mgmt.preprocess()
 
         # Manually construct water-level to mask out parts of the waveform
         samp_rate = mgmt.st_obs[0].stats.sampling_rate
@@ -160,7 +168,8 @@ for station_code in set(sorted(station_codes)):
         # Plot figure
         fig_id = os.path.join(path_to_figures, f"{station_code}.png")
         mgmt.plot(choice="wav", show=False, save=fig_id,
-                  xlim_s=[-50, 200])
+                  fontsize=12, xlim_s=[-50, 200],
+                  plot_rejected_windows=False)
         plt.close("all")
 
         # Kludge - Cut the adjoint sources manually based on the known zero

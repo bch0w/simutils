@@ -1,11 +1,14 @@
 #!/bin/bash
 
-#SBATCH --job-name=run_mesher_solver
-#SBATCH --ntasks=24                                              
-#SBATCH --tasks-per-node=24
+#SBATCH --job-name=specfem3d_globe
+#SBATCH --ntasks=4
 #SBATCH --partition=debug                                                      
 #SBATCH --time=00:20:00                                                         
-#SBATCH --output=run_mesher_solver_%j.out  
+#SBATCH --output=log_%j.out  
+
+ulimit -s unlimited
+ulimit -l unlimited
+umask 022
 
 
 BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
@@ -19,11 +22,6 @@ NCHUNKS=`grep ^NCHUNKS DATA/Par_file | cut -d = -f 2 `
 
 # total number of nodes is the product of the values read
 numnodes=$(( $NCHUNKS * $NPROC_XI * $NPROC_ETA ))
-
-if [ ! "$numnodes" == "$CPUs" ]; then
-  echo "error: Par_file for $numnodes CPUs"
-  exit 1
-fi
 
 mkdir -p OUTPUT_FILES
 

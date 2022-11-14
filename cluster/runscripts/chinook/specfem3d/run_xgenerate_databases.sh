@@ -2,9 +2,8 @@
 
 #SBATCH --job-name=xgenerate_databases
 #SBATCH --ntasks=4
-#SBATCH --tasks-per-node=24
-#SBATCH --partition=debug
-#SBATCH --time=00:05:00
+#SBATCH --partition=t1small
+#SBATCH --time=00:02:00
 #SBATCH --output=generate_databases_%j.out
 
 ulimit -s unlimited

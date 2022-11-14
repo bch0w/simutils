@@ -17,7 +17,7 @@ ulimit -l unlimited
 
 # PARAMETERS
 SLICE_LIST="all"
-FILENAME="vs"  # or filename, use $1 to use command line argumnent
+FILENAME=$1  # or filename, use $1 to use command line argumnent
 INPUT_TOPO_DIR="DATABASES_MPI/"
 INPUT_FILE_DIR="DATABASES_MPI/"
 OUTPUT_DIR="OUTPUT_FILES/"
