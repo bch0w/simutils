@@ -1,0 +1,88 @@
+# ------------------------------------------------------
+#      .bashrc / .bash_profile / .profile
+# ------------------------------------------------------
+#			For BChow's 2015 Macbook Pro
+
+# ---------------------------
+# ENVIRONMENT CONFIGURATION
+# ---------------------------
+export PS1="[\W] $ "
+export PROMPT_COMMAND='echo -ne "\033]0;$PWD\007"' # PWD overhead
+export EDITOR=/usr/bin/vi			# Vi default editor
+export CLICOLOR=0
+export LSCOLORS=CxFxBxDxExegedabagacad
+export SALVUS_BIN=/Users/Chow/Documents/Geophysik/post-grad/salvus/salvus/build/salvus
+export PARAVIEW_BIN=/Applications/ParaView-5.4.1.app/Contents/MacOS/paraview
+
+# added by Miniconda3 4.3.21 installer
+export PATH="/Users/Chow/miniconda3/bin:$PATH"
+export TMPDIR=/tmp
+
+# For Julia
+export PATH="/Applications/Julia-1.3.app/Contents/Resources/julia/bin:${PATH}"
+
+# ---------------------------
+# ALIASES AND STREAMLINES
+# ---------------------------
+# Commands
+alias lk='ls -FGAhp'
+alias ll='ls -FGAhpl'							
+alias lr='ls -lrt'
+alias l='ll'
+cd() { builtin cd "$@"; lk; }			# Shows content of dir.
+alias ..='cd ../'                               # Move up 1 dir.
+alias ...='cd ../../'                           # Move up 2 dir.
+alias .3='cd ../../../'                         # Move up 3 dir.
+alias .4='cd ../../../../'			# Move up 4 dir.
+alias cp='cp -iv'				# Show steps/Ask vor overwrite
+alias mv='mv -iv'				# Same as cp
+alias mkdir='mkdir -p'				# Multiple dir. creation
+alias rmdir='rmdir -p'				# Multiple dir. removal
+alias pwdc='pwd|pbcopy'
+alias c='clear'					# Clears terminal screen
+alias f='open -a Finder ./'			# Opens cur. dir. in finder
+alias rename='rename -vs'
+alias rsh='rsync --ignore-existing -avzhLe ssh'
+alias count='ls | wc -l'
+
+# SSH aliai
+alias ssht_lmu='ssh -D 8080 -C -N bchow@sshproxy-m.geophysik.uni-muenchen.de'
+																	
+# Anaconda environments
+alias scratch='source activate scratch' 		# Activate scratch env.
+alias scratch27='source activate scratch27' 		# Activate scratch env.
+alias srcjane='source activate jane'		# Activate jane environment
+alias tomo='source activate tomo'
+alias srcsalvus='source activate salvus'    # Activate salvus 
+alias srcinsta='source activate instaseis' 
+
+# Quick directory change
+alias cds='cd /Users/Chow/Scratch'
+alias cdac='cd ~/Documents/academic/'
+alias cdsub='cd ~/Documents/academic/vuw/'
+alias cdc='cd /Users/Chow/Documents/academic/vuw/forest'
+alias cda='cd /Users/Chow/Documents/academic/uaf/'
+alias cdw='cd /Users/Chow/Work'
+alias cdr='cd /Users/Chow/Repositories'
+
+# Functions
+alias dds='python ~/Documents/academic/vuw/packages/spectral/general/dailydids.py'
+alias odd='vi ~/Documents/academic/vuw/packages/spectral/general/dailydids.txt'
+alias jday='python /Users/Chow/Documents/computational/Python/scripts/jday_find.py' #Julian Day Conv.
+alias sdsd='sudo shutdown -h +60'		# Shutdown in 1 hour
+alias transparent='sh /Users/Chow/Documents/academic/vuw/packages/spectral/general/transparency.sh'
+alias whitespace='sh /Users/Chow/Documents/academic/vuw/packages/spectral/general/remove_whitespace.sh'
+alias disablesleep='sudo pmset -a disablesleep 1'
+alias enablesleep='sudo pmset -a disablesleep 0'
+alias diffvtk='/Users/Chow/Documents/academic/vuw/packages/simutils/tools/difference_vtk.py'
+alias journal='python ~/Documents/personal/journal.py'
+
+# iterm2
+test -e "${HOME}/.iterm2_shell_integration.bash" && source "${HOME}/.iterm2_shell_integration.bash"
+
+# alias programs
+alias paraview='open -a /Applications/ParaView-5.9.0-RC3.app/Contents/MacOS/paraview'
+alias pvmake='pvpython /Users/Chow/Documents/academic/vuw/packages/simutils/paraview/pvpyplot.py'
+alias pvpyplot='vi /Users/Chow/Documents/academic/vuw/packages/simutils/paraview/pvpyplot.py'
+
+# Alias Docker setup
