@@ -1,0 +1,6 @@
+module purge
+module load fj
+module load fjmpi
+module load scotch
+
+./configure CC=fcc FC=frt MPIFC=mpifrt --with-scotch-includedir=$SCOTCH_INC --with-scotch-libdir=$SCOTCH_LIB

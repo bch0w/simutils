@@ -1,0 +1,5 @@
+module load intel
+module load impi
+# module load scotch
+
+./configure CC=icc FC=ifort MPIFC=mpiifort
