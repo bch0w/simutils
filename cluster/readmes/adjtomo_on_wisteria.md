@@ -16,10 +16,23 @@ conda init
 source ~/.bashrc 
 ```
 
-## 1. Activate the Conda Environment
+## 1. Log on to the Pre-post node
+
+To avoid running computation on the login nodes, we take advantage of the 
+`prepost` node on Wisteria, which acts like the login node but does not burden 
+shared resources (see Wisteria manual 5.2.3).
+
+We submit an interactive job to `rscpgrp`=prepost in order to run the master 
+job on the prepost node.
+
+```bash
+pjsub -X --interact -g gr58 -L rscgrp=prepost
+```
+
+## 2. Activate the Conda Environment
 
 Now we can activate the adjTomo Conda environment. You will need to 
-do this each time you log on to Wisteria
+do this each time you log on to Wisteria and/or the prepost node.
 
 ```bash
 module purge
@@ -42,7 +55,7 @@ Test if this works by running the seisflows help message
 seisflows -h
 ```
 
-## 2. Run SeisFlows Example
+## 3. Run SeisFlows Example
 
 Setup one of the SeisFlows examples on Wisteria-Aquarius. I have already compiled
 SPECFEM2D so we can point to that directory for binary executables (`-r` flag).
