@@ -16,7 +16,7 @@ conda init
 source ~/.bashrc 
 ```
 
-## 1. Log on to the Pre-post node
+## 1. Log on to the `prepost` node
 
 To avoid running computation on the login nodes, we take advantage of the 
 `prepost` node on Wisteria, which acts like the login node but does not burden 
