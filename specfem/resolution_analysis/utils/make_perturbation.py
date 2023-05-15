@@ -1,1 +1,1 @@
-/home/bchow/REPOSITORIES/simutils/seisflows/make_perturbation.py
+../../../seisflows/make_perturbation.py
