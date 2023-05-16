@@ -83,7 +83,9 @@ Python code block, which will load in your model, perturb it, and write it back 
 ```python
 """
 To be run during SeisFlows debug mode to generate a perturbed velocity model
-`m + dm` for Zeroth Moment resolution analysis
+`m + dm` for Zeroth Moment resolution analysis. Reads in the existing model
+from the optimization library, perturbs it and saves the resulting 
+perturbed model in SPECFEM-ready format.
 """
 import os
 
@@ -125,7 +127,64 @@ for i, dir_ in enumerate([f"output/dvs_{int(perturbation*1E2):d}pct",
 
 ### Point Spread Function
 
-Work in progress
+To generate a point spread function, I wrote the [following Python script](https://github.com/bch0w/simutils/blob/master/meshing/point_local.py). 
+The idea behind the script is that it takes an external tomography model (.xyz files), and zeros out all values within the domain, except for 
+a user-defined 3D Gaussian ellipsoid at a given location.
+
+Once these .xyz files are created, you must manually generate databases using SPECFEM to get them into SPECFEM-ready format. Once these
+PSF database files are ready, you can read them in and perturb your final velocity model by running the following code block in 
+SeisFlows debug mode.
+
+
+```python
+"""
+To be copy-pasted into the SeisFlows debug mode to generate the correct 
+perturbation files for use in the point spread tests
+"""
+import os
+assert(os.path.basename(os.getcwd()) == "original"), "wrong directory"
+vp_offset = 3000  # set by point_local.py because otherwise SPECFEM 
+vs_offset = 1500  # complains when most velocity values are zero (unphysical)
+perturbation = 0.05
+
+# Load perturbation and remove offsets
+dm = solver.merge(solver.load('./'))
+n = int(len(dm)/2)
+dm[:n] -= vp_offset
+dm[n:] -= vs_offset
+print(f"min_0={dm[:n].min()}, max_0={dm[:n].max()}")
+print(f"min_1={dm[n:].min()}, max_1={dm[n:].max()}")
+
+# Save as template for future use
+os.chdir("..")
+if not os.path.exists("template"):
+    os.mkdir("template")
+os.chdir("template")
+solver.save(save_dict=solver.split(dm), path="./")
+os.chdir("..")
+
+# Apply perturbation to actual model values
+m = solver.merge(solver.load(PATH.MODEL))
+dm *= perturbation
+dm *= m
+print(f"min_0={dm[:n].min()}, max_0={dm[:n].max()}")
+print(f"min_1={dm[n:].min()}, max_1={dm[n:].max()}")
+
+# Save perturbations to requisite directories
+for i, dir_ in enumerate([f"dvs_{int(perturbation*1E2):d}pct", 
+                          f"dvp_{int(perturbation*1E2):d}pct"]):
+    if not os.path.exists(dir_):
+        os.mkdir(dir_)
+    os.chdir(dir_)
+    dm_ = dm.copy()
+    if i == 0:
+        dm_[:n] *= 0  # dvs
+    elif i == 1:
+        dm_[n:] *= 0  # dvp
+    print(f"{dir_}: min={dm_.min()}, max={dm_.max()}")
+    solver.save(save_dict=solver.split(dm_), path="./")
+    os.chdir("..")
+```
 
 ## Workflow Steps
 
