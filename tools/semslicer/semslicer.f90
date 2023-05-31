@@ -30,9 +30,9 @@ program sem_model_slice
 
   include 'mpif.h'
   ! Usually found in specfem3d/setup/constants.h
-  include '/home/chowbr/project/bchow/specfem/specfem3d/setup/constants.h'
+  include '/import/c1/ERTHQUAK/bhchow/REPOS/specfem3d/setup/constants.h'
   ! Usually found in specfem3d/setup/precision.h
-  include '/home/chowbr/project/bchow/specfem/specfem3d/setup/precision.h'
+  include '/import/c1/ERTHQUAK/bhchow/REPOS/specfem3d/setup/precision.h'
   !include 'values_from_mesher.h'
 
   ! Hard code the max number of GLL points expected
@@ -267,7 +267,7 @@ subroutine read_topo_file(topo, nx, ny, topo_infile)
   !
   ! ============================================================================
   implicit none
-  include "constants.h"
+  include '/import/c1/ERTHQUAK/bhchow/REPOS/specfem3d/setup/constants.h'
 
   ! TO DO: Move these into a separate ssconstants.h
   integer :: ix, iy
@@ -298,8 +298,10 @@ subroutine topography_value(topo, x, y, elevation)
   !
   ! ============================================================================
   implicit none
-  include 'constants.h'
+  include '/import/c1/ERTHQUAK/bhchow/REPOS/specfem3d/setup/constants.h'
 
+  integer, parameter :: NX_TOPO
+  integer, parameter :: NY_TOPO
   integer, dimension(NX_TOPO, NY_TOPO) :: topo
   double precision :: x, y
   double precision :: elevation
@@ -355,7 +357,7 @@ subroutine topography_value(topo, x, y, elevation)
           topo(icornerlon, icornerlat + 1) * (1. - ratio_xi) * ratio_eta
 
 
-end subroutine topo_value
+end subroutine topography_value
 
 
 !------------------------------------------------------------------------------
@@ -366,8 +368,8 @@ subroutine exit_MPI(myrank, error_msg)
   ! ============================================================================
   implicit none
   include 'mpif.h'
-  include '/home/chowbr/project/bchow/specfem/specfem3d/setup/constants.h'
-  include '/home/chowbr/project/bchow/specfem/specfem3d/setup/precision.h'
+  include '/import/c1/ERTHQUAK/bhchow/REPOS/specfem3d/setup/constants.h'
+  include '/import/c1/ERTHQUAK/bhchow/REPOS/specfem3d/setup/precision.h'
 
   ! identifier for error message file
   integer, parameter :: IERROR = 30

@@ -210,98 +210,98 @@ contains
 
     point_already_found(:,:,:) = 0
 
-    !! loop over elements
-    do ispec = 1, NSPEC_AB
-!!$       if (DEBUG_MODE) write(IIDD,*) isepc, NSPEC_AB
-       xmin =  HUGEVAL
-       xmax = -HUGEVAL
-       ymin =  HUGEVAL
-       ymax = -HUGEVAL
-       zmin =  HUGEVAL
-       zmax = -HUGEVAL
-       !! get boundary to
-       do kgg = 1, NGLLZ
-          do jgg = 1, NGLLY
-             do igg = 1, NGLLX
-                iglob = ibool(igg,jgg,kgg,ispec)
+    !!$ !! loop over elements
+    !!$ do ispec = 1, NSPEC_AB
+!!$ !!$       if (DEBUG_MODE) write(IIDD,*) isepc, NSPEC_AB
+    !!$    xmin =  HUGEVAL
+    !!$    xmax = -HUGEVAL
+    !!$    ymin =  HUGEVAL
+    !!$    ymax = -HUGEVAL
+    !!$    zmin =  HUGEVAL
+    !!$    zmax = -HUGEVAL
+    !!$    !! get boundary to
+    !!$    do kgg = 1, NGLLZ
+    !!$       do jgg = 1, NGLLY
+    !!$          do igg = 1, NGLLX
+    !!$             iglob = ibool(igg,jgg,kgg,ispec)
 
-                xmin  = min( xmin, xstore(iglob))
-                xmax  = max( xmax, xstore(iglob))
+    !!$             xmin  = min( xmin, xstore(iglob))
+    !!$             xmax  = max( xmax, xstore(iglob))
 
-                ymin  = min( ymin, ystore(iglob))
-                ymax  = max( ymax, ystore(iglob))
+    !!$             ymin  = min( ymin, ystore(iglob))
+    !!$             ymax  = max( ymax, ystore(iglob))
 
-                zmin  = min( zmin, zstore(iglob))
-                zmax  = max( zmax, zstore(iglob))
+    !!$             zmin  = min( zmin, zstore(iglob))
+    !!$             zmax  = max( zmax, zstore(iglob))
 
-             enddo
-          enddo
-       enddo
+    !!$          enddo
+    !!$       enddo
+    !!$    enddo
 
-       kmin =  1+ int((zmin  - oz_fd_proj) / hz_fd_proj)
-       kmax =  1+ int((zmax  - oz_fd_proj) / hz_fd_proj)
-       jmin =  1+ int((ymin  - oy_fd_proj) / hy_fd_proj)
-       jmax =  1+ int((ymax  - oy_fd_proj) / hy_fd_proj)
-       imin =  1+ int((xmin  - ox_fd_proj) / hx_fd_proj)
-       imax =  1+ int((xmax  - ox_fd_proj) / hx_fd_proj)
+    !!$    kmin =  1+ int((zmin  - oz_fd_proj) / hz_fd_proj)
+    !!$    kmax =  1+ int((zmax  - oz_fd_proj) / hz_fd_proj)
+    !!$    jmin =  1+ int((ymin  - oy_fd_proj) / hy_fd_proj)
+    !!$    jmax =  1+ int((ymax  - oy_fd_proj) / hy_fd_proj)
+    !!$    imin =  1+ int((xmin  - ox_fd_proj) / hx_fd_proj)
+    !!$    imax =  1+ int((xmax  - ox_fd_proj) / hx_fd_proj)
 
-        if (DEBUG_MODE) then
-          write(IIDD,*) ' projection SEM2FD : boundary element'
-          write(IIDD,*) ispec, NSPEC_AB
-          write(IIDD,*) xmin, xmax
-          write(IIDD,*) ymin, ymax
-          write(IIDD,*) zmin, zmax
-          write(IIDD,*)
-          write(IIDD,*) imin, imax
-          write(IIDD,*) jmin, jmax
-          write(IIDD,*) kmin, kmax
-          write(IIDD,*)
-       endif
+    !!$     if (DEBUG_MODE) then
+    !!$       write(IIDD,*) ' projection SEM2FD : boundary element'
+    !!$       write(IIDD,*) ispec, NSPEC_AB
+    !!$       write(IIDD,*) xmin, xmax
+    !!$       write(IIDD,*) ymin, ymax
+    !!$       write(IIDD,*) zmin, zmax
+    !!$       write(IIDD,*)
+    !!$       write(IIDD,*) imin, imax
+    !!$       write(IIDD,*) jmin, jmax
+    !!$       write(IIDD,*) kmin, kmax
+    !!$       write(IIDD,*)
+    !!$    endif
 
-       !! loop on fd grid to count the numbers of point in fd grid that live in my mesh partition
-       do kfd = kmin, kmax
-          zfd = oz_fd_proj + (kfd-1)*hz_fd_proj
-          do jfd = jmin, jmax
-             yfd = oy_fd_proj + (jfd-1)*hy_fd_proj
-             do ifd = imin, imax
-                xfd = ox_fd_proj + (ifd-1)*hx_fd_proj
+    !!$    !! loop on fd grid to count the numbers of point in fd grid that live in my mesh partition
+    !!$    do kfd = kmin, kmax
+    !!$       zfd = oz_fd_proj + (kfd-1)*hz_fd_proj
+    !!$       do jfd = jmin, jmax
+    !!$          yfd = oy_fd_proj + (jfd-1)*hy_fd_proj
+    !!$          do ifd = imin, imax
+    !!$             xfd = ox_fd_proj + (ifd-1)*hx_fd_proj
 
 
-                x_to_locate = xfd
-                y_to_locate = yfd
-                z_to_locate = zfd
+    !!$             x_to_locate = xfd
+    !!$             y_to_locate = yfd
+    !!$             z_to_locate = zfd
 
-                !! compute element ispec where is the point (xfd, yfd, zfd)
-                call locate_point_in_element(x_to_locate, y_to_locate, z_to_locate, iaddx, iaddy, iaddz, elemsize_max_glob, &
-                     ispec_selected, xi_loc, eta_loc, gamma_loc, x_found, y_found, z_found, myrank, ispec)
+    !!$             !! compute element ispec where is the point (xfd, yfd, zfd)
+    !!$             call locate_point_in_element(x_to_locate, y_to_locate, z_to_locate, iaddx, iaddy, iaddz, elemsize_max_glob, &
+    !!$                  ispec_selected, xi_loc, eta_loc, gamma_loc, x_found, y_found, z_found, myrank, ispec)
 
-                ! !! compute islice MPI partition where is the point  (xfd, yfd, zfd)
-                ! call locate_MPI_slice_and_bcast_to_all_1(x_to_locate, y_to_locate, z_to_locate, x_found, y_found, z_found, &
-                !      xi_loc, eta_loc, gamma_loc, ispec_selected, islice_selected,  distance_from_target, myrank)
+    !!$             ! !! compute islice MPI partition where is the point  (xfd, yfd, zfd)
+    !!$             ! call locate_MPI_slice_and_bcast_to_all_1(x_to_locate, y_to_locate, z_to_locate, x_found, y_found, z_found, &
+    !!$             !      xi_loc, eta_loc, gamma_loc, ispec_selected, islice_selected,  distance_from_target, myrank)
 
-                ! if (DEBUG_MODE) then
-                !    write(IIDD,*)
-                !    write(IIDD,*)  ifd, jfd, kfd
-                !    write(IIDD,*)  xi_loc, eta_loc, gamma_loc
-                !    write(IIDD,*)  point_already_found(ifd, jfd, kfd)
-                ! endif
+    !!$             ! if (DEBUG_MODE) then
+    !!$             !    write(IIDD,*)
+    !!$             !    write(IIDD,*)  ifd, jfd, kfd
+    !!$             !    write(IIDD,*)  xi_loc, eta_loc, gamma_loc
+    !!$             !    write(IIDD,*)  point_already_found(ifd, jfd, kfd)
+    !!$             ! endif
 
-                if (abs(xi_loc) < 1.05d0 .and. abs(eta_loc) < 1.05d0 .and. abs(gamma_loc) < 1.05d0) then
-                   if (point_already_found(ifd, jfd, kfd) == 0) then
-                      point_already_found(ifd, jfd, kfd)=ispec_selected
-                      xi_in_fd(ifd, jfd, kfd)=xi_loc
-                      eta_in_fd(ifd, jfd, kfd)=eta_loc
-                      gamma_in_fd(ifd, jfd, kfd)=gamma_loc
-                      nb_fd_point_loc = nb_fd_point_loc + 1
-                   endif
-                endif
+    !!$             if (abs(xi_loc) < 1.05d0 .and. abs(eta_loc) < 1.05d0 .and. abs(gamma_loc) < 1.05d0) then
+    !!$                if (point_already_found(ifd, jfd, kfd) == 0) then
+    !!$                   point_already_found(ifd, jfd, kfd)=ispec_selected
+    !!$                   xi_in_fd(ifd, jfd, kfd)=xi_loc
+    !!$                   eta_in_fd(ifd, jfd, kfd)=eta_loc
+    !!$                   gamma_in_fd(ifd, jfd, kfd)=gamma_loc
+    !!$                   nb_fd_point_loc = nb_fd_point_loc + 1
+    !!$                endif
+    !!$             endif
 
-             enddo
-          enddo
-       enddo
-    enddo
+    !!$          enddo
+    !!$       enddo
+    !!$    enddo
+    !!$ enddo
 
-    if (DEBUG_MODE) write(IIDD,*) ' END  compute_interpolation_coeff_FD_SEM step 1',  nb_fd_point_loc
+    !!$ if (DEBUG_MODE) write(IIDD,*) ' END  compute_interpolation_coeff_FD_SEM step 1',  nb_fd_point_loc
 
     !! allocate projection structure
     projection_fd%nx=nx_fd_proj
@@ -475,7 +475,7 @@ contains
 !!$    endif
 
     deallocate(point_already_found)
-    deallocate( xi_in_fd, eta_in_fd, gamma_in_fd)
+    deallocate(xi_in_fd, eta_in_fd, gamma_in_fd)
 
     if (DEBUG_MODE) write(IIDD,*) ' END  compute_interpolation_coeff_FD_SEM'
 

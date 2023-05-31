@@ -1,10 +1,9 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xspecfem3D
-#SBATCH --ntasks=4
-#SBATCH --tasks-per-node=24
-#SBATCH --partition=debug
-#SBATCH --time 00:05:00
+#SBATCH --ntasks=80
+#SBATCH --partition=t1small
+#SBATCH --time 00:30:00
 #SBATCH --output=specfem3D_%j.out
 
 ulimit -s unlimited

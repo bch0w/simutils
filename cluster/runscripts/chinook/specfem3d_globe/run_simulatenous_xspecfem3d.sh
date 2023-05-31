@@ -1,9 +1,9 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xspecfem3D
-#SBATCH --ntasks=56
+#SBATCH --ntasks=8
 #SBATCH --partition=t1small
-#SBATCH --time 00:25:00
+#SBATCH --time 00:10:00
 #SBATCH --output=specfem3D_%j.out
 
 ulimit -s unlimited
@@ -18,18 +18,19 @@ BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
 NPROC_XI=`grep ^NPROC_XI DATA/Par_file | cut -d = -f 2 `                         
 NPROC_ETA=`grep ^NPROC_ETA DATA/Par_file | cut -d = -f 2`                        
 NCHUNKS=`grep ^NCHUNKS DATA/Par_file | cut -d = -f 2 `                           
+NSIMUL=`grep ^NUMBER_OF_SIMULTANEOUS_RUNS DATA/Par_file | cut -d = -f 2 `                           
                                                                                  
 # total number of nodes is the product of the values read                        
-numnodes=$(( $NCHUNKS * $NPROC_XI * $NPROC_ETA ))                                
-                                                                                 
+NPROCSINGLE=$(( $NCHUNKS * $NPROC_XI * $NPROC_ETA ))                                
+NPROC=$(( $NPROCSINGLE * $NSIMUL ))
 
 # Make the Database directory
 mkdir -p $BASEMPIDIR
 
 # This is a MPI simulation
-echo "xspecfem3d ${numnodes} processors"
+echo "xspecfem3d ${NSIMUL} times on ${NPROCSINGLE} processors"
 echo
-time mpirun -np ${numnodes} ./bin/xspecfem3D
+time mpirun -np ${NPROC} ./bin/xspecfem3D
 
 # checks exit code
 if [[ $? -ne 0 ]]; then exit 1; fi

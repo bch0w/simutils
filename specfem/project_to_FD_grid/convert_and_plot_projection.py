@@ -121,7 +121,6 @@ def plot3d_projection(x, y, z, data):
     ax.view_init(40, -30, 0)
     ax.set_box_aspect(None, zoom=0.9)
 
-
     f.colorbar(C, ax=ax, fraction=0.02, pad=0.1, label='Vs [m/s]')
 
     plt.show()
@@ -150,14 +149,15 @@ def plot2d_xsection(arr, xval=350000.):
     plt.colorbar(sc)
     plt.grid()
 
-    # test = np.reshape(z_, (100, 400))
-    # plt.imshow(test)
+    # grid = np.reshape(z_, (len(np.unique(arr[:,0])), len(np.unique(arr[:,1]))))
+    # plt.imshow(grid)
     # plt.gca().invert_yaxis()
-    
-    plt.show()
+
+    plt.savefig(f"xsection_{int(xval*1E-3)}km.png")
+    plt.close()
 
 
-def plot2d_depth_slice(arr, depth_z=-20000.):
+def plot2d_depth_slice(arr, depth_z=-15000.):
     """2D depth slices at a given Z value""" 
     depth_z_true = _find_nearest(arr[:,2], depth_z)
     print(f"depth_z: {depth_z} -> {depth_z_true}")
@@ -168,22 +168,29 @@ def plot2d_depth_slice(arr, depth_z=-20000.):
     x_ = xyd[:, 0]
     y_ = xyd[:, 1]
     z_ = xyd[:, 2]
-    sc = plt.scatter(x_, y_, c=z_)
+    sc = plt.scatter(x_, y_, c=z_, s=1.5, cmap="rainbow")
     plt.colorbar(sc)
     
-
     # z_ = np.reshape(xyd[:, 2], (len(x), len(y)))
     # plt.contourf(x_, y_, z_)
+    plt.gca().set_aspect(0.5)
+    plt.savefig(f"depth_slice_{int(depth_z*1E-3)}.png")
+    plt.close()
 
-    plt.show()
-    
 
 if __name__ == "__main__":
-    filename = "OUTPUT_FILES/vs_projected.bin"
+    parameter = "vs"
+    filename = f"OUTPUT_FILES/{parameter}_projected.bin"
     fd_proj_grid = "fd_proj_grid.txt"
    
     arr = read_and_convert_projection(filename, fd_proj_grid) 
-    
-    plot2d_xsection(arr)
-    # plot2d_depth_slice(arr)
+
+    np.savetxt(f"{parameter}_arr.xyz", arr, fmt="%6.3f")
+
+    for xval in [arr[:,0].min(), arr[:,0].mean(), arr[:,0].max()]:
+        plot2d_xsection(arr, xval=xval)
+
+    for zval in [arr[:,2].min(), arr[:,2].mean(), arr[:,2].max()]:
+        plot2d_depth_slice(arr, depth_z=zval)
+
     # plot3d_projection(x, y, z, data)

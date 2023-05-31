@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH --job-name=xgenerate_databases
-#SBATCH --ntasks=4
+#SBATCH --ntasks=80
 #SBATCH --partition=t1small
 #SBATCH --time=00:02:00
 #SBATCH --output=generate_databases_%j.out
@@ -18,9 +18,12 @@ BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
 mkdir -p ${BASEMPIDIR}
 
 # This is a MPI simulation
+echo "`date`"
+echo "xmeshfem3D ${NPROC} processors"
+echo
+time mpiexec -n ${NPROC} ./bin/xmeshfem3D
 echo "xgenerate_databases ${NPROC} processors"
 echo
-echo "`date`"
 time mpiexec -n ${NPROC} ./bin/xgenerate_databases
 
 # checks exit code

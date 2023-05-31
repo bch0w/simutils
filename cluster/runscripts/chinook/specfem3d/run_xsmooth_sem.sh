@@ -1,14 +1,9 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xsmooth_sem
-#SBATCH --nodes=2
 #SBATCH --ntasks=80
-#SBATCH --cpus-per-task=1
-#SBATCH --account=nesi00263
-#SBATCH --clusters=maui
-#SBATCH --partition=nesi_research
-#SBATCH --hint=nomultithread
-#SBATCH --time=02:30:00
+#SBATCH --partition=t1small
+#SBATCH --time=01:00:00
 #SBATCH --output=smooth_sem_%j.out
 
 # note: runtime is dependent on the size of the smoothing Gaussian, i.e.
@@ -27,9 +22,9 @@
 # DIR_OUT: director to output the smoothed .bin files
 # USE_GPU: use GPU acceleration to speed up calculations. not available on Maui
 
-KERNEL="vs_kernel"
-SGMAH=20000.
-SGMAV=10000.
+KERNEL=$1
+SGMAH=4000.
+SGMAV=2000.
 DIR_IN="SMOOTH/"
 DIR_OUT=${DIR_IN}
 USE_GPU=".false"
@@ -56,7 +51,7 @@ echo "`date`"
 
 # EXAMPLE CALL:
 # srun -n NPROC xmooth_sem SIGMA_H SIGMA_V KERNEL_NAME INPUT_DIR OUTPUT_DIR USE_GPU
-time srun -n ${NPROC} ./bin/xsmooth_sem ${SGMAH} ${SGMAV} ${KERNEL} ${DIR_IN} ${DIR_OUT} ${USE_GPU}
+time mpiexec -n ${NPROC} ./bin/xsmooth_sem ${SGMAH} ${SGMAV} ${KERNEL} ${DIR_IN} ${DIR_OUT} ${USE_GPU}
 
 # checks exit code
 if [[ $? -ne 0 ]]; then exit 1; fi

@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=xmeshfem3D
 #SBATCH --ntasks=1
-#SBATCH --partition=t1small
+#SBATCH --partition=debug
 #SBATCH --time=00:02:00
 #SBATCH --output=meshfem3D_%j.out
 
@@ -16,7 +16,6 @@ BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
 
 # Make the Database directory
 mkdir -p ${BASEMPIDIR}
-mkdir -p MESH
 
 echo "xmeshfem3D on ${NPROC} processors"
 echo
