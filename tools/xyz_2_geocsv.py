@@ -10,7 +10,7 @@ NOTE:
         latitude_column, longitude_column, depth_column
         latitude can also be x or X
         longitude can also be y or Y
-        depth must be depth because part of their code fails if it's z
+        X depth must be depth because part of their code fails if it's z
         header attributes such as 'author_name' must start with 'global', i.e.,
             # global_author_name: Bryant Chow
 
@@ -290,10 +290,10 @@ class Converter():
         # Write geospatial data as global header information, required by IRIS
         # i.e., '# global_geospatial_lat_min: ...'
         cmt = "global_geospatial"
-        for name in ["latitude", "longitude", "z_axis_utm"]:
+        for name in ["latitude", "longitude", "depth"]:
             for i, field in enumerate(self.fields):
                 if field["long_name"] == name:
-                    if name == "z_axis_utm":
+                    if name == "depth":
                         name = "vertical"
                     else:
                         name = field.std_name
@@ -317,8 +317,15 @@ class Converter():
         # Write header information REQUIRED by GeoCSV and IRIS emc-tools
         for i, field in enumerate(self.fields):
             name = field.std_name
+            # Spatial dimensions are independent. All other params are dep on 
+            # the spatial dimensions x, y, z
+            if name in ["x", "y", "z", "lat", "lon"]:
+                dim = 1
+            else:
+                dim = 3
 
             # Allows different column name w.r.t actual name, e.g. x -> long
+            f.write(f"# {name}_dimensions: {dim}\n")
             f.write(f"# {name}_column: {field.std_name}\n")
             f.write(f"# {name}_long_name: {field.long_name}\n")
             f.write(f"# {name}_units: {field.unit}\n")
@@ -330,8 +337,8 @@ class Converter():
                 f.write(f"# d{name}: {dx}\n")
 
             # Need to define depth positive
-            if name == "depth":
-                f.write(f"# depth_positive: {vert_positive}\n")
+            if name == "z":
+                f.write(f"# {name}_positive: {vert_positive}\n")
 
         if append is not None:
             f.write(append)
@@ -395,7 +402,7 @@ def convert_main(input_files, output_files, path_out="./", prepend=None,
     # what the final units are
     conv.append(std_name="y", long_name="y_axis_utm", unit="km") 
     conv.append(std_name="x", long_name="x_axis_utm", unit="km")
-    conv.append(std_name="depth", long_name="z_axis_utm", unit="km")
+    conv.append(std_name="z", long_name="depth", unit="km")
 
     # Having lat/lon headers means we will need to run convert_coordinates()
     # BEFORE writing header information. These values are not in the original
@@ -494,7 +501,7 @@ def convert_nzatom_north_xyz_2_geocsv():
        ]
     output_files = [os.path.join(path_out, _) for _ in output_files]
 
-    convert_dict = {"x": 1E-3, "y": 1E-3, "depth": -1E-3, "vp": 1E-3, 
+    convert_dict = {"x": 1E-3, "y": 1E-3, "z": -1E-3, "vp": 1E-3, 
                     "vs": 1E-3}
 
     convert_main(input_files=input_files, output_files=output_files, 
@@ -542,7 +549,7 @@ def convert_nzwide_north_xyz_2_geocsv():
     "global_geodetic_datum": "UTM 60S / EPSG 32760",
             }
 
-    convert_dict = {"x": 1E-3, "y": 1E-3, "depth": -1E-3, "vp": 1E-3, 
+    convert_dict = {"x": 1E-3, "y": 1E-3, "z": -1E-3, "vp": 1E-3, 
                     "vs": 1E-3}
 
     convert_main(input_files=input_files, output_files=output_files, 
