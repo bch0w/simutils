@@ -23,8 +23,8 @@
 # USE_GPU: use GPU acceleration to speed up calculations. not available on Maui
 
 KERNEL=$1
-SGMAH=4000.
-SGMAV=2000.
+SGMAH=500.
+SGMAV=500.
 DIR_IN="SMOOTH/"
 DIR_OUT=${DIR_IN}
 USE_GPU=".false"

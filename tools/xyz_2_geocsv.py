@@ -384,7 +384,7 @@ def convert_main(input_files, output_files, path_out="./", prepend=None,
     """
     # Start em up boys
     conv = Converter(delimiter_in=",", delimiter="|", fmt="%.3f", 
-                     path_out=path_out)
+                     path_out=path_out, header_lines=0)
 
     # Set the values defined by the xyz file. 
     # NOTE: Order matters here, must match the order in which the data appears 
@@ -440,26 +440,21 @@ def convert_nzatom_north_xyz_2_geocsv():
 
     * Turning 'grid' off on coordinate data because IRIS doesn't want that
     """
-    # !!! Set the files here
+    # !!! Set filenames/filepaths below
     path_in = "./"
-    input_files = ["tomography_model_mantle_m28.xyz",
-                   "tomography_model_crust_m28.xyz",
-                   "tomography_model_shallow_m28.xyz"]
-    input_files = [os.path.join(path_in, _) for _ in input_files]
+    input_files = ["tomography_model_mantle.xyz",
+                   "tomography_model_crust.xyz",
+                   "tomography_model_shallow.xyz"]
 
+    # output files are auto-controlled by the header information
     path_out = "./"
-    output_files = ["nz-atom-north-chow-etal-2022-vp+vs-mantle.r0.0-n4.csv",
-                    "nz-atom-north-chow-etal-2022-vp+vs-crust.r0.0-n4.csv",
-                    "nz-atom-north-chow-etal-2022-vp+vs-shallow.r0.0-n4.csv"]
-    output_files = [os.path.join(path_out, _) for _ in output_files]
-
 
     # Define header information required by EMC
     header = {
     "global_title": "New Zealand Adjoint Tomography Model - "
                     "North Island (NZ_ATOM_NORTH)",
     "global_id": "nz_atom_north_chow_etal_2021_vp+vs",
-    "global_data_revision": "r0.0",
+    "global_data_revision": "r0.1",
     "global_Conventions": "CF-1.0",
     "global_Metadata_Conventions": "Unidata Dataset Discovery v1.0",
     "global_summary": 
@@ -479,8 +474,7 @@ def convert_nzatom_north_xyz_2_geocsv():
     "global_attribution": "DOI:10.1029/2021JB022865",
     "global_author_name": "Bryant Chow",
     "global_author_contact": "bhchow@alaska.edu",
-    "global_author_institution": "Victoria University of Wellington and "
-        "GNS Science (now at University of Alaska Fairbanks)",
+    "global_author_institution": "University of Alaska Fairbanks",
     "global_repository_name": "EMC",
     "global_repository_institution": "IRIS DMC",
     "global_repository_pid": "doi:10.17611/dp/emc.2021.nzatomnnorthvpvs.1",
@@ -490,6 +484,15 @@ def convert_nzatom_north_xyz_2_geocsv():
     # "global_center_coordinates": f"{conv.data[:, 0].mean(): {conv.fstr}}, " 
     #                              f"{conv.data[:, 1].mean(): {conv.fstr}}",
             }
+
+    # Generate full path to filenames for reading/writing
+    input_files = [os.path.join(path_in, _) for _ in input_files]
+    output_files = [
+       f"{header['global_id']}-mantle.{header['global_data_revision']}-n4.csv",
+       f"{header['global_id']}-crust.{header['global_data_revision']}-n4.csv",
+       f"{header['global_id']}-shallow.{header['global_data_revision']}-n4.csv",
+       ]
+    output_files = [os.path.join(path_out, _) for _ in output_files]
 
     convert_dict = {"x": 1E-3, "y": 1E-3, "depth": -1E-3, "vp": 1E-3, 
                     "vs": 1E-3}

@@ -36,16 +36,16 @@ test_case = dict(
 nzatom = dict(
     origin_x = 170000.,
     origin_y = 5286000.,
-    origin_z = -50000.,
+    origin_z = -400000.,
     end_x = 635000.,
     end_y = 5905000.,
-    end_z = -7000.,
+    end_z = -44000.,
     nx = 100.,
     ny = 100.,
     nz = 500.,
-    hx = 1000.,
-    hy = 1000.,
-    hz = 1000.,
+    hx = 4000.,
+    hy = 4000.,
+    hz = 4000.,
     choice = "h",
     )
 
