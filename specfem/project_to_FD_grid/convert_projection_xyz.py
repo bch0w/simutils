@@ -75,8 +75,8 @@ if __name__ == "__main__":
 
     if choice == "smooth":
         # fid_template = "OUTPUT_FILES/projected_smooth_3x1km/{}_projected.bin"
-        # fid_template = "OUTPUT_FILES/projected_smooth_4x2km/{}_projected.bin"
-        fid_template = "OUTPUT_FILES/projected_smooth_500x500m/{}_projected.bin"
+        fid_template = "OUTPUT_FILES/projected_smooth_4x2km/{}_projected.bin"
+        # fid_template = "OUTPUT_FILES/projected_smooth_500x500m/{}_projected.bin"
     elif choice == "raw":
         fid_template = "OUTPUT_FILES/projected_raw/{}_projected.bin"
 

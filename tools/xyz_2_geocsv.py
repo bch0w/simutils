@@ -494,7 +494,13 @@ def convert_nzatom_north_xyz_2_geocsv():
         "are updated during the inversion. The reamining quantities are "
         "defined by the starting/reference velocity model",
     "global_keywords": "adjoint, seismic, earthquake, tomography",
-    "global_attribution": "DOI:10.1029/2021JB022865",
+    "global_reference": 
+        "Chow, B., Kaneko, Y., Tape, C., Modrak, R., Mortimer, N., "
+        "Bannister, S., & Townend, J. (2022). Strong Upper‐Plate Heterogeneity "
+        "at the Hikurangi Subduction Margin (North Island, New Zealand) Imaged "
+        "by Adjoint Tomography. Journal of Geophysical Research: Solid Earth, "
+        "127(1), e2021JB022865",
+    "global_reference_pid": "DOI:10.1029/2021JB022865",
     "global_author_name": "Bryant Chow",
     "global_author_contact": "bhchow@alaska.edu",
     "global_author_institution": "University of Alaska Fairbanks",
@@ -574,7 +580,7 @@ def convert_nzwide_north_xyz_2_geocsv():
 
 if __name__ == "__main__":
     try:
-        if sys.argv[1] == "atom":
+        if sys.argv[1] in ["atom", ""]:
             print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
             convert_nzatom_north_xyz_2_geocsv()
         elif sys.argv[1] == "ref":

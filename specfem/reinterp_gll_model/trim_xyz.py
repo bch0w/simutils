@@ -24,7 +24,7 @@ for fid in ["og_tomography_model_mantle.xyz",
 
     # Use Vs as the check for 0 values, should be the same everywhere
     data = data[np.where(data[:,4] != 0)]  # drop 0 values
-    data = data[np.where((data[:,0] >= 171E3) & (data[:,0] <= 630E3))]  # xlim
+    data = data[np.where((data[:,0] >= 171E3) & (data[:,0] <= 631E3))]  # xlim
     data = data[np.where((data[:,1] >= 5286E3) & (data[:,1] <= 5902E3))]  # ylim
     print_minmax(data)
 

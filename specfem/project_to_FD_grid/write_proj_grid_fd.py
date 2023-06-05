@@ -34,7 +34,7 @@ test_case = dict(
     )
 
 nzatom = dict(
-    origin_x = 170000.,
+    origin_x = 171000.,
     origin_y = 5286000.,
     origin_z = -400000.,
     end_x = 635000.,
