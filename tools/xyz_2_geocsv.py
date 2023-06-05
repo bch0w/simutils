@@ -30,12 +30,17 @@ class Field(dict):
     dictionary that ensures all these attributes are met. Also allows expansion
     to new attributes that are automatically filled in as the Field is parsed.
     """
-    def __init__(self, std_name, long_name, unit, grid=False):
+    def __init__(self, std_name, long_name, unit, grid=False,
+                 display_name=None):
         """
         Set field attributes required for GeoCSV file
         
         :type std_name: str
         :param std_name: standard or short name for the variable, e.g. vp
+        :type display_name: str
+        :param display_name: name to be displayed formally, should include
+            units e.g., S Velocity [km/s]. Optional, only required for dependent
+            parameters
         :type long_name: str
         :param long_name: long name for the variable, e.g. P-velocity
         :type unit: str
@@ -47,6 +52,7 @@ class Field(dict):
             dx values. Defaults to False
         """
         self.std_name = std_name
+        self.display_name = display_name
         self.long_name = long_name
         self.unit = unit
         self.grid = grid
@@ -328,6 +334,8 @@ class Converter():
             f.write(f"# {name}_dimensions: {dim}\n")
             f.write(f"# {name}_column: {field.std_name}\n")
             f.write(f"# {name}_long_name: {field.long_name}\n")
+            if field.display_name is not None:
+                f.write(f"# {name}_display_name: {field.display_name}\n")
             f.write(f"# {name}_units: {field.unit}\n")
             f.write(f"# {name}_min: {self.data[:, i].min(): {self.fstr}}\n")
             f.write(f"# {name}_max: {self.data[:, i].max(): {self.fstr}}\n")
@@ -411,11 +419,17 @@ def convert_main(input_files, output_files, path_out="./", prepend=None,
     conv.append(std_name="lon", long_name="longitude", unit="degrees_east")
 
     # Standard seismic tomography model data
-    conv.append(std_name="vp", long_name="p_velocity", unit="km/s")
-    conv.append(std_name="vs", long_name="s_velocity", unit="km/s")
-    conv.append(std_name="rho", long_name="density", unit="kg/m^3")
-    conv.append(std_name="qp", long_name="p_attenuation", unit="count")
-    conv.append(std_name="qs", long_name="s_attenuation", unit="count")
+    conv.append(std_name="vp", long_name="p_velocity", unit="km/s", 
+                display_name="P Velocity (km/s)")
+    conv.append(std_name="vs", long_name="s_velocity", unit="km/s",
+                display_name="S Velocity (km/s)")
+    conv.append(std_name="rho", long_name="density", unit="kg/m^3",
+                display_name="Density (kg/m^3)")
+    conv.append(std_name="qp", long_name="p_attenuation", unit="count",
+                display_name="P Attenuation (counts)")
+    conv.append(std_name="qs", long_name="s_attenuation", unit="count",
+                display_name="S Attenuation (counts)")
+
 
     # Local paths to the tomography .xyz files
     for fid, fid_out in zip(input_files, output_files):
@@ -449,9 +463,11 @@ def convert_nzatom_north_xyz_2_geocsv():
     """
     # !!! Set filenames/filepaths below
     path_in = "./"
-    input_files = ["tomography_model_mantle.xyz",
-                   "tomography_model_crust.xyz",
-                   "tomography_model_shallow.xyz"]
+    # input_files = ["tomography_model_mantle.xyz",
+    #                "tomography_model_crust.xyz",
+    #                "tomography_model_shallow.xyz"]
+
+    input_files = ["tomography_model_mantle.xyz",]
 
     # output files are auto-controlled by the header information
     path_out = "./"
