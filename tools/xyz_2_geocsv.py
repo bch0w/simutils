@@ -474,6 +474,7 @@ def convert_nzatom_north_xyz_2_geocsv():
     header = {
     "global_title": "New Zealand Adjoint Tomography Model - "
                     "North Island (NZ_ATOM_NORTH)",
+    "global_model": "NZ_ATOM_NORTH_r0.1",
     "global_id": "nz_atom_north_chow_etal_2021_vp+vs",
     "global_data_revision": "r0.1",
     "global_Conventions": "CF-1.0",
