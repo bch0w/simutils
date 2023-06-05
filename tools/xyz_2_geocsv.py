@@ -463,11 +463,9 @@ def convert_nzatom_north_xyz_2_geocsv():
     """
     # !!! Set filenames/filepaths below
     path_in = "./"
-    # input_files = ["tomography_model_mantle.xyz",
-    #                "tomography_model_crust.xyz",
-    #                "tomography_model_shallow.xyz"]
-
-    input_files = ["tomography_model_mantle.xyz",]
+    input_files = ["tomography_model_mantle.xyz",
+                   "tomography_model_crust.xyz",
+                   "tomography_model_shallow.xyz"]
 
     # output files are auto-controlled by the header information
     path_out = "./"
