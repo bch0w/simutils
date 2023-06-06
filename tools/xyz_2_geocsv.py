@@ -463,11 +463,9 @@ def convert_nzatom_north_xyz_2_geocsv():
     """
     # !!! Set filenames/filepaths below
     path_in = "./"
-    # input_files = ["tomography_model_mantle.xyz",
-    #                "tomography_model_crust.xyz",
-    #                "tomography_model_shallow.xyz"]
-
-    input_files = ["tomography_model_mantle.xyz",]
+    input_files = ["tomography_model_mantle.xyz",
+                   "tomography_model_crust.xyz",
+                   "tomography_model_shallow.xyz"]
 
     # output files are auto-controlled by the header information
     path_out = "./"
@@ -476,6 +474,7 @@ def convert_nzatom_north_xyz_2_geocsv():
     header = {
     "global_title": "New Zealand Adjoint Tomography Model - "
                     "North Island (NZ_ATOM_NORTH)",
+    "global_model": "NZ_ATOM_NORTH_r0.1",
     "global_id": "nz_atom_north_chow_etal_2021_vp+vs",
     "global_data_revision": "r0.1",
     "global_Conventions": "CF-1.0",
