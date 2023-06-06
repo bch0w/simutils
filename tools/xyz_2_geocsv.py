@@ -15,8 +15,10 @@ NOTE:
             # global_author_name: Bryant Chow
 
 Relevant links:
-    https://github.com/iris-edu/emc-tools
-    http://geows.ds.iris.edu/documents/GeoCSV.pdf
+    1) https://github.com/iris-edu/emc-tools
+    2) http://geows.ds.iris.edu/documents/GeoCSV.pdf
+    3) http://ds.iris.edu/ds/newsletter/vol24/no1/543/\
+                emc-support-for-the-projected-coordinate-systems/
 """
 import os
 import sys
@@ -31,16 +33,12 @@ class Field(dict):
     to new attributes that are automatically filled in as the Field is parsed.
     """
     def __init__(self, std_name, long_name, unit, grid=False,
-                 display_name=None):
+                 display_name=None, axis=None, coordinates=None):
         """
         Set field attributes required for GeoCSV file
         
         :type std_name: str
         :param std_name: standard or short name for the variable, e.g. vp
-        :type display_name: str
-        :param display_name: name to be displayed formally, should include
-            units e.g., S Velocity [km/s]. Optional, only required for dependent
-            parameters
         :type long_name: str
         :param long_name: long name for the variable, e.g. P-velocity
         :type unit: str
@@ -50,12 +48,25 @@ class Field(dict):
             discretization of the variable. Useful only for uniformly gridded
             variables like the coordinate system, where x is divided into equal
             dx values. Defaults to False
+        :type display_name: str
+        :param display_name: name to be displayed formally, should include
+            units e.g., S Velocity [km/s]. Optional, only required for dependent
+            parameters
+        :type axis: str
+        :type axis: optional: axis name for setting projected (UTM) 
+            non-geographic coordinate system, only required for independent 
+            variables. See Link #3 in header for details.
+        :type coordinates: str
+        :type coordinates: optional: coordinate identifier for dependent 
+            variables. See Link #3 in header for details.
         """
         self.std_name = std_name
         self.display_name = display_name
         self.long_name = long_name
         self.unit = unit
         self.grid = grid
+        self.axis = axis
+        self.coordinates = coordinates
 
     def __setattr__(self, key, value):
         self[key] = value
@@ -296,10 +307,10 @@ class Converter():
         # Write geospatial data as global header information, required by IRIS
         # i.e., '# global_geospatial_lat_min: ...'
         cmt = "global_geospatial"
-        for name in ["latitude", "longitude", "depth"]:
+        for name in ["latitude", "longitude", "z_axis_utm"]:
             for i, field in enumerate(self.fields):
                 if field["long_name"] == name:
-                    if name == "depth":
+                    if name == "z_axis_utm":
                         name = "vertical"
                     else:
                         name = field.std_name
@@ -325,13 +336,17 @@ class Converter():
             name = field.std_name
             # Spatial dimensions are independent. All other params are dep on 
             # the spatial dimensions x, y, z
-            if name in ["x", "y", "z", "lat", "lon"]:
-                dim = 1
+            if name in ["x", "y", "z"]:
+                dim = 1  # independent variables
+            elif name in ["latitude", "longitude"]:
+                dim = 2  # dependent on X and Y axes
             else:
-                dim = 3
+                dim = 3  # dependent variables
 
-            # Allows different column name w.r.t actual name, e.g. x -> long
+            if field.axis is not None:
+                f.write(f"# {name}_axis: {field.axis}\n") 
             f.write(f"# {name}_dimensions: {dim}\n")
+            # Allows different column name w.r.t actual name, e.g. x -> long
             f.write(f"# {name}_column: {field.std_name}\n")
             f.write(f"# {name}_long_name: {field.long_name}\n")
             if field.display_name is not None:
@@ -339,6 +354,9 @@ class Converter():
             f.write(f"# {name}_units: {field.unit}\n")
             f.write(f"# {name}_min: {self.data[:, i].min(): {self.fstr}}\n")
             f.write(f"# {name}_max: {self.data[:, i].max(): {self.fstr}}\n")
+            if field.coordinates is not None:
+                f.write(f"# {name}_coordinates: {field.coordinates}\n") 
+
             if field.grid:
                 unique = np.unique(self.data[:, i])
                 dx = abs(unique[1] - unique[0])
@@ -408,27 +426,30 @@ def convert_main(input_files, output_files, path_out="./", prepend=None,
     # NOTE: Units are set to how they will appear in the output file, not how
     # they're set in the input file. The function convert_data() may affect
     # what the final units are
-    conv.append(std_name="y", long_name="y_axis_utm", unit="km") 
-    conv.append(std_name="x", long_name="x_axis_utm", unit="km")
-    conv.append(std_name="z", long_name="depth", unit="km")
+    conv.append(std_name="y", long_name="y_axis_utm", unit="km", axis="Y") 
+    conv.append(std_name="x", long_name="x_axis_utm", unit="km", axis="X")
+    conv.append(std_name="z", long_name="z_axis_utm", unit="km")
 
     # Having lat/lon headers means we will need to run convert_coordinates()
     # BEFORE writing header information. These values are not in the original
     # .xyz file
-    conv.append(std_name="lat", long_name="latitude", unit="degrees_north")
-    conv.append(std_name="lon", long_name="longitude", unit="degrees_east")
+    conv.append(std_name="latitude", long_name="latitude", unit="degrees_north",
+                display_name="Latitude (deg)")
+    conv.append(std_name="longitude", long_name="longitude", unit="degrees_east",
+                display_name="Longitude (deg)")
 
     # Standard seismic tomography model data
+    _coord = "longitude latitude"  # for projected coordinate system
     conv.append(std_name="vp", long_name="p_velocity", unit="km/s", 
-                display_name="P Velocity (km/s)")
+                display_name="P Velocity (km/s)", coordinates=_coord)
     conv.append(std_name="vs", long_name="s_velocity", unit="km/s",
-                display_name="S Velocity (km/s)")
+                display_name="S Velocity (km/s)", coordinates=_coord)
     conv.append(std_name="rho", long_name="density", unit="kg/m^3",
-                display_name="Density (kg/m^3)")
+                display_name="Density (kg/m^3)", coordinates=_coord)
     conv.append(std_name="qp", long_name="p_attenuation", unit="count",
-                display_name="P Attenuation (counts)")
+                display_name="P Attenuation (counts)", coordinates=_coord)
     conv.append(std_name="qs", long_name="s_attenuation", unit="count",
-                display_name="S Attenuation (counts)")
+                display_name="S Attenuation (counts)", coordinates=_coord)
 
 
     # Local paths to the tomography .xyz files
@@ -463,6 +484,7 @@ def convert_nzatom_north_xyz_2_geocsv():
     """
     # !!! Set filenames/filepaths below
     path_in = "./"
+    # input_files = ["tomography_model_mantle.xyz"]
     input_files = ["tomography_model_mantle.xyz",
                    "tomography_model_crust.xyz",
                    "tomography_model_shallow.xyz"]
@@ -474,7 +496,7 @@ def convert_nzatom_north_xyz_2_geocsv():
     header = {
     "global_title": "New Zealand Adjoint Tomography Model - "
                     "North Island (NZ_ATOM_NORTH)",
-    "global_model": "NZ_ATOM_NORTH_r0.1",
+    "global_model": "nz_atom_north_chow_etal_2021_vp+vs",
     "global_id": "nz_atom_north_chow_etal_2021_vp+vs",
     "global_data_revision": "r0.1",
     "global_Conventions": "CF-1.0",
@@ -502,7 +524,9 @@ def convert_nzatom_north_xyz_2_geocsv():
     "global_reference_pid": "DOI:10.1029/2021JB022865",
     "global_author_name": "Bryant Chow",
     "global_author_contact": "bhchow@alaska.edu",
-    "global_author_institution": "University of Alaska Fairbanks",
+    "global_author_institution": 
+        "University of Alaska Fairbanks (formerly Victoria University of "
+        "Wellington & GNS Science)",
     "global_repository_name": "EMC",
     "global_repository_institution": "IRIS DMC",
     "global_repository_pid": "doi:10.17611/dp/emc.2021.nzatomnnorthvpvs.1",
