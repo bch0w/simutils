@@ -75,8 +75,8 @@ if __name__ == "__main__":
 
     if choice == "smooth":
         # fid_template = "OUTPUT_FILES/projected_smooth_3x1km/{}_projected.bin"
-        fid_template = "OUTPUT_FILES/projected_smooth_4x2km/{}_projected.bin"
-        # fid_template = "OUTPUT_FILES/projected_smooth_500x500m/{}_projected.bin"
+        # fid_template = "OUTPUT_FILES/projected_smooth_4x2km/{}_projected.bin"
+        fid_template = "OUTPUT_FILES/projected_smooth_500x500m/{}_projected.bin"
     elif choice == "raw":
         fid_template = "OUTPUT_FILES/projected_raw/{}_projected.bin"
 
@@ -87,10 +87,28 @@ if __name__ == "__main__":
     for fid in ["vs", "rho", "qmu", "qkappa"]:
         arr = np.vstack((arr, read_fortran_binary(fid_template.format(fid))))
 
+    # Convert Qmu, Qkappa -> Qp, Qs
+    arr = arr.T  # each column is now a variable
+    import pdb;pdb.set_trace()
+    vp = arr[:, 0]
+    vs = arr[:, 1]
+    qmu = arr[:, 3]
+    qkp = arr[:, 4]
+
+    # Qp from relationship with other quants
+    f = 4 / 3 * (vs / vp) ** 2
+    qp = 1 / ((1 - f) / qkp + f / qmu)
+
+    print(f"qp: {qp.min()} -> {qp.max()}")
+    print(f"qmu: {qmu.min()} -> {qmu.max()}")
+
+    arr[:, 3] = qp
+
     xyz = create_grid(fd_proj_grid)
 
     # Combine grid with data
-    data = np.hstack((xyz, arr.T))
+    data = np.hstack((xyz, arr))
 
-    np.savetxt(f"{choice}_shallow_tomo_file.xyz", data, fmt="%6.3f")
+    np.savetxt(f"tomography_model_shallow.xyz", data, 
+	       fmt="%10.3f %11.3f %10.3f %8.3f %8.3f %8.3f %8.3f %8.3f")
 

@@ -3,7 +3,7 @@
 #SBATCH --job-name=xproject
 #SBATCH --ntasks=80
 #SBATCH --partition=t1small
-#SBATCH --time=00:20:00
+#SBATCH --time=00:10:00
 #SBATCH --output=project_and_combine_%j.out
 
 ulimit -s unlimited
