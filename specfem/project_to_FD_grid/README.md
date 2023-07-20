@@ -18,10 +18,11 @@ Important source code files to look through to see what's happening:
 - auxiliaries/project\_and\_combine\_vol\_data\_on\_regular\_grid.f90
 - inverse\_problem\_for\_model/projection\_on\_FD\_grid\_mod.f90
 
-Configure your code and run the following:
+Configure specfem3D as normal and run the following:
 
 ```bash
-make project_and_combine_vol_data_on_regular_grid.
+cd specfem3D/
+make project_and_combine_vol_data_on_regular_grid
 ```
 
 ### 2. Write `fd_proj_grid.txt`
@@ -38,14 +39,14 @@ dictionary `fd_grid` in this script based on your mesh dimensions.
     (shallow, crust, mantle) for convenience, and potentially due to memory 
     errors. See warning below for explanation.
 
-The format of the file `fd_proj_grid.txt` is:
+The format of the output file `fd_proj_grid.txt` is:
 
 ```
 ox oy oz 
 hx hy hz
 nx ny nz
 ```
-
+Where:
 - o? defines the origin point (should match your GLL points)
 - h? defines the sampling rate 
 - n? defines the number of points in each direction
@@ -57,8 +58,8 @@ nx ny nz
 
 ### 3. Run `xproject_and_combine_vol_data_on_regular_grid`
 
-You will need to run `xproject_and_combine_vol_data_on_regular_grid` for EACH
-parameter you have in your velocity model (vp, vs, rho, qp, qs).
+You will need to run `xproject_and_combine_vol_data_on_regular_grid` for **EACH**
+parameter you have in your velocity model (e.g., vp, vs, rho, qp, qs).
 
 The system call looks like:
 
@@ -68,15 +69,15 @@ $ mpirun -n $NPROC bin/xproject_and_combine_vol_data_on_regular_grid \
 ```
 
 Where $DATA\_FILENAME should match one of your model parameters (e.g., 'vs'), 
-and $INPUT\_DIRECTORY should point to your DATABASES\_MPI/local path directory.
+and $INPUT\_DIRECTORY should point to your DATABASES\_MPI/ (local path) directory.
 
 The output file will be a single array (FORTRAN binary) called 
-\*\_projected.bin, the length of the array will be npoints = nx * ny * nz.
+`*_projected.bin`, the length of the array will be npoints = nx * ny * nz.
 
 ### 4. Convert FD projection to XYZ
 
 If you were able to run 1--3 successfully, you should have a number of FORTRAN
-binary files (\*\_projected.bin). You can then use the script 
+binary files (*_projected.bin). You can then use the script 
 `convert_projection_xyz.py` to convert these .bin files to a .xyz file.
 
 The Python script requires the file `fd_proj_grid.txt` and a path to your 
