@@ -1,57 +1,54 @@
 """
-Utility function to write on proj_grid_fd.txt for xproject SPECFEM script
-given some mesh dimensions and desired FD grid size
+Utility function to write on 'proj_grid_fd.txt' for xproject SPECFEM script
+given a User-requested finite-difference (FD) grid projection. 
 
-# Original Values
-origin_x = 322697.19
-origin_y = 3663978.75
-origin_z = -30000.
+.. parameters::
 
-end_x = 416983.19
-end_y = 3773609.43
-end_z = 300.
+    origin_x: starting X location of FD grid in unit meters 
+    origin_y: starting Y location of FD grid in unit meters 
+    origin_z: starting Z location of FD grid in unit meters. This should be the 
+        BOTTOM of your mesh or desired FD grid
+    end_x/end_y/end_z: ending location of the FD grid in unit meters. `end_z`
+        shoudl be the TOP fo your mesh or desired FD grid
+    nx/ny/nz: number of samples in a given direction (x, y, z)
+    hx/hy/hz: sampling rate in a given direction (x, y, z) in unit meters
+    choice: 'n' - define the FD grid based on nx/ny/nz, ignore hx/hy/hz
+            'h' - define the FD grid based on hx/hy/hz, ignore nx/ny/nz
 
-origin: starting location in unit meters 
-end: ending location in unit meters
-n?: number of samples in a given direction
-h?: sampling rate in a given direction
-choice: 'n' for hard-coding n?, 'h' for hard-coding h?
+An example output file will look like this:
+
+ox oy oz
+hx hy hz
+nx ny nz
+
+Where ox/y/z are the origin of the FD grid, hx/y/z defines the sampling rate
+and nx/y/z defines the number of points in each direction.
 """
 import sys
 
-
-test_case = dict(
+# >>> Template, copy this and fill in your own values based on Mesh_Par_file
+fd_grid = dict(
     choice = "n",
-    origin_x = 322500.00,
-    origin_y = 3663500.00,
-    origin_z = -30000.,
-    end_x = 416500.00,
-    end_y = 3773500.00,
-    end_z = 500.,
-    nx = 100.,
-    ny = 100.,
-    nz = 500.,
-    hx = 1000.,
-    hy = 1000.,
-    hz = 50.,
+    # Origin (0, 0, 0) of your Mesh
+    origin_x =   
+    origin_y = 
+    origin_z = 
+    # Top-right corner of your mesh
+    end_x = 
+    end_y = 
+    end_z = 
+    # Choose either to define your grid by nx/ny/nz
+    nx = 
+    ny = 
+    nz = 
+    # Or to define your grid by hx/hy/hz
+    hx = 
+    hy = 
+    hz = 
     )
 
-nzatom_mantle = dict(
-    origin_x = 171000.,
-    origin_y = 5286000.,
-    origin_z = -400000.,
-    end_x = 631000.,
-    end_y = 5902000.,
-    end_z = -44000.,
-    nx = 100.,
-    ny = 100.,
-    nz = 500.,
-    hx = 4000.,
-    hy = 4000.,
-    hz = 4000.,
-    choice = "h",
-    )
-
+# The following is an example from the Chow et al. (2022a) model published on 
+# IRIS EMC
 nzatom_crust = dict(
     origin_x = 171000.,
     origin_y = 5286000.,
@@ -68,33 +65,8 @@ nzatom_crust = dict(
     choice = "h",
     )
 
-nzatom_shallow = dict(
-    origin_x = 171000.,
-    origin_y = 5286000.,
-    origin_z = -8000.,
-    end_x = 631000.,
-    end_y = 5902000.,
-    end_z = 2250.,
-    nx = 100.,
-    ny = 100.,
-    nz = 500.,
-    hx = 1000.,
-    hy = 1000.,
-    hz = 250.,
-    choice = "h",
-    )
-
-# Assign a shorter variable name for dict
-if sys.argv[1] == "shallow":
-    d = nzatom_shallow
-elif sys.argv[1] == "crust":
-    d = nzatom_crust
-elif sys.argv[1] == "mantle":
-    d = nzatom_mantle
-else:
-    sys.exit(-1)
-
-print(sys.argv[1])
+# File writing starts here
+d = fd_grid
 
 # Set by number of points here
 if d["choice"] == "n":

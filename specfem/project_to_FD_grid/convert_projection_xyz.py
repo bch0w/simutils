@@ -13,7 +13,8 @@ def read_fortran_binary(filename):
     """
     Reads Fortran-style unformatted binary data into numpy array.
 
-    .. note::
+    .. note::A
+
         The FORTRAN runtime system embeds the record boundaries in the data by
         inserting an INTEGER*4 byte count at the beginning and end of each
         unformatted sequential record during an unformatted sequential WRITE.
@@ -70,15 +71,10 @@ def create_grid(fd_proj_grid):
 
 
 if __name__ == "__main__":
-    choice = "smooth" 
+    # Define the file names to look for and to output
     fd_proj_grid = "fd_proj_grid.txt"
-
-    if choice == "smooth":
-        # fid_template = "OUTPUT_FILES/projected_smooth_3x1km/{}_projected.bin"
-        # fid_template = "OUTPUT_FILES/projected_smooth_4x2km/{}_projected.bin"
-        fid_template = "OUTPUT_FILES/projected_smooth_500x500m/{}_projected.bin"
-    elif choice == "raw":
-        fid_template = "OUTPUT_FILES/projected_raw/{}_projected.bin"
+    fid_template = "OUTPUT_FILES/{}_projected.bin"  # Requires the formatter {}
+    fid_out = "tomography_model_crust.xyz"
 
     # Read Vp first to initialize the array
     arr = read_fortran_binary(fid_template.format("vp"))
@@ -89,7 +85,6 @@ if __name__ == "__main__":
 
     # Convert Qmu, Qkappa -> Qp, Qs
     arr = arr.T  # each column is now a variable
-    import pdb;pdb.set_trace()
     vp = arr[:, 0]
     vs = arr[:, 1]
     qmu = arr[:, 3]
@@ -109,6 +104,7 @@ if __name__ == "__main__":
     # Combine grid with data
     data = np.hstack((xyz, arr))
 
-    np.savetxt(f"tomography_model_shallow.xyz", data, 
-	       fmt="%10.3f %11.3f %10.3f %8.3f %8.3f %8.3f %8.3f %8.3f")
+    np.savetxt(fid_out, data,
+               fmt="%10.3f %11.3f %10.3f %8.3f %8.3f %8.3f %8.3f %8.3f"
+               )
 
