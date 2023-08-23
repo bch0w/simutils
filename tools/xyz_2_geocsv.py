@@ -32,10 +32,15 @@ class Field(dict):
     dictionary that ensures all these attributes are met. Also allows expansion
     to new attributes that are automatically filled in as the Field is parsed.
     """
-    def __init__(self, std_name, long_name, unit, grid=False,
-                 display_name=None, axis=None, coordinates=None):
+    def __init__(self, std_name, long_name, unit, column=None, 
+                 grid=False, display_name=None, axis=None, coordinates=None):
         """
-        Set field attributes required for GeoCSV file
+        Set field attributes required for GeoCSV file to comply with IRIS 
+        emc-tools script `GeoCSV_2_netCDF.py`
+        
+        .. note::
+            IRIS also wants a 'variable' attribute, but this is copied from the 
+            'column' attribute if not provided so it is not set here.
         
         :type std_name: str
         :param std_name: standard or short name for the variable, e.g. vp
@@ -43,6 +48,10 @@ class Field(dict):
         :param long_name: long name for the variable, e.g. P-velocity
         :type unit: str
         :param unit: standard unit for the variable, e.g. m/s
+        :type column: str
+        :param column: if the name of the parameter is different from the 
+            name of the column identifier, e.g., z_variable == "depth". Optional
+            and defaults to `std_name` if not provided
         :type grid: bool
         :param grid: if True, a new header line will be added describing the
             discretization of the variable. Useful only for uniformly gridded
@@ -62,6 +71,10 @@ class Field(dict):
         """
         self.std_name = std_name
         self.display_name = display_name
+        if column is None:
+            self.column = std_name
+        else:
+            self.column = column
         self.long_name = long_name
         self.unit = unit
         self.grid = grid
@@ -346,8 +359,8 @@ class Converter():
             if field.axis is not None:
                 f.write(f"# {name}_axis: {field.axis}\n") 
             f.write(f"# {name}_dimensions: {dim}\n")
-            # Allows different column name w.r.t actual name, e.g. x -> long
-            f.write(f"# {name}_column: {field.std_name}\n")
+            f.write(f"# {name}_column: {field.column}\n")
+            # Allows different column name w.r.t actual name, e.g. x -> lon.
             f.write(f"# {name}_long_name: {field.long_name}\n")
             if field.display_name is not None:
                 f.write(f"# {name}_display_name: {field.display_name}\n")
@@ -394,9 +407,9 @@ class Converter():
         # Write the first uncommented header line which are column header vals
         for i, field in enumerate(self.fields):
             if i < len(self.fields) - 1:
-                f.write(f"{field.std_name}{self.delimiter}")
+                f.write(f"{field.column}{self.delimiter}")
             else:
-                f.write(f"{field.std_name}\n")
+                f.write(f"{field.column}\n")
 
         # Use Numpy to dump data with correct delimiter
         np.savetxt(f, data, fmt=self.fmt, delimiter=self.delimiter) 
@@ -428,7 +441,8 @@ def convert_main(input_files, output_files, path_out="./", prepend=None,
     # what the final units are
     conv.append(std_name="y", long_name="y_axis_utm", unit="km", axis="Y") 
     conv.append(std_name="x", long_name="x_axis_utm", unit="km", axis="X")
-    conv.append(std_name="z", long_name="z_axis_utm", unit="km")
+    conv.append(std_name="z", long_name="z_axis_utm", unit="km", 
+                column="depth")
 
     # Having lat/lon headers means we will need to run convert_coordinates()
     # BEFORE writing header information. These values are not in the original
@@ -473,7 +487,7 @@ def convert_main(input_files, output_files, path_out="./", prepend=None,
         conv.close()
 
 
-def convert_nzatom_north_xyz_2_geocsv():
+def convert_nzatom_north_xyz_2_geocsv(input_files=None):
     """
     MAIN function for convering NZAtom_north to GeoCSV file that is formatted to
     match the IRIS emc-tools converters. Can be used as a template for future
@@ -484,10 +498,10 @@ def convert_nzatom_north_xyz_2_geocsv():
     """
     # !!! Set filenames/filepaths below
     path_in = "./"
-    # input_files = ["tomography_model_mantle.xyz"]
-    input_files = ["tomography_model_mantle.xyz",
-                   "tomography_model_crust.xyz",
-                   "tomography_model_shallow.xyz"]
+    if input_files is None:
+        input_files = ["tomography_model_mantle.xyz",
+                       "tomography_model_crust.xyz",
+                       "tomography_model_shallow.xyz"]
 
     # output files are auto-controlled by the header information
     path_out = "./"
@@ -537,7 +551,7 @@ def convert_nzatom_north_xyz_2_geocsv():
     #                              f"{conv.data[:, 1].mean(): {conv.fstr}}",
             }
 
-    # Generate full path to filenames for reading/writing
+    # Generate full path to filenames for reading/writing based on headers
     input_files = [os.path.join(path_in, _) for _ in input_files]
     output_files = [
        f"{header['global_id']}-mantle.{header['global_data_revision']}-n4.csv",
@@ -546,6 +560,7 @@ def convert_nzatom_north_xyz_2_geocsv():
        ]
     output_files = [os.path.join(path_out, _) for _ in output_files]
 
+    # Dictioanry to convert given columns based on input data and output reqs.
     convert_dict = {"x": 1E-3, "y": 1E-3, "z": -1E-3, "vp": 1E-3, 
                     "vs": 1E-3}
 
@@ -558,6 +573,9 @@ def convert_nzwide_north_xyz_2_geocsv():
     MAIN function for converting initial ref model to GeoCSV file, formatted to
     match the IRIS emc-tools converters
     """
+    print("warning, this function has not been updated and will likely not "
+          "work with the current version of this script")
+
     path_in = "./"
     input_files = ["tomography_model_mantle_m00.xyz", 
                    "tomography_model_crust_m00.xyz",
@@ -602,12 +620,20 @@ def convert_nzwide_north_xyz_2_geocsv():
 
 
 if __name__ == "__main__":
-    try:
-        if sys.argv[1] in ["atom", ""]:
-            print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
-            convert_nzatom_north_xyz_2_geocsv()
-        elif sys.argv[1] == "ref":
-            print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
-            convert_nzwide_north_xyz_2_geocsv()
-    except IndexError:
-        print("argument must be 'atom' or 'ref'")
+    print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
+    if len(sys.argv) >= 2:
+        input_files = sys.argv[1:]
+    else:
+        input_files = None
+    convert_nzatom_north_xyz_2_geocsv(input_files)
+    
+    # Original main script, deprecated 
+    # try:
+    #     if sys.argv[1] in ["atom", ""]:
+    #         print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
+    #         convert_nzatom_north_xyz_2_geocsv()
+    #     elif sys.argv[1] == "ref":
+    #         print("CONVERTING NZATOM XYZ VELOCITY MODEL TO GEOCSV")
+    #         convert_nzwide_north_xyz_2_geocsv()
+    # except IndexError:
+    #     print("argument must be 'atom' or 'ref'")
