@@ -1,8 +1,9 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xspecfem3D
-#SBATCH --ntasks=56
+#SBATCH --ntasks=20
 #SBATCH --partition=t1small
+#SBATCH --reservation=erthquak
 #SBATCH --time 00:25:00
 #SBATCH --output=specfem3D_%j.out
 

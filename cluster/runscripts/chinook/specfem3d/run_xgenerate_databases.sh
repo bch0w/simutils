@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=xgenerate_databases
 #SBATCH --ntasks=40
-#SBATCH --partition=t1small
+#SBATCH --partition=t2small
 #SBATCH --time=00:02:00
 #SBATCH --output=generate_databases_%j.out
 
