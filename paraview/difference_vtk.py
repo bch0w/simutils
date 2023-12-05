@@ -157,7 +157,7 @@ def pick_files(basepath, method="all", globchoice="*", diff_method="subtract"):
         print("Auto selecting models")
         model_a, model_b, fid_out = [], [], []
         if diff_method == "log":
-            for tag in ["vp", "vs"]:
+            for tag in ["vpv", "vph", "vsv", "vsh"]:
                 model_init = f"model_init_{tag}.vtk"
                 assert(os.path.exists(model_init)), f"{model_init} no existo"
             
