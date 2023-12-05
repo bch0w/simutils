@@ -59,44 +59,39 @@ def time_step(fid, dt=1):
     return float(step * dt)
 
 
-def plot_contour(ax, x, y, z, min_val=None, max_val=None, show=True, save=False,
-         mask=False, **kwargs):
+def plot_contour(ax, x, y, z, min_val=None, max_val=None, mask=(0, 0), 
+                 cbar_title="", **kwargs):
     """
     Plot the xyz file in the same fashion each time. Use tricontourf because
     the data is not in a uniform grid so we use a triangular interpolation
     """
     # Mask out values before plotting
-    if mask:
-        tri = mpl.tri.Triangulation(x, y)
-        # Determine where the amplitude array is within the mask range
-        masked_vals = (z >= mask[0]) & (z <= mask[1])
-        # Mask out the x, y values corresponding to the mask range
-        mask = np.all(np.where(masked_vals[tri.triangles], True, False), axis=1)
-        tri.set_mask(mask)
-        # Set custom levels to keep the colorbar segmented the same across figs
-        kwargs["levels"] = np.linspace(min_val, max_val, kwargs["levels"])
+    tri = mpl.tri.Triangulation(x, y)
+
+    # Determine where the amplitude array is within the mask range
+    masked_vals = (z >= mask[0]) & (z <= mask[1])
+
+    # Mask out the x, y values corresponding to the mask range
+    mask = np.all(np.where(masked_vals[tri.triangles], True, False), axis=1)
+    tri.set_mask(mask)
+    # Set custom levels to keep the colorbar segmented the same across figs
+    kwargs["levels"] = np.linspace(min_val, max_val, kwargs["levels"])
+    try:
         tcf = ax.tricontourf(tri, z, vmin=min_val, vmax=max_val, 
                              extend="both", **kwargs)
-        # try:
-        #     tcf = ax.tricontourf(tri, z, vmin=min_val, vmax=max_val, 
-        #                          **kwargs)
-        # except ValueError:
-        #     # ValueError occurs when we mask out all the values (e.g. T < 0s)
-        #     tcf = ax.tricontourf(x, y, np.zeros(len(z)), vmin=0, 
-        #                          vmax=max_val, extend="max", **kwargs) 
-    # Or just plot the values straight up
-    else:
-        tcf = ax.tricontourf(x, y, z, vmin=min_val, vmax=max_val, **kwargs) 
+    # Edge case when we have masked out all values (e.g., prior to origin time)
+    except ValueError:
+        tcf = ax.tricontourf(x, y, np.zeros(len(z)), vmin=min_val, vmax=max_val,
+                             extend="both", **kwargs)
 
     # Colorbar
     cbar = plt.colorbar(tcf, label=cbar_title, shrink=0.5, aspect=8, 
                         pad=.02, ticks=[min_val, 0, max_val])
     cbar.ax.yaxis.set_offset_position("left")
 
-
-    # Accoutrement
-    for axis in ["top", "bottom", "left", "right"]:
-        ax.spines[axis].set_linewidth(2)
+    # Mark off where the mask is thresholding on the colorbar
+    # for val in mask:
+    #     cbar.ax.plot([0, 1], [val, val], color="k", lw=1)
 
 
 def gif(path, duration, fid_out="output.gif"):
@@ -119,12 +114,14 @@ def gif(path, duration, fid_out="output.gif"):
 # !!! Set parameters here, pretty hacky but it avoids passing a bunch of args
 # !!! through concurrent.futures
 def plot(fid, x, y, input_path="./data", output_path="./output", 
-         extent=(-170., -138., 63, 72.5),  source=(-147.8616, 64.8736), dpi=300, 
-         axis_lw=2, min_val=-1e-5, max_val=1e-5, mask=False, dt=3.25E-2, 
-         **kwargs):
+         extent=(-168., -139., 63.5, 72),  source=(-148.4868, 68.0748), dpi=300, 
+         axis_lw=2, min_val=-1e-5, max_val=1e-5, mask=(-1e-7, 1e-7), 
+         dt=3.25E-2,  **kwargs):
     """
     Main plotting function for a single frame. This can be parallelized as it 
     doesn't require information from other frames
+
+    FORCE001: -147.8616, 64.8736
     """
     # Set up the plot
     plt.figure(dpi=dpi)
@@ -173,41 +170,49 @@ def plot(fid, x, y, input_path="./data", output_path="./output",
     ax.spines["geo"].set_linewidth(axis_lw)
 
     # Clean up the end
-    fid_out = os.path.join(output_path, os.path.basename(file_) + ".png")
+    fid_out = os.path.join(output_path, os.path.basename(fid) + ".png")
+    print(fid_out)
     plt.savefig(fid_out)
     plt.close()
 
 
 if __name__ == "__main__":
     # =========================================================================
+    make_pngs = False
     input_path = "./data"
     output_path = "./output"
-    parallel = False
-    
+    parallel = True
+    test_run = False
     file_ext = ".d"
 
-    make_gif = False
+    make_gif = True
     gif_fid = "sim_mov.gif"
     gif_duration_ms = 200  # milliseconds
     # =========================================================================
     # Prep the file system
-    files = []
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-    if not files:
-        files = find(input_path, file_ext)
-        
-    # Get some geographic information
-    x, y = read_xy(os.path.join(input_path, "ascii_movie.xy"))
-    
-    if parallel:
-        with ProcessPoolExecutor() as executor:
-            executor.submit(plot, files, [x] * len(files), [y] * len(files))
-    else:
-        for i, file_ in enumerate(files):
-            plot(file_, x, y)
+    if make_pngs:
+        files = []
+        if not os.path.exists(output_path):
+            os.mkdir(output_path)
+        if not files:
+            files = find(input_path, file_ext)
+
+        if test_run:
+            files = files[:10]
+            
+        # Get some geographic information
+        x, y = read_xy(os.path.join(input_path, "ascii_movie.xy"))
+        if parallel:
+            with ProcessPoolExecutor() as executor:
+                futures = [executor.submit(plot, file_, x, y) 
+                           for file_ in files]
+            for future in futures:
+                future.result()
+        else:
+            for i, file_ in enumerate(files):
+                plot(file_, x, y)
 
     # Create the output .gif
     if make_gif:
-        gif(output_path, gif_duration_ms)
+        gif(output_path, gif_duration_ms, gif_fid)
 
