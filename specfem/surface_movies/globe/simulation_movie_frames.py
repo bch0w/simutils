@@ -112,8 +112,8 @@ def gif(path, duration, fid_out="output.gif"):
 
 
 # !!! Set parameters here, pretty hacky but it avoids passing a bunch of args
-# !!! through concurrent.futures
-def plot(fid, x, y, input_path="./data", output_path="./output", 
+# !!! through concurrent.futurdef plot(fid, x, y, input_path="./data", output_path="./output", 
+def plot(fid, x, y, input_path="./data", output_path="./simulation", 
          extent=(-168., -139., 63.5, 72),  source=(-148.4868, 68.0748), dpi=300, 
          axis_lw=2, min_val=-1e-5, max_val=1e-5, mask=(-1e-7, 1e-7), 
          dt=3.25E-2,  **kwargs):
@@ -121,6 +121,7 @@ def plot(fid, x, y, input_path="./data", output_path="./output",
     Main plotting function for a single frame. This can be parallelized as it 
     doesn't require information from other frames
 
+    EXTENT: 
     FORCE001: -147.8616, 64.8736
     """
     # Set up the plot
@@ -178,14 +179,15 @@ def plot(fid, x, y, input_path="./data", output_path="./output",
 
 if __name__ == "__main__":
     # =========================================================================
-    make_pngs = False
-    input_path = "./data"
-    output_path = "./output"
+    make_pngs = bool(input("make .pngs? [y/n]") == "y")
+    make_gif = bool(input("make .gif? [y/n]") == "y")
+    test_run = 0
     parallel = True
-    test_run = False
+
+    input_path = "./data"
+    output_path = "./simulation"
     file_ext = ".d"
 
-    make_gif = True
     gif_fid = "sim_mov.gif"
     gif_duration_ms = 200  # milliseconds
     # =========================================================================
@@ -198,7 +200,8 @@ if __name__ == "__main__":
             files = find(input_path, file_ext)
 
         if test_run:
-            files = files[:10]
+            n = int(len(files)//2)
+            files = files[n-5:n+5]
             
         # Get some geographic information
         x, y = read_xy(os.path.join(input_path, "ascii_movie.xy"))
