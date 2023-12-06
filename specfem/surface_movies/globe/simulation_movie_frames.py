@@ -114,7 +114,8 @@ def gif(path, duration, fid_out="output.gif"):
 # !!! Set parameters here, pretty hacky but it avoids passing a bunch of args
 # !!! through concurrent.futurdef plot(fid, x, y, input_path="./data", output_path="./output", 
 def plot(fid, x, y, input_path="./data", output_path="./simulation", 
-         extent=(-168., -139., 63.5, 72),  source=(-148.4868, 68.0748), dpi=300, 
+         extent=(-168., -139., 63.5, 72),  source=(-148.4868, 68.0748), 
+         station=(-153.5058, 66.5156), dpi=300, 
          axis_lw=2, min_val=-1e-5, max_val=1e-5, mask=(-1e-7, 1e-7), 
          dt=3.25E-2,  **kwargs):
     """
@@ -148,10 +149,17 @@ def plot(fid, x, y, input_path="./data", output_path="./simulation",
                  norm= plt.Normalize(min_val, max_val), levels=256,
                  cbar_title="Vertical Velocity [m/s]")
 
-    # Plot source and receivers
+    # Plot source 
     plt.scatter(source[0], source[1], transform=ref_proj, marker="*", 
                 s=80, color="y", linewidth=0.75,  edgecolors="k",
-                zorder=10)
+                zorder=11)
+    # Plot receiver
+    plt.scatter(station[0], station[1], transform=ref_proj, marker="v", 
+                s=40, color="y", linewidth=0.75,  edgecolors="k",
+                zorder=11)
+    # Connect source and receiver
+    plt.plot([source[0], station[0]], [source[1], station[1]], 
+             transform=ref_proj, c="k", zorder=10)
     
     stax, stay = np.loadtxt(os.path.join(input_path, "STATIONS"), 
                             usecols=(3, 2)).T
@@ -179,10 +187,10 @@ def plot(fid, x, y, input_path="./data", output_path="./simulation",
 
 if __name__ == "__main__":
     # =========================================================================
-    make_pngs = bool(input("make .pngs? [y/n]") == "y")
-    make_gif = bool(input("make .gif? [y/n]") == "y")
-    test_run = 0
-    parallel = True
+    make_pngs = 1  # bool(input("make .pngs? [y/n]") == "y")
+    make_gif = 0  # bool(input("make .gif? [y/n]") == "y")
+    test_run = 1
+    parallel = 0
 
     input_path = "./data"
     output_path = "./simulation"
