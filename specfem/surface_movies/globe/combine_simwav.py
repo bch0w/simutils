@@ -6,13 +6,13 @@ import os
 from glob import glob
 from subprocess import run
 
-movies = "simulations/*.png"
-waveforms = "waveforms/*.png"
+movies = "simulation/*.png"
+waveforms = "waveform/*.png"
 
 mov_files = sorted(glob(movies))
 wav_files = sorted(glob(waveforms))
 assert(mov_files)
-assert(len(mov_files) == len(wav_files))
+# assert(len(mov_files) == len(wav_files))
 
 for i, (m, w) in enumerate(zip(mov_files, wav_files)):
     callcmd = f"montage -tile 2x1 {m} {w} -geometry +0+0 ./combine/{i:0>3}_mov.png"

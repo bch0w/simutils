@@ -15,12 +15,12 @@ from subprocess import run
 
 # Parameters
 delta = .0325
-frames = 616
+frames = 218
 t_offset = 20  # to ensure that the origin time is 0 and not a negative number
 component = "Z"
 input_file = "/Users/chow/Work/work/akatom/nakversion/datasets/AK_E24K.h5"
 # rcv_station = "TA.C18K"
-rcv_station = "TA.A21K"
+rcv_station = "TA.G21K"
 
 with ASDFDataSet(input_file) as ds:
     mgmt = Manager(ds=ds)
@@ -36,7 +36,7 @@ times = mgmt.st_obs[0].times() - t_offset
 # Loop through times and plot consecutively
 for idx in np.linspace(0, len(times), frames + 1):
     idx = int(idx)  
-    f, ax = plt.subplots(1, dpi=200)
+    f, ax = plt.subplots(1, dpi=200, figsize=(5, 3))
 
     # Plot the progressive waveform and a tracking marker
     plt.plot(times[:idx], syn[:idx], c="r", linewidth=2, zorder=9, 
@@ -65,8 +65,9 @@ for idx in np.linspace(0, len(times), frames + 1):
         ax.spines[axis].set_linewidth(2)
 
     f.tight_layout()
-    plt.savefig(f"./waveforms/wav_{int(idx):0>5}.png")
+    plt.savefig(f"./waveform/wav_{int(idx):0>5}.png")
     plt.close()
+    a=1/0
 
 
 # Make the gif
