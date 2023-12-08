@@ -1,6 +1,9 @@
 """
 Utility function to combine two sets of .png frames into a single tiled .png,
 and then combine everything into a .gif. Uses ImageMagick under the hood.
+
+convert ascii_movie_003600.d.png wav_03600.png  -gravity Center -geometry 500x300+90+200 -composite output.png
+convert simwav.gif -coalesce -scale 1100x835 -fuzz 2% +dither -layers Optimize +map output.gif
 """
 import os
 from glob import glob
@@ -15,7 +18,8 @@ assert(mov_files)
 # assert(len(mov_files) == len(wav_files))
 
 for i, (m, w) in enumerate(zip(mov_files, wav_files)):
-    callcmd = f"montage -tile 2x1 {m} {w} -geometry +0+0 ./combine/{i:0>3}_mov.png"
+    callcmd = f"convert {m} {w} -gravity center -geometry 500x300+90+200 -composite ./combine/{i:0>3}_mov.png"
+    # callcmd = f"montage -tile 2x1 {m} {w} -geometry +0+0 ./combine/{i:0>3}_mov.png"
     run(callcmd.split(" "))
 
 os.chdir("combine")

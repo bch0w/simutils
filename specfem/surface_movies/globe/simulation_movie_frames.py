@@ -14,7 +14,6 @@ from glob import glob
 from subprocess import run
 from PIL import Image
 
-
 def read_xy(fid):
     """
     Simple read of the spatial coordinates
@@ -111,13 +110,25 @@ def gif(path, duration, fid_out="output.gif"):
         run(call.split(" "))
 
 
+# Load these outside the function so that when parallelized it doesn't keep opeining
+stax, stay = np.loadtxt("data/STATIONS", usecols=(3, 2)).T
+
 # !!! Set parameters here, pretty hacky but it avoids passing a bunch of args
 # !!! through concurrent.futurdef plot(fid, x, y, input_path="./data", output_path="./output", 
-def plot(fid, x, y, input_path="./data", output_path="./simulation", 
-         extent=(-168., -139., 63.5, 72),  source=(-148.4868, 68.0748), 
-         station=(-153.5058, 66.5156), dpi=300, 
-         axis_lw=2, min_val=-1e-5, max_val=1e-5, mask=(-1e-7, 1e-7), 
-         dt=3.25E-2,  **kwargs):
+def plot(fid, x, y, 
+         input_path="./data", 
+         output_path="./simulation", 
+         extent=(-168., -139., 63.5, 72),  
+         source=(-148.4868, 68.0748), 
+         station=(-153.5058, 66.5156), 
+         dpi=300, 
+         axis_lw=2, 
+         min_val=-1e-5, 
+         max_val=1e-5, 
+         mask=(-1e-7, 1e-7), 
+         dt=3.25E-2,  
+         t0=20, 
+         **kwargs):
     """
     Main plotting function for a single frame. This can be parallelized as it 
     doesn't require information from other frames
@@ -127,7 +138,7 @@ def plot(fid, x, y, input_path="./data", output_path="./simulation",
     """
     # Set up the plot
     plt.figure(dpi=dpi)
-    ts = time_step(fid, dt=dt)
+    ts = time_step(fid, dt=dt) - t0  # subtract time offset
     z = read_data(fid)
 
     # Initialize Cartopy map with coastline and borders
@@ -137,11 +148,12 @@ def plot(fid, x, y, input_path="./data", output_path="./simulation",
     ref_proj = ccrs.PlateCarree()
     projection = ccrs.Stereographic(central_longitude=central_longitude,
                                     central_latitude=central_latitude)
-    
+   
     ax = plt.axes(projection=projection)
     ax.set_extent(extent, crs=ref_proj)
     ax.coastlines(lw=axis_lw)
     ax.add_feature(cf.BORDERS)
+
 
     # Plot the contour plot of the surface velocity field
     plot_contour(ax, x, y, z, min_val=min_val, max_val=max_val, 
@@ -151,18 +163,16 @@ def plot(fid, x, y, input_path="./data", output_path="./simulation",
 
     # Plot source 
     plt.scatter(source[0], source[1], transform=ref_proj, marker="*", 
-                s=80, color="y", linewidth=0.75,  edgecolors="k",
+                s=80, color="gold", linewidth=0.75,  edgecolors="k",
                 zorder=11)
     # Plot receiver
     plt.scatter(station[0], station[1], transform=ref_proj, marker="v", 
-                s=40, color="y", linewidth=0.75,  edgecolors="k",
+                s=30, color="gold", linewidth=0.75,  edgecolors="k",
                 zorder=11)
     # Connect source and receiver
     plt.plot([source[0], station[0]], [source[1], station[1]], 
-             transform=ref_proj, c="k", zorder=10)
+             transform=ref_proj, c="k", zorder=10, alpha=0.25, lw=1, ls="--")
     
-    stax, stay = np.loadtxt(os.path.join(input_path, "STATIONS"), 
-                            usecols=(3, 2)).T
     plt.scatter(stax, stay, transform=ref_proj, marker="v", 
                 s=10, color="None", linewidth=0.75,  edgecolors="k",
                 zorder=10)
@@ -188,9 +198,9 @@ def plot(fid, x, y, input_path="./data", output_path="./simulation",
 if __name__ == "__main__":
     # =========================================================================
     make_pngs = 1  # bool(input("make .pngs? [y/n]") == "y")
-    make_gif = 0  # bool(input("make .gif? [y/n]") == "y")
-    test_run = 1
-    parallel = 0
+    make_gif = 1  # bool(input("make .gif? [y/n]") == "y")
+    test_run = 0
+    parallel = not bool(test_run)
 
     input_path = "./data"
     output_path = "./simulation"
@@ -208,9 +218,10 @@ if __name__ == "__main__":
             files = find(input_path, file_ext)
 
         if test_run:
-            n = int(len(files)//2)
-            files = files[n-5:n+5]
-            
+            n = len(files)
+            files = [files[0], files[int(n/4)], files[int(n/2)],
+                     files[int(3*n/4)], files[-1]]
+
         # Get some geographic information
         x, y = read_xy(os.path.join(input_path, "ascii_movie.xy"))
         if parallel:
