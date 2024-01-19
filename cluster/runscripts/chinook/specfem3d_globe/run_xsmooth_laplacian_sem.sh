@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xsmooth_laplacian_sem
-#SBATCH --ntasks=4
+#SBATCH --ntasks=8
 #SBATCH --partition=debug
 #SBATCH --time=00:05:00
 #SBATCH --output=smooth_lap_sem_%j.out
