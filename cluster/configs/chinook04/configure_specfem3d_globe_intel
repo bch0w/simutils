@@ -1,0 +1,6 @@
+module purge
+module load slurm
+module load intel/2022a
+./configure F90=ifort FC=ifort MPIFC=mpiifort CC=icc MPICC=mpiicc
+
+# Set USER_T0 in setup/constants.h

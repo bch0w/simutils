@@ -1,0 +1,3 @@
+module purge
+module load slurm
+module load intel/2022a
