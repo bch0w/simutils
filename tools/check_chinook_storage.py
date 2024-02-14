@@ -29,7 +29,7 @@ USERS = {"test": ["ykaneko1_ua", "ecasarotti", "gthompson"],
          "active": ["bhchow", "ctape", "ammcpherson",  "jthurin", "agupta7", 
                     "eaonyango", "ytian4"],
          "all": None}
-CHOICE = "active"  # select one key in Users
+CHOICE = "test"  # select one key in Users
 CMD = "du -sh"  # the actual command that's being run
 
 
@@ -65,7 +65,7 @@ if os.path.exists(output_file):
     check_lines = open(output_file, "r").read()
 else:
     check_lines = []
-    show_storage = run_bash_cmd("show_storage")[77:]  # strip off first sentence
+    show_storage = run_bash_cmd("show_storage")[394:]  # strip off personal info
     # Only write file header one time
     with open(output_file, "a") as f:
         f.write(f"{'=' * 80}\n")
