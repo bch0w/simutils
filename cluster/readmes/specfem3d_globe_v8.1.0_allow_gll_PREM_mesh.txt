@@ -1,0 +1,69 @@
+1/23/24 SPECFEM3D_GLOBE v8.1.0
+Readme to make source code edits to allow 1D PREM as the starting GLL model
+
+Motivation:
+The standard GLL starting model is S362ANI + Crust2.0. This combination of 
+models defines a standard meshing structure (nelements, moho topography etc.).
+When you set model==gll in the Par_file, SPECFEM will build its initial mesh 
+based on this model combination, and then attempt to interpolate the GLL model
+onto this domain. If, however, you have created your GLL model with a model that
+does NOT have the structure of S362ANI + Crust2.0 (essentially any other model),
+then the interplation/expected number of elements/mesh partitioning will all be
+incorrect, and the outputted mesh will essentially be unordered/shuffled.
+
+This modification of the source code creates a new 'GLL' style model that 
+expects the mesh structure of 1D TISO PREM, such that the starting GLL model
+you use in your inversion can be a 1D model. This is useful for synthetic 
+or toy problem inversions.
+
+
+Steps:
+* Add the following lines to the src file: src/shared/get_model_parameters.F90
+below the lines
+
+  # L325 or so
+  ! model specifics
+  select case (trim(MODEL_NAME))
+
+  !-----------------------------------------------------------------------
+  !
+  ! CUSTOM MODELS: 
+  !
+  ! Apply structure from 1D PREM onto a GLL mesh that can then be used for 
+  ! iterative inversions by turning off 3D mesh manipulations for GLL models.
+  !
+  !-----------------------------------------------------------------------
+  !!! CUSTOM - Allow 1D PREM to be used in conjunction with GLL model
+  case ('custom_1d_transversely_isotropic_prem')
+    ONE_CRUST = .false.  ! true = 1 crust layer; false = 2 crust layers
+    CASE_3D = .false.   ! true = more GLL points / km in upper crust
+    CRUSTAL = .false.   ! true: 3D crustal model; false: 1D crustal model
+    MODEL_3D_MANTLE_PERTUBATIONS = .false.   ! true: perturb ref mantle model
+    TRANSVERSE_ISOTROPY = .true.
+
+  !!! CUSTOM - Turn off 3D mesh properties, compatible with 1D PREM
+  case ('custom_gll')
+    ONE_CRUST = .false.  ! default .true.
+    CASE_3D = .false.    ! default .true.
+    CRUSTAL = .false.    ! default .true.
+    MODEL_3D_MANTLE_PERTUBATIONS = .false.   ! default .true.
+    ! The following parameters have not been modified
+    TRANSVERSE_ISOTROPY = .true.  ! same as reference model
+    MODEL_GLL = .true.
+    MODEL_GLL_TYPE = 2 ! (2 == tiso) input model files are tiso
+    REFERENCE_1D_MODEL = GLL_REFERENCE_1D_MODEL
+    THREE_D_MODEL = THREE_D_MODEL_GLL
+
+* Modify setup/constants.h
+    - USE_1D_REFERENCE = .true.
+    - Uncomment (and comment the S362ANI part)
+          integer, parameter :: GLL_REFERENCE_1D_MODEL = REFERENCE_MODEL_PREM
+          integer, parameter :: GLL_REFERENCE_MODEL = REFERENCE_MODEL_PREM
+* Remove old make files (obj/) and remove `bin/xmeshfem3D`
+* run $ make xmeshfem3D 
+* Create starting mesh with xmeshfem3D using Par_file model==`custom_1d...`
+* Put all resulting DATABASES_MPI files into DATA/GLL
+* Create GLL mesh with xmeshfem3D and Par_file model==`custom_gll` 
+* Double check mesh files look good with ParaView + .vtk files
+
+

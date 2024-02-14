@@ -1,0 +1,10 @@
+1/22/24 README for generating synthetic ambient noise data using SeisFlows v3
+f6da8951
+
+- Set up as normal inversion
+- Set `stop_after` to 'evaluate_zz_misfit' 
+- Set SPECFEM Par_file model to be the intended starting model (or GLL)
+- Use script to reorganize traces into a useful directory (transfer_data.py)
+- Use state file to skip over ZZ adjoint simulation
+- Set parameter file for RR,TT kernel and stop_after == evaluate_rt_misfit
+- Re-submit & profit

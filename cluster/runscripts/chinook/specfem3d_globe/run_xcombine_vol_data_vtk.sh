@@ -5,7 +5,7 @@
 #SBATCH --tasks-per-node=1
 #SBATCH --partition=debug                                                        
 #SBATCH --time=00:02:00                                                          
-#SBATCH --output=combine_vol_data_vtk_%j.log
+#SBATCH --output=combine_vol_data_vtk_%j.out
                                                                                  
                                                                                  
 ulimit -s unlimited                                                              
