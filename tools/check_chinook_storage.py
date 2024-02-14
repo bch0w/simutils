@@ -3,43 +3,64 @@ Python wrapper for Bash commands to check storage on UAF HPC Chinook by active
 User. Intended to be run by a weekly Cronjob with email output to a Users
 group. 
 
-
 Contains built in leeway for fail halfway through and rerunning the process w/o
 modification
 
 .. note::
 
     Rule of thumb 'du -sh' takes 45m/TB (based on ~2TB taking 1h30m)
+
+.. note:: du flags
+    
+    c: print grand total
+    h: human redable
+    s: summarize (max depth = 0)
 """
 import os
 import sys
 import subprocess
 import time
 
-# Small dry-run version for testing/debugging
-TEST = True
+
+# - 'test': has a few random Users that do not have much data
+# - 'active': active users on ERTHQUAK (last check 2-14-24)
+# - 'all': all Users in the ERTHQUAK group
+USERS = {"test": ["ykaneko1_ua", "ecasarotti", "gthompson"],
+         "active": ["bhchow", "ctape", "ammcpherson",  "jthurin", "agupta7", 
+                    "eaonyango", "ytian4"],
+         "all": None}
+CHOICE = "active"  # select one key in Users
+CMD = "du -sh"  # the actual command that's being run
+
 
 def run_bash_cmd(cmd):
     """Use subprocess to capture the text output of a bash command"""
-    return subprocess.run(cmd, check=True, text=True, universal_newlines=True, 
-                          shell=True, stdout=subprocess.PIPE).stdout
+    try:
+        stdout = subprocess.run(cmd, check=True, text=True, 
+                                universal_newlines=True, shell=True, 
+                                stdout=subprocess.PIPE).stdout
+    except subprocess.CalledProcessError as e:
+        stdout = f"FAILED '{cmd}'"
+    return stdout
+
 
 # Mark time for log and file name
+time_start = time.time()
 time_now = time.asctime().upper()
 time_str = time.strftime("%Y-%m-%d")
 
-# Determine where we are checking files and which users
-base_directory = "/import/c1/ERTHQUAK"
-if TEST:
-    active_users = ["ykaneko1_ua"]
-else:
-    active_users = ["bhchow", "ctape", "ammcpherson", "jthurin", "agupta7", 
-                    "eaonyango", "ytian4"]
+# Input and output paths
+base_directory = "/import/c1/ERTHQUAK"  
+output_file = f"/import/c1/ERTHQUAK/ERTHQUAK/bhchow/erthquak_group_du.txt"
 
-# Write file somewhere so we can reference/email later
-output_file = f"/import/c1/ERTHQUAK/ERTHQUAK/bhchow/erthquak_du_{time_str}.txt"
+# Select which Users to run du for 
+active_users = USERS[CHOICE]
+if active_users is None:
+    # Select all available Users in the directory
+    active_users = [os.path.basename(_) for _ in 
+                    os.listdir(base_directory) if _ != "ERTHQUAK"]
 
-# In the case of re-running this command, this will allow us to not rerun
+# In the case of re-running this command, this will allow us to skip completed 
 if os.path.exists(output_file):
     check_lines = open(output_file, "r").read()
 else:
@@ -61,8 +82,13 @@ for active_user in sorted(active_users):
     if active_user in check_lines:
         continue
     path = os.path.join(base_directory, active_user)
-    output = run_bash_cmd(f"du -sh {path}")
+    output = run_bash_cmd(f"{CMD} {path}").strip()
     with open(output_file, "a") as f:
         f.write(f"{output}\n")
+
+# Finish up by writing how long this took
+with open(output_file, "a") as f:
+    f.write(f"{'=' * 80}\n")
+    f.write(f"Completed in {time.time() - time_start:.2f}s\n")
 
 
