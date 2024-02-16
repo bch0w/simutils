@@ -7,5 +7,6 @@ import sys
 depth_km = float(sys.argv[1])
 r_earth = 6371.  # km
 r_sphere = (r_earth - depth_km) / r_earth
-print(r_sphere)
+print(f"{r_sphere:.4f}")
+
 
