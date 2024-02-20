@@ -7,7 +7,7 @@
 #PJM -L elapse=00:10:00
 #PJM -g gc62
 
-module load cuda
+module load cuda/12.2
 module load gcc
 module load ompi-cuda
 
