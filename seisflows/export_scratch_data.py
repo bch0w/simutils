@@ -32,3 +32,4 @@ for source in sources:
             dst = os.path.join(dst_dir, trace_name)
             os.rename(trace, dst)
 
+# input_dir

@@ -50,7 +50,8 @@ for kernel in kernels:
 import time
 
 # input_path = os.path.join(workflow.path.eval_grad, "gradient"); tag="kernel"
-input_path = os.path.join(workflow.path.output, "GRADIENT_02"); tag="kernel"
+#input_path = os.path.join(workflow.path.output, "GRADIENT_03"); tag="kernel"; rename="gradient_03"
+input_path = os.path.join(workflow.path.output, "MODEL_03"); tag="model"; rename="model_03"
 # input_path = os.path.join(workflow.path.eval_grad, "kernels", "ZZ"); tag="kernel"
 
 if tag in ["kernel", "gradient"]:
@@ -66,5 +67,5 @@ solver.combine_vol_data_vtk(input_path=input_path,
 time.sleep(5)
 for par in parameters:
     src = os.path.join(output_path, f"reg_1_{par}.vtk")
-    dst = os.path.join(output_path, f"{tag}_{par}.vtk")
+    dst = os.path.join(output_path, f"{rename}_{par}.vtk")
     os.rename(src, dst)

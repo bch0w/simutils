@@ -29,7 +29,7 @@ USERS = {"test": ["ykaneko1_ua", "ecasarotti", "gthompson"],
          "active": ["bhchow", "ctape", "ammcpherson",  "jthurin", "agupta7", 
                     "eaonyango", "ytian4"],
          "all": None}
-CHOICE = "test"  # select one key in Users
+CHOICE = "active"  # select one key in Users
 CMD = "du -sh"  # the actual command that's being run
 
 
