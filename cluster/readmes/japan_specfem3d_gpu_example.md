@@ -2,7 +2,7 @@
 Feb. 19, 2024
 
 Notepad related to setting up an example problem on Wisteria GPUs using 
-SeisFlows (v2.3.0) and SPECFEM3D Cartesian (v4.1.0). 
+SeisFlows (v3.0.0-beta) and SPECFEM3D Cartesian (v4.1.0). 
 
 ## Setup
 
@@ -41,5 +41,38 @@ seisflows submit
   the same for compute nodes, fix is to copy executables not symlink
 
 
+### Problem with Cartopy unable to plot maps
+- Due to different /home/ directories adopted on the compute nodes, some default
+  Python pathing related to Matplotlib and Cartopy were not working
+- Using the `environs` parameter in SeisFlows, I was able to overwrite the default
+  paths in order to allow the compute nodes the required read/write access
+- MPLCONFIGDIR needs to be a writeable directory but was pointing at some cache
+  which was not writeable, we set this to /tmp/ to make it work
+- Cartopy was trying to save shapefile data to /pjhome/.local on the compute node
+  which was also not writeable. To deal with this I looked at the Cartopy source
+  code to determine what was necessary to redirect the path. Using the env
+  variable XDG_DATA_HOME I was able to redirect this to a local path. 
+  Hopefully the sys admins don't complain that all the concurrent processes
+  are trying to read from the filesystem at the same time
+
+
+```python
+# /home/r58003/work/adjtomo/conda/envs/adjtomo/lib/python3.11/site-packages/cartopy/__init__.py
+#
+# for the writable data directory (i.e. the one where new data goes), follow
+# the XDG guidelines found at
+# https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
+_writable_dir = os.path.join(os.path.expanduser('~'), '.local', 'share')
+_data_dir = os.path.join(os.environ.get("XDG_DATA_HOME", _writable_dir),
+                         'cartopy')
+_cache_dir = os.path.join(tempfile.gettempdir(), 'cartopy_cache_dir')
+
+config = {'pre_existing_data_dir': os.environ.get('CARTOPY_DATA_DIR', ''),
+          'data_dir': _data_dir,
+          'cache_dir': _cache_dir,
+          'repo_data_dir': os.path.join(os.path.dirname(__file__), 'data'),
+          'downloaders': {},
+          }
+```	
 
 
