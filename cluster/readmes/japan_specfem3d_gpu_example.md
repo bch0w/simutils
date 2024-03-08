@@ -22,9 +22,11 @@ module load ompi-cuda
 make all
 ```
 
-## Run Example
+## Run SeisFlows on Wisteria (GPU)
 
-Run SeisFlows from an interactive environment to ensure no computation done on login node
+Run SeisFlows from an interactive environment to ensure no computation done on login nodes
+Must load required modules and the correct Conda environment
+
 
 ```bash
 pjsub -X --interact -g gr58 -L rscgrp=prepost
@@ -49,11 +51,19 @@ seisflows submit
 - MPLCONFIGDIR needs to be a writeable directory but was pointing at some cache
   which was not writeable, we set this to /tmp/ to make it work
 - Cartopy was trying to save shapefile data to /pjhome/.local on the compute node
-  which was also not writeable. To deal with this I looked at the Cartopy source
+  which was also not writeable. I needed to set the default path in the actual
+  source code to a location that was writeable. This is pretty fragile so any
+  updates to Cartopy may break this implementation.
+- You will need to change path the _data_dir in `/home/r58003/work/adjtomo/conda/envs/adjtomo/lib/python3.11/site-packages/cartopy/__init__.py` to '/work/01/gr58/share/adjtomo/cartopy'
+
+
+To deal with this I looked at the Cartopy source
   code to determine what was necessary to redirect the path. Using the env
   variable XDG_DATA_HOME I was able to redirect this to a local path. 
   Hopefully the sys admins don't complain that all the concurrent processes
   are trying to read from the filesystem at the same time
+- !!! Nevermind XDG_DATA_HOME is required for other processes and leads to a 
+  seg fault on SPECFEM
 
 
 ```python
