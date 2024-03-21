@@ -1,73 +1,41 @@
 #!/bin/bash
 
-#SBATCH --job-name=specfem3d_globe
-#SBATCH --ntasks=4
-#SBATCH --partition=debug                                                      
-#SBATCH --time=00:20:00                                                         
-#SBATCH --output=log_%j.out  
+#SBATCH --job-name=meshspecfem
+#SBATCH --ntasks=40
+#SBATCH --partition=t1small
+#SBATCH --reservation=seismic
+#SBATCH --time=00:25:00
+#SBATCH --output=meshspecfem3D_%j.out
 
 ulimit -s unlimited
 ulimit -l unlimited
 umask 022
 
+module load intel
 
+# Get the number of processors from the Par_file, ignore comments
 BASEMPIDIR=`grep ^LOCAL_PATH DATA/Par_file | cut -d = -f 2 `
-
-# script to run the mesher and the solver
-# read DATA/Par_file to get information about the run
-# compute total number of nodes needed
 NPROC_XI=`grep ^NPROC_XI DATA/Par_file | cut -d = -f 2 `
-NPROC_ETA=`grep ^NPROC_ETA DATA/Par_file | cut -d = -f 2`
-NCHUNKS=`grep ^NCHUNKS DATA/Par_file | cut -d = -f 2 `
+NPROC_ETA=`grep ^NPROC_ETA DATA/Par_file | cut -d = -f 2` 
+NCHUNKS=`grep ^NCHUNKS DATA/Par_file | cut -d = -f 2 ` 
+NPROC=$(( $NCHUNKS * $NPROC_XI * $NPROC_ETA )) 
 
-# total number of nodes is the product of the values read
-numnodes=$(( $NCHUNKS * $NPROC_XI * $NPROC_ETA ))
-
+# Make the Database directory
 mkdir -p OUTPUT_FILES
+mkdir -p ${BASEMPIDIR}
 
-# backup files used for this simulation
-cp DATA/Par_file OUTPUT_FILES/
-cp DATA/STATIONS OUTPUT_FILES/
-cp DATA/CMTSOLUTION OUTPUT_FILES/
-
-##
-## mesh generation
-##
-sleep 2
-
+echo "xmeshfem3D on ${NPROC} processors"
 echo
-echo `date`
-echo "starting MPI mesher on $numnodes processors"
+echo "`date`"
+time mpiexec -n ${NPROC} ./bin/xmeshfem3D
 echo
+echo "finished at: `date`"
 
-mpirun -np $numnodes $PWD/bin/xmeshfem3D
 
-# checks exit code
-if [[ $? -ne 0 ]]; then exit 1; fi
-
-echo "  mesher done: `date`"
+echo "xspecfem3D on ${NPROC} processors"
 echo
-
-# backup important files addressing.txt and list*.txt
-cp OUTPUT_FILES/*.txt $BASEMPIDIR/
-
-
-##
-## forward simulation
-##
-
-sleep 2
-
+echo "`date`"
+time mpiexec -n ${NPROC} ./bin/xspecfem3D
 echo
-echo `date`
-echo starting run in current directory $PWD
-echo
-
-mpirun -np $numnodes $PWD/bin/xspecfem3D
-
-# checks exit code
-if [[ $? -ne 0 ]]; then exit 1; fi
-
-echo "finished successfully"
-echo `date`
+echo "finished at: `date`"
 

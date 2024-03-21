@@ -1,9 +1,9 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xspecfem3D
-#SBATCH --ntasks=30
+#SBATCH --ntasks=40
 #SBATCH --partition=t1small
-#SBATCH --time 00:15:00
+#SBATCH --time 00:01:00
 #SBATCH --output=specfem3D_%j.out
 
 ulimit -s unlimited
@@ -29,6 +29,7 @@ mkdir -p $BASEMPIDIR
 # This is a MPI simulation
 echo "xspecfem3d ${numnodes} processors"
 echo
+# time mpirun -np ${numnodes} ./bin/xmeshfem3D
 time mpirun -np ${numnodes} ./bin/xspecfem3D
 
 # checks exit code

@@ -46,26 +46,75 @@ for kernel in kernels:
 
 
 # =============================================================================
-# Sum gradient or model values
+# Sum all gradient or model values automatically
 import time
+import os
+from glob import glob
 
-# input_path = os.path.join(workflow.path.eval_grad, "gradient"); tag="kernel"
-#input_path = os.path.join(workflow.path.output, "GRADIENT_03"); tag="kernel"; rename="gradient_03"
-input_path = os.path.join(workflow.path.output, "MODEL_03"); tag="model"; rename="model_03"
-# input_path = os.path.join(workflow.path.eval_grad, "kernels", "ZZ"); tag="kernel"
 
-if tag in ["kernel", "gradient"]:
-    parameters = [f"{par}_kernel" for par in solver._parameters]
-elif tag in ["model"]:
-    parameters = [par for par in solver._parameters]
+# User-set input parameters 
+set_input_path = "/import/c1/ERTHQUAK/bhchow/work/seisflows/NAKVERSION/output"
+output_path = os.path.join(set_input_path, "VTK")
+set_parameters = ["reg1_vsh"] or solver._parameters
 
-parameters = [_[5:] for _ in parameters]  # strip reg_1 from parameters
-output_path = "/import/c1/ERTHQUAK/bhchow/work/seisflows/SYNVERSION/output/VTK"
-solver.combine_vol_data_vtk(input_path=input_path, 
-                            output_path=output_path, 
-                            parameters=parameters)
-time.sleep(5)
-for par in parameters:
-    src = os.path.join(output_path, f"reg_1_{par}.vtk")
-    dst = os.path.join(output_path, f"{rename}_{par}.vtk")
-    os.rename(src, dst)
+# Used to get back after relative chdir'ing
+cwd = os.getcwd()
+
+if not os.path.exists(output_path):
+    os.makedirs(output_path)
+
+for name in ["GRADIENT", "MODEL"]:
+    # Add _kernel to gradient/kernel parameter names to match naming schema
+    if name == "GRADIENT":
+        parameters = [f"{par}_kernel" for par in set_parameters]
+    else:
+        parameters = set_parameters
+
+    # Strip 'reg1_' from parameter names because SeisFlows doesn't want that
+    for parameter in parameters:
+        if "reg" in parameter:
+            parameters = [_[5:] for _ in parameters]  # strip reg1_ from param
+
+    # Loop through all available gradients/models and generate VTK files
+    for input_path in glob(os.path.join(set_input_path, f"{name}_??")):
+        tag = os.path.basename(input_path)
+        for par in parameters:
+            dst = os.path.join(output_path, f"{tag}_{par}.vtk")
+            if os.path.exists(dst):
+                print(f"{os.path.basename(dst)} already exists, skipping")
+                continue
+
+            solver.combine_vol_data_vtk(input_path=input_path,
+                                        output_path=output_path,
+                                        parameters=parameters)
+
+            time.sleep(5)
+            src = os.path.join(output_path, f"reg_1_{par}.vtk")
+            dst = os.path.join(output_path, f"{tag}_{par}.vtk")
+            os.rename(src, dst)
+
+os.chdir(cwd)
+  
+
+# =============================================================================
+# Sum gradient, model or kernel by target directory
+
+input_paths = {"MODEL_01": "/import/c1/ERTHQUAK/bhchow/work/seisflows/SYNVERSION/output/MODEL_01"}
+output_path = "/import/c1/ERTHQUAK/bhchow/work/seisflows/SYNVERSION/output/VTKS"
+set_parameters = ["reg1_vsh"] or solver._parameters
+
+for name, input_path in inputs.items():
+    if "KERNEL" in name or "GRADIENT" in name:
+        parameters = [f"{par}_kernel" for par in set_parameters]
+    else:
+        parameters = set_parameters
+
+    parameters = [_[5:] for _ in parameters]  # strip reg_1 from parameters
+    solver.combine_vol_data_vtk(input_path=input_path, 
+                                output_path=output_path, 
+                                parameters=parameters)
+    time.sleep(5)
+    for par in parameters:
+        src = os.path.join(output_path, f"reg_1_{par}.vtk")
+        dst = os.path.join(output_path, f"{name}_{par}.vtk")
+        os.rename(src, dst)
