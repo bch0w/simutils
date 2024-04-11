@@ -1,42 +1,46 @@
 """
-Custom SeisFlows Workflow functions to run tasks on system.
-Copy paste into your Workflow source code and run function from debugger.
+3/21/24 For Ambient Noise Adjoint Tomography. Currently SeisFlows does not
+sum the individual horizontal kernels (RR=ER+NR, TT=ET+NT) because it does 
+this all in one step (G=ER+NR+ET+NT+ZZ) to save computational time. However
+it is often nice to look at the individual RR, TT and ZZ kernels to understand
+what is going on. This debug function sums all these individual kernels 
+together
 """
-    def custom_combine_kernels(self):
-        """
-        Generate event RR and TT kernels by summing individual E? and N?
-        kernels for each source. 
-        """
-        def combine_kernels(**kwargs):
-            parameters = [f"{par}_kernel" for par in self.solver._parameters]
-            for kernel in ["R", "T"]:
-                for srcname in self.solver.source_names:
-                    base_path = os.path.join(self.path.eval_grad, 
-                                             "kernels", srcname)
+# >>> BEGIN COPY-PASTE DIRECTLY INTO SEISFLOWS DEBUG MODE
+import os
+from glob import glob
 
-                    input_paths = [os.path.join(base_path, f"E{kernel}"),
-                                   os.path.join(base_path, f"N{kernel}")]
-                    output_path = os.path.join(base_path, f"{kernel}{kernel}")
+system.partition = "debug"
+system.tasktime = 10
+workflow.setup()
 
-                    self.solver.combine(input_paths, output_path, parameters)
-        self.system.run([combine_kernels], single=True)
+def combine_all_horizontal_kernels_to_misfit_kernel():
+    """
+    For iteration i, create RR and TT misfit kernels by summing all sources
+    """
+    parameters = ["reg1_vsh_kernel"] or \
+            [f"{par}_kernel" for par in solver._parameters]
 
-    def custom_function_sum_kernels(self):
-        """
-        Generate ZZ, RR or TT misfit kernels through summation of misfit kernels
-        """
-        def sum_kernels(**kwargs):
-            kernels = ["ZZ"]  # For after 'evaluate_zz_adjoint_simulation'
-            # kernels = ["ZZ", "RR", "TT"]
-            parameters = [f"{par}_kernel" for par in self.solver._parameters]
-            base_path = os.path.join(self.path.eval_grad, "kernels")
-            for kernel in kernels:
-                input_paths = []
-                output_path = os.path.join(base_path, f"{kernel}")
+    set_output_path = os.path.join(workflow.path.output, "TEST")
+    kernels_path = glob(os.path.join(workflow.path.output, "KERNELS_08"))
 
-                for srcname in self.solver.source_names:
-                    input_paths.append(os.path.join(base_path, srcname, kernel))
+    # e.g., output/KERNEL_01 ...
+    for kernel_dir in kernels_path:
+        for kernel in ["R", "T"]:
+            kernel_number = os.path.basename(kernel_dir)  # e.g., KERNEL_01
 
-                self.solver.combine(input_paths, output_path, parameters)
-        self.system.run([sum_kernels], single=True)
+            input_paths = []
+            output_path = os.path.join(set_output_path, kernel_number)
+
+            # Collect all relevant event kernels for the given comp R or T
+            for src in glob(os.path.join(kernel_dir, "*")):  # e.g., AK_A21K
+                input_paths.append(os.path.join(src, f"E{kernel}"))
+                input_paths.append(os.path.join(src, f"N{kernel}"))
+
+            # Combines ER+NR (or T) kernels for all sources in a given iteration
+            solver.combine(input_paths, output_path, parameters)
+
+system.run([combine_all_horizontal_kernels_to_misfit_kernel], single=True)
+# >>> END COPY-PASTE DIRECTLY INTO SEISFLOWS DEBUG MODE
+
 

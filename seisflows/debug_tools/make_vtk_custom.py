@@ -90,7 +90,6 @@ for name in ["GRADIENT", "MODEL"]:
 
             time.sleep(5)
             src = os.path.join(output_path, f"reg_1_{par}.vtk")
-            dst = os.path.join(output_path, f"{tag}_{par}.vtk")
             os.rename(src, dst)
 
 os.chdir(cwd)
