@@ -2,7 +2,7 @@
 # save storage space. Particularly used for reducing space requirements of 
 # a Docker Image.
 
-# Tested w/ commit ca31205f on 09/14/2022
+# Tested w/ commit baeb71d on 5/14/2024
 # this MUST be run inside a SPECFEM2D repository
 # Reduces storage size to <100Mb
 
@@ -12,7 +12,6 @@ rm -rf doc
 rm -rf external_libs
 rm -rf .git
 
-rm -rf utils/SPECFEM2D_implicit_with_MUMPS_from_Zhinan_Xie_2012_with_mpi_third_step_final_version_Dimitri_cleaned_may2017.tar.bz2
 
 # EXAMPLES (keep a few: Tape2007, Tromp2005, fluid_solid, global_Earth_ak135f,
 #   moving_sources_acoustic, simple_topography_and_also_a_simple_fluid_layer)
