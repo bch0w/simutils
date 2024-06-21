@@ -1,9 +1,9 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xspecfem3D
-#SBATCH --ntasks=40
-#SBATCH --partition=t1small
-#SBATCH --time 00:01:00
+#SBATCH --ntasks=96
+#SBATCH --partition=t2standard
+#SBATCH --time 01:59:00
 #SBATCH --output=specfem3D_%j.out
 
 ulimit -s unlimited

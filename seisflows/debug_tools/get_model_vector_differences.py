@@ -14,7 +14,7 @@ pars = ["vsh"]  #, "vsv", "vph", "vpv"]
 m_true = Model(path="MODEL_TRUE", parameters=pars).vector
 
 
-for i in range(0, 8):
+for i in range(0, 6):
     if i == 0:
         path = "MODEL_INIT"
     else:

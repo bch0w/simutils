@@ -1,10 +1,10 @@
 #!/bin/bash -e
 
-#SBATCH --job-name=xsmooth_laplacian_sem
+#SBATCH --job-name=xsmooth_sem
 #SBATCH --ntasks=40
-#SBATCH --partition=debug
-#SBATCH --time=00:05:00
-#SBATCH --output=smooth_lap_sem_%j.out
+#SBATCH --partition=t2small
+#SBATCH --time=00:10:00
+#SBATCH --output=smooth_sem_%j.out
 
 # ==============================================================================
 # INPUT PARAMETERS
@@ -17,8 +17,8 @@
 # DIR_OUT: director to output the smoothed .bin files
 
 KERNEL=$1
-SGMAH=10.
-SGMAV=5.
+SGMAH=5
+SGMAV=0.5
 DIR_IN="DATABASES_MPI/"
 DIR_OUT=${DIR_IN}
 
@@ -58,7 +58,7 @@ echo "`date`"
 
 # EXAMPLE CALL:
 # srun -n NPROC xmooth_laplacian_sem SIGMA_H SIGMA_V KERNEL_NAME INPUT_DIR OUTPUT_DIR 
-time mpirun -n ${NPROC} ./bin/xsmooth_laplacian_sem ${SGMAH} ${SGMAV} ${KERNEL} ${DIR_IN} ${DIR_OUT} 
+time mpirun -n ${NPROC} ./bin/xsmooth_sem ${SGMAH} ${SGMAV} ${KERNEL} ${DIR_IN} ${DIR_OUT} 
 
 # checks exit code
 if [[ $? -ne 0 ]]; then exit 1; fi

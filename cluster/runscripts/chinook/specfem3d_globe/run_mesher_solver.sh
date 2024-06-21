@@ -1,9 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=meshspecfem
-#SBATCH --ntasks=40
-#SBATCH --partition=t1small
-#SBATCH --reservation=seismic
+#SBATCH --ntasks=24
+#SBATCH --partition=t2small
 #SBATCH --time=00:25:00
 #SBATCH --output=meshspecfem3D_%j.out
 
