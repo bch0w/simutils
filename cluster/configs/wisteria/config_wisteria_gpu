@@ -1,0 +1,4 @@
+module load cuda/12.2
+module load gcc
+module load ompi-cuda
+./configure --with-cuda=cuda11 MPIFC=mpifort 'FCFLAGS=-O3 -march=native' 'CFLAGS=-O3 -march=native' 'CUDA_FLAGS=-O3 -Impi'

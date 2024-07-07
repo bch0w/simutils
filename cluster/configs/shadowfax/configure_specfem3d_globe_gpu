@@ -1,0 +1,5 @@
+module load slurm
+module load CUDA
+module load intel
+# ./configure --with-cuda=cuda11 MPIFC=mpiifort CUDA_LIB='/usr/local/cuda-11.5/targets/x86_64-linux/lib'
+./configure --with-cuda=cuda11 MPIFC=mpiifx F90=ifx FC=ifx CC=gcc MPICC=mpiicc CUDA_LIB='/usr/local/cuda-11.5/targets/x86_64-linux/lib' FCFLAGS=-O3 CFLAGS=-O3 CUDA_FLAGS=-O3

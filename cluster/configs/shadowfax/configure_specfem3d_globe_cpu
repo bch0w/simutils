@@ -1,0 +1,4 @@
+module load slurm
+module load intel
+./configure F90=ifx FC=ifx MPIFC=mpiifx CC=gcc MPICC=mpiicc
+make all
