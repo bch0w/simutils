@@ -1,0 +1,14 @@
+# From: https://www.earthmodels.org/date-and-tools/topography/exaggerated-topography-in-paraview
+
+# SPHERICAL EARTH
+# 1. Load a VTK file with the surface of the Earth, where the center is at 0/0/0 and the topography is given in a data field (here: "altitude"). Here, the radius is assumed to be normalized to 1.
+# 2. Use the "Calculator" filter, and activate the checkbox "Coordinate Results".
+# 3. Type in the appropriate formula (and replace "exaggeration" by your actual value; everything must be on one line).
+
+(1 + (altitude/6370000) * exaggeration)
+* ( iHat * cos(asin(coordsZ)) * cos(atan(coordsY/coordsX)) * coordsX/abs(coordsX)
++ jHat * cos(asin(coordsZ)) * sin(atan(coordsY/coordsX)) * coordsX/abs(coordsX)
++ kHat * coordsZ )
+
+FLAT EARTH
+coordsX * iHat + coordsY * jHat + altitude * kHat * exaggeration

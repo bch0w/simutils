@@ -142,6 +142,11 @@ Difficulties:
 - Can't SSH to login node from compute node
 - Can't provide command line arguments to run script when running pjsub
 
+5/23/24 Updating AdjTomo
+Old commit hashes are
+SeisFlows: 7cfea606 (HEAD -> feature-wisteria_gpu, origin/feature-wisteria_gpu) okay now it works, does not like backslash newlines in bash commands
+Pyatoa: 1a6b86a (HEAD -> devel, origin/devel) Remove abstraction from windowing procedure (#41)
+788186d (HEAD -> devel, origin/devel) Merge branch 'master' into devel
 
 ## Useful links
 https://slurm.schedmd.com/rosetta.pdf
