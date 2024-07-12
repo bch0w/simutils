@@ -32,13 +32,12 @@
   !     
   !
   !-----------------------------------------------------------------------
-  case ('custom_1d_transversely_isotropic_prem')
-    CASE_3D = .false.    ! true = more GLL points / km in upper crust
+    case ('custom_1d_transversely_isotropic_prem')
+    CASE_3D = .true.    ! true = more GLL points / km in upper crust
     CRUSTAL = .false.    ! true: impose 3D crustal model; false: 1D crust
     ONE_CRUST = .true.   ! true = 1 crust layer; false = 2 crust layers
-
     TRANSVERSE_ISOTROPY = .true.  ! true = vpv, vph, vsv, vsh, rho
-    HONOR_1D_SPHERICAL_MOHO = .true.
+    HONOR_1D_SPHERICAL_MOHO = .false.
 
     ! These are default values assigned prior to model selection and have not
     ! been changed, but are left here as reference and incase something changes
@@ -48,26 +47,26 @@
     MODEL_3D_MANTLE_PERTUBATIONS = .false.
     MODEL_GLL = .false.
     MODEL_GLL_TYPE = 0
-    MODEL_3D_MANTLE_PERTUBATIONS = .false.  
+    MODEL_3D_MANTLE_PERTUBATIONS = .false.
     ATTENUATION_3D = .false.
     CEM_REQUEST = .false.
     CEM_ACCEPT  = .false.
     EMC_MODEL = .false.
+    THREE_D_MODEL = 0
 
   case ('custom_gll')
     ! Make sure these match `custom_1d_transversely_isotropic_prem`
-    CASE_3D = .false.    ! default .true.
+    CASE_3D = .true.    ! default .true.
     CRUSTAL = .false.    ! default .true.
     ONE_CRUST = .true.   ! default .true.
 
     MODEL_3D_MANTLE_PERTUBATIONS = .false.   ! default .true.
 
     ! The following parameters have not been modified
-    TRANSVERSE_ISOTROPY = .true.  ! same as reference model
-
     MODEL_GLL = .true.
     MODEL_GLL_TYPE = 2 ! (2 == tiso) input model files are tiso
-
+    HONOR_1D_SPHERICAL_MOHO = .false.
+    THREE_D_MODEL = THREE_D_MODEL_GLL
     REFERENCE_1D_MODEL = GLL_REFERENCE_1D_MODEL
     HETEROGEN_3D_MANTLE = .false.
     MODEL_3D_MANTLE_PERTUBATIONS = .false.
@@ -77,3 +76,4 @@
     CEM_REQUEST = .false.
     CEM_ACCEPT  = .false.
     EMC_MODEL = .false.
+    TRANSVERSE_ISOTROPY = .true.  ! same as reference model
