@@ -60,7 +60,7 @@
     CRUSTAL = .false.    ! default .true.
     ONE_CRUST = .true.   ! default .true.
 
-    MODEL_3D_MANTLE_PERTUBATIONS = .false.   ! default .true.
+    MODEL_3D_MANTLE_PERTUBATIONS = .true.   ! default .true.
 
     ! The following parameters have not been modified
     MODEL_GLL = .true.
@@ -70,8 +70,6 @@
     REFERENCE_1D_MODEL = GLL_REFERENCE_1D_MODEL
     HETEROGEN_3D_MANTLE = .false.
     MODEL_3D_MANTLE_PERTUBATIONS = .false.
-    MODEL_GLL = .false.
-    MODEL_GLL_TYPE = 0
     ATTENUATION_3D = .false.
     CEM_REQUEST = .false.
     CEM_ACCEPT  = .false.
