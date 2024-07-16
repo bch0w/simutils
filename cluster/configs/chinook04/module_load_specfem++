@@ -1,0 +1,10 @@
+# Module mismatches, ztd/1.5.2 is req. for Boost/1.79.0, but that requires
+# GCCcore/11.3.0, but GCCcore/12.3.0 is required for Doxygen, so it seems like
+# I can only have one or the other at the moment. SPECFEM++ installs its own
+# version of Boost though so for now I will leave it alone
+# module load GCC/11.3.0      # req. for Boost/1.79.0
+
+
+module load intel/2023a     # req. for HDF5
+module load GCCcore/12.3.0  # req. for Doxygen, probably already in from intel
+module load HDF5/1.14.0

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=xmeshfem3D
-#SBATCH --ntasks=40
-#SBATCH --partition=t2small
+#SBATCH --ntasks=1
+#SBATCH --partition=debug
 #SBATCH --time=00:15:00
 #SBATCH --output=meshfem3D_%j.out
 
