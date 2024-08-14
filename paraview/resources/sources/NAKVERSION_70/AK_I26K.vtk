@@ -1,0 +1,7 @@
+# vtk DataFile Version 2.0
+Source and Receiver VTK file
+ASCII
+DATASET UNSTRUCTURED_GRID
+POINTS      1 float
+     -0.334337E+00     -0.250534E+00      0.908608E+00
+ 
