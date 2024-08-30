@@ -257,6 +257,8 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
             elif method == "mu":
                 # Units of GPa iff a~[m/2] and b~[kg/m**3]
                 difference = 1E-9 * (a**2 * b)
+            elif method == "avg":
+                difference = (a + b) / 2
 
             differences.append(difference)
         except ValueError:
@@ -290,7 +292,8 @@ def difference_vtk(model_a_fid, model_b_fid, method="subtract", write=None):
 
 def manipulate_vtk(model_a_fid, c, method="subtract", write=None):
     """
-    read each model and scan line by line, add, subtract, multiply, divide
+    Used for `pick_method` == 'constant', manipulate a single VTK file by
+    doing something to the parameters like: add, subtract, multiply, divide
 
     :type model_?: str
     :param model_?: name of the model file
@@ -372,6 +375,8 @@ def print_header(diff_method):
     elif diff_method == "mu":
         print("For shear modulus mu: diff = a**2 * b\n"
               "model_a = Vs; model_b = rho (density)")
+    elif diff_method == "avg":
+        print("For averaging: diff = (model_a + model_b) / 2")
     print("=" * 80)
 
 
@@ -408,7 +413,7 @@ if __name__ == "__main__":
         # Choose which method for diff'ing files, allow string and index choice
         if pick_method != "constant":
             available_diff = ["log", "poissons", "divide", "pct", "subtract", 
-                              "mu", "add"]
+                              "mu", "add", "avg"]
         else:
             available_diff = ["add", "subtract", "divide", "multiply", "norm"]
         diff_method = input(f"Method? {available_diff}: ")
@@ -436,6 +441,7 @@ if __name__ == "__main__":
             print(f"diff {a} and {b} with '{diff_method}'... {f}")
             differences = difference_vtk(a, b, write=f, method=diff_method)
     else:
+        # Constant pick method, used to manipulate a single file
         model_a = input("model_a fid: ")
         constant = input("constant: ")
         fid_out = input("fid_out: ")
