@@ -2,10 +2,13 @@
 
 Bryant Chow 
 5/15/23
+Last Update: 2/12/25
 
 The following document describes how to run the resolution analysis performed in Chow et al. (2022a,b) 
 using SPECFEM3D_Cartesian on Maui. These analyses include a Zeroth Moment test and Point Spread
 Function test, outlined in various publications from Andreas Fichtner et al. (see background).
+
+SeisFlows Workflow: https://github.com/bch0w/simutils/blob/master/seisflows/workflows/point_spread_function.py
 
 ## Background
 
@@ -91,6 +94,7 @@ import os
 
 # Choose perturbation amount here
 perturbation = 0.05  # percentage
+write_perturbation_only = True
 
 # Update model parameters by perturbing
 m = optimize.load("m_new")
@@ -98,14 +102,17 @@ n = int(len(m) / 2)  # assuming two model parameters (Vp, Vs)
 
 # Apply perturbation to actual model values
 dm = m * perturbation  # perturbed model
-mdm = m + dm
+if write_perturbation_only:
+    mdm = dm
+else:
+    mdm = m + dm
 
 # Quick comparison of model values
 print("original model")
 print(f"min_0={m[:n].min()}, max_0={m[:n].max()}")
 print(f"min_1={m[n:].min()}, max_1={m[n:].max()}")
 
-print("perturbed model")
+print("perturbation or perturbed model")
 print(f"min_0={mdm[:n].min()}, max_0={mdm[:n].max()}")
 print(f"min_1={mdm[n:].min()}, max_1={mdm[n:].max()}")
 
@@ -146,6 +153,7 @@ assert(os.path.basename(os.getcwd()) == "original"), "wrong directory"
 vp_offset = 3000  # set by point_local.py because otherwise SPECFEM 
 vs_offset = 1500  # complains when most velocity values are zero (unphysical)
 perturbation = 0.05
+write_perturbation_only = True
 
 # Load perturbation and remove offsets
 dm = solver.merge(solver.load('./'))
@@ -164,11 +172,12 @@ solver.save(save_dict=solver.split(dm), path="./")
 os.chdir("..")
 
 # Apply perturbation to actual model values
-m = solver.merge(solver.load(PATH.MODEL))
-dm *= perturbation
-dm *= m
-print(f"min_0={dm[:n].min()}, max_0={dm[:n].max()}")
-print(f"min_1={dm[n:].min()}, max_1={dm[n:].max()}")
+if not write_perturbation_only:
+    m = solver.merge(solver.load(PATH.MODEL))
+    dm *= perturbation
+    dm *= m
+    print(f"min_0={dm[:n].min()}, max_0={dm[:n].max()}")
+    print(f"min_1={dm[n:].min()}, max_1={dm[n:].max()}")
 
 # Save perturbations to requisite directories
 for i, dir_ in enumerate([f"dvs_{int(perturbation*1E2):d}pct", 
