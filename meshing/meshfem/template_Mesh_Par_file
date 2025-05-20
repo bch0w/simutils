@@ -55,6 +55,9 @@ CREATE_ABAQUS_FILES             = .false.
 CREATE_DX_FILES                 = .false.
 CREATE_VTK_FILES                = .true.
 
+# stores mesh files as cubit-exported files into directory MESH/ (for single process run)
+SAVE_MESH_AS_CUBIT              = .false.
+
 # path to store the databases files
 LOCAL_PATH                      = ./OUTPUT_FILES/DATABASES_MPI
 
@@ -68,6 +71,10 @@ LOCAL_PATH                      = ./OUTPUT_FILES/DATABASES_MPI
 THICKNESS_OF_X_PML              = 12.3d0
 THICKNESS_OF_Y_PML              = 12.3d0
 THICKNESS_OF_Z_PML              = 12.3d0
+
+# add PML layers as extra outer mesh layers
+ADD_PML_AS_EXTRA_MESH_LAYERS    = .false.
+NUMBER_OF_PML_LAYERS_TO_ADD     = 3
 
 #-----------------------------------------------------------
 #

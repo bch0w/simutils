@@ -1,0 +1,39 @@
+{
+	"tag": "nalaska_globe_chunk",
+    "dir_name": "./created/nalaska_globe_chunk",
+    "lat_min": -168.0,
+    "lat_max": -140.0,
+    "lon_min": 64.5,
+    "lon_max": 72,
+    "utm_projection": -99,
+    "suppress_utm_proj": true,
+    "mesh_depth_km": 600.0,
+    "mesh_top_km": -6.0,
+    "doubling_layers": [
+        60, 140
+    ],
+    "interfaces": [
+        80, 220
+    ],
+    "interface_fids": [
+        "interface_80.dat",
+        "interface_220.dat"
+    ],
+    "interface_increase": [
+        1, 1
+    ],
+    "regions": [
+        8, 50
+    ],
+    "materials": [
+        [4400, 7500, 4500, 9999, 1000],
+        [4400, 7500, 4500, 9999, 1000],
+        [4400, 7500, 4500, 9999, 1000]
+    ],
+    "nproc": 28,
+    "grid_space_top_hv": [100, 10],
+    "shortest_period_s": 8,
+    "vs_min_km_per_s": 1.0,
+    "points_per_wl": 5,
+    "top_vertical_element_ratio": 1.0
+}
