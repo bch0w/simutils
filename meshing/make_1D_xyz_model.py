@@ -30,7 +30,7 @@ def PREM():
         "qkappa": np.array([57323.] * 11)
         }
     
-    prem["depth"] *= 1E3  # Convert to meters
+    prem["depth"] *= -1E3  # Convert to meters with positive up
 
     return prem
 
@@ -64,7 +64,9 @@ def make_model(model, X, Y, fid="tomography_model.xyz"):
     the depth, vp, vs, rho, qmu, and qkappa values. The model is then 
     exported to a file in the SPECFEM3D_Cartesian format.
     """
-    Z = model["depth"]
+    # Flip the Z axis because positive is up which means arange flipped it 
+    # previously
+    Z = model["depth"][::-1]
     with open(fid, "w") as f:
         # Header - min and max range values
         f.write(f"{X.min():.1f} {Y.min():.1f} {Z.min():.1f} "
