@@ -45,15 +45,16 @@ from numpy.fft import fftfreq, fftshift, ifftshift
 # ==============================================================================
 #                               PARAMETERS
 # ==============================================================================
-# INITIAL CONDITIONS
-choice = "vonkarman"  # gaussian, exponential, vonkarman
-seed = 12345  # RNG seed to make sure it's consistent
-vel_central = 6  # central velocity value [m/s]
-vel_std = 0.2  # std. deviation from central velocity
-
 # PERTURBATION
+choice = "vonkarman"  # gaussian, exponential, vonkarman
 a = 80  # correlation distance [m]
-sigma_c = 0.5  # std. deviation for perturbations
+sigma_c = 0.1  # std. deviation for perturbations
+
+# INITIAL CONDITIONS
+seed = 123  # RNG seed to make sure it's consistent
+mean_vel = 1  # central velocity value [km/s]
+std_vel = 0.1  # std. deviation from central velocity
+distribution = "normal"  # 'random' or 'normal' (dist. of random velocities)
 
 # GRID SPACING
 dx = .1  # grid spacing x
@@ -75,16 +76,20 @@ try:
 except IndexError:
     pass
 
-# 2D random numbers in space
+# Define the space domain
 x = np.arange(xmin, xmax, dx)  # x axis range
 y = np.arange(ymin, ymax, dy)  # y axis range
-
 [X, Y] = np.meshgrid(x, y)
-rng = np.random.default_rng(seed)
-min_vel = vel_central - (vel_central * vel_std)
-max_vel = vel_central + (vel_central * vel_std)
-S = rng.uniform(min_vel, max_vel, X.shape)
 
+# Create the 2D random velocity field with Gaussian distribution
+if distribution == "random":
+    rng = np.random.default_rng(seed=seed)
+    min_vel = mean_vel - (mean_vel * std_vel)
+    max_vel = mean_vel + (mean_vel * std_vel)
+    S = rng.uniform(min_vel, max_vel, X.shape)
+elif distribution == "normal":
+    np.random.seed(seed)
+    S = np.random.normal(mean_vel, std_vel, X.shape)
 
 # 2D FFT into wave number domain. Shift to get zero frequency at the center
 FS = fftshift(fftn(S))
@@ -99,6 +104,8 @@ ky = fftshift(fftfreq(len(y), d=dy))
 # Generate perburations as a function of the wavenumber domain (Table 1 [1])
 # Normalizations provide appropriate scaling (Appendix B [1])
 KR = (KX**2 + KY**2) ** 0.5  # radial wavenumber; k_r = (k_x**2 + k_y**2)**(1/2)
+k_nyq = 1 / (2 * min(dx, dy))  # Nyquist wavenumber 
+
 if choice == "gaussian":
     perturbation = (a**2 / 2) * np.exp(-1 * KR**2 * a**2 / 4) 
     normalization = sigma_c ** 2
@@ -109,13 +116,18 @@ elif choice == "vonkarman":
     perturbation = a**2 / (1 + KR**2 * a**2)
     normalization = 0.29 * sigma_c  ** 2
 
-# Multiply the Gaussian with the RNG in the wavefnumber domain 
-FSP = FS * normalization * perturbation
+# Multiply the Gaussian with the RNG in the wavenumber domain 
+FSP = normalization * FS * perturbation 
 
 # Inverse Fourier transform to get back to space domain
 FSPS = ifftshift(FSP) # Shift perturbed wavenumber spectra back
 S_pert = ifftn(FSPS)  # Inverse FFT to space domain
 
+# Normalize the final array from a to b so that it can be used for perturbations
+nmin = -1
+nmax = 1
+arr = np.abs(S_pert)
+S_pert = ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
 
 # 4-Panel plot to show all the steps of the process
 if plot:
@@ -128,9 +140,9 @@ if plot:
     # Original space domain defined by RNG velocities
     im1 = axs[0][0].imshow(S, cmap=cmap_space, 
                      extent=[x.min(), x.max(), y.min(), y.max()])
-    axs[0][0].set_title(f"RNG Velocity (seed={seed})")
-    axs[0][0].set_xlabel("X")
-    axs[0][0].set_ylabel("Y")
+    axs[0][0].set_title(f"RNG Velocity ('{distribution}' seed={seed})")
+    axs[0][0].set_xlabel("X [km]")
+    axs[0][0].set_ylabel("Y [km]")
     plt.colorbar(im1, ax=axs[0][0], shrink=shrink, pad=pad, label="Vp [km/s]")
     
     # Wavenumber domain without perturbation
@@ -145,18 +157,20 @@ if plot:
     # Wavenumber domain with chosen spectra filter
     im3 = axs[1][0].imshow(np.log(np.abs(FSP**2)), cmap=cmap_wavenumber, 
                      extent=[kx.min(), kx.max(), ky.min(), ky.max()])
-    axs[1][0].set_title(f"{choice.capitalize()} Wavenumber Filter")
+    axs[1][0].set_title(f"'{choice.capitalize()}' Wavenumber Filter")
     axs[1][0].set_xlabel("KX")
     axs[1][0].set_ylabel("KY")
     plt.colorbar(im3, ax=axs[1][0], shrink=shrink, pad=pad,
                  label="ln(abs(P(k)^2))")
     
     # Final space domain with stochastic perturbation
-    im4 = axs[1][1].imshow(np.log(np.abs(S_pert**2)), cmap=cmap_space, 
+    # im4 = axs[1][1].imshow(np.log(np.abs(S_pert**2)), cmap=cmap_space, 
+    #                  extent=[x.min(), x.max(), y.min(), y.max()])
+    im4 = axs[1][1].imshow(S_pert, cmap=cmap_space, 
                      extent=[x.min(), x.max(), y.min(), y.max()])
-    axs[1][1].set_title(f"Final Velocity Model (a={a}m)")
-    axs[1][1].set_xlabel("X")
-    axs[1][1].set_ylabel("Y")
+    axs[1][1].set_title(f"Normalized Perturbed Model (a={a}km)")
+    axs[1][1].set_xlabel("X [km]")
+    axs[1][1].set_ylabel("Y [km]")
     plt.colorbar(im4, ax=axs[1][1], shrink=shrink, pad=pad, label="Vp [km/s]")
 
     f.tight_layout()
