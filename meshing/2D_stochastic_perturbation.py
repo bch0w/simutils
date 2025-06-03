@@ -9,12 +9,14 @@ the initial velocity field and chosen filter.
 
     choice (str): spectral filter to use, 'gaussian', 'exponential', 'vonkarman'
     seed (int): seed for the random number generator
-    vel_central (float): mean velocity for velocity seed
-    vel_std (float): standard deviation for velocity seed
+    mean_vel (float): mean velocity for velocity seed
+    std_vel (float): standard deviation for velocity seed
 
     a (int): Correlation distance with relevant characteristics at ka > 1 
         where k is the wave-number
     sigma_c (float): standard deviation for spectral filter normalization
+    norm_min (float): lower bound for final normalization
+    norm_max (float): upper bound for final normalization
 
     dx (float): grid spacing x
     dy (float): grid spacing y
@@ -23,7 +25,8 @@ the initial velocity field and chosen filter.
     ymin (float): min y-axis value
     ymax (float): max y-axis value
 
-    plot (bool): plot a 4-panel figure showing the creation process
+    plot_summary (bool): plot a 4-panel figure showing the creation process
+    plot_final (bool): plot the final velocity model only
     cmap_space (str): matplotlib colormap for space domain
     cmap_wavenumber (str): matplotlib colormap for wavenumber domain
 
@@ -47,27 +50,30 @@ from numpy.fft import fftfreq, fftshift, ifftshift
 # ==============================================================================
 # PERTURBATION
 choice = "vonkarman"  # gaussian, exponential, vonkarman
-a = 80  # correlation distance [m]
-sigma_c = 0.1  # std. deviation for perturbations
+a = 160  # km
+sigma_c = 0.1  
+norm_min = -1
+norm_max = 1
 
 # INITIAL CONDITIONS
-seed = 123  # RNG seed to make sure it's consistent
-mean_vel = 1  # central velocity value [km/s]
-std_vel = 0.1  # std. deviation from central velocity
-distribution = "normal"  # 'random' or 'normal' (dist. of random velocities)
+seed = 123  
+mean_vel = 1  # km/s
+std_vel = 0.1  
+distribution = "normal"  # random, normal
 
-# GRID SPACING
-dx = .1  # grid spacing x
-dy = .1  # grid spacing y
+# GRID SPACING [km]
+dx = .1  
+dy = .1 
 xmin = 0
 xmax = 210
 ymin = 0
 ymax = 200
 
 # PLOTTING
-plot = True
-cmap_space = "seismic_r"  # colormap for plots
-cmap_wavenumber = "viridis"  # colormap for plots
+plot_summary = False
+plot_final = True
+cmap_space = "seismic_r"
+cmap_wavenumber = "viridis"
 # ==============================================================================
 
 # Allow User cmdline overwrite of choice
@@ -130,7 +136,7 @@ arr = np.abs(S_pert)
 S_pert = ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
 
 # 4-Panel plot to show all the steps of the process
-if plot:
+if plot_summary:
     f, axs = plt.subplots(2, 2, figsize=(10, 10))
 
     # Colorbar control parameters
@@ -164,16 +170,30 @@ if plot:
                  label="ln(abs(P(k)^2))")
     
     # Final space domain with stochastic perturbation
-    # im4 = axs[1][1].imshow(np.log(np.abs(S_pert**2)), cmap=cmap_space, 
-    #                  extent=[x.min(), x.max(), y.min(), y.max()])
     im4 = axs[1][1].imshow(S_pert, cmap=cmap_space, 
-                     extent=[x.min(), x.max(), y.min(), y.max()])
+                           extent=[x.min(), x.max(), y.min(), y.max()])
     axs[1][1].set_title(f"Normalized Perturbed Model (a={a}km)")
     axs[1][1].set_xlabel("X [km]")
     axs[1][1].set_ylabel("Y [km]")
     plt.colorbar(im4, ax=axs[1][1], shrink=shrink, pad=pad, label="Vp [km/s]")
 
     f.tight_layout()
+    f.suptitle(f"{choice.capitalize()} Stochastic Perturbation", fontsize=16)
     plt.subplots_adjust(wspace=0.2, hspace=-0.2)
-    plt.savefig(f"figures/{choice}_filter_a{a}_s{seed}.png")
+    plt.savefig(f"figures/{choice}_filter_a{a}_s{seed}_4panel.png")
+    plt.show()
+
+# Plot perturbed velocity model
+if plot_final:
+    f, ax = plt.subplots(1, figsize=(8, 8))
+    im = ax.imshow(S_pert, cmap=cmap_space, 
+                   extent=[x.min(), x.max(), y.min(), y.max()])
+    plt.title(f"{choice.capitalize()} Perturbation (a={a}km; seed={seed})")
+    plt.xlabel(f"X [km] (dx={dx})")
+    plt.ylabel(f"Y [km] (dy={dy})")
+    plt.colorbar(im, shrink=0.8, pad=0.025, label="Vp [km/s]")
+    plt.grid(alpha=0.25)
+    
+    plt.tight_layout()
+    plt.savefig(f"figures/{choice}_filter_a{a}_s{seed}_final.png")
     plt.show()
