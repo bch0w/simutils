@@ -1,34 +1,9 @@
 """
-Apply 2D stochastic perturbations following Frankel and Clayton 1986 [1]. 
+Apply 3D stochastic perturbations following Frankel and Clayton 1986 [1]. 
 Creates a 2D Gaussian distributed RNG velocity field, Fourier transforms into
 the wavenumber domain, applies a choice of spectral filter, and then inverse
 transforms. The final velocity field contains stochastic perturbations based on
 the initial velocity field and chosen filter.
-
-.. Parameters::
-
-    choice (str): spectral filter to use, 'gaussian', 'exponential', 'vonkarman'
-    seed (int): seed for the random number generator
-    mean_vel (float): mean velocity for velocity seed
-    std_vel (float): standard deviation for velocity seed
-
-    a (int): Correlation distance with relevant characteristics at ka > 1 
-        where k is the wave-number
-    sigma_c (float): standard deviation for spectral filter normalization
-    norm_min (float): lower bound for final normalization
-    norm_max (float): upper bound for final normalization
-
-    dx (float): grid spacing x
-    dy (float): grid spacing y
-    xmin (float): min x-axis value
-    xmax (float): max x-axis value
-    ymin (float): min y-axis value
-    ymax (float): max y-axis value
-
-    plot_summary (bool): plot a 4-panel figure showing the creation process
-    plot_final (bool): plot the final velocity model only
-    cmap_space (str): matplotlib colormap for space domain
-    cmap_wavenumber (str): matplotlib colormap for wavenumber domain
 
 .. References::
 
@@ -36,19 +11,16 @@ the initial velocity field and chosen filter.
         of seismic scattering: Implications for the propagation of short‐period 
         seismic waves in the crust and models of crustal heterogeneity."
         Journal of Geophysical Research: Solid Earth 91.B6 (1986): 6465-6489.
-    [2] https://stackoverflow.com/questions/75903584/\
-            how-to-construct-a-vtk-file-with-point-data-from-numpy-arrays
+    [2] https://discourse.vtk.org/t0/\
+            numpy-3d-array-into-vtk-data-types-for-volume-rendering/3455/3 
 """
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-import vtk
+import pyvista as pv
 
 from scipy.fft import fftn, ifftn
 from numpy.fft import fftfreq, fftshift, ifftshift
-
-from vtk.numpy_interface import algorithms as algs
-from vtk.numpy_interface import dataset_adapter as dsa
 
 
 # ==============================================================================
@@ -127,21 +99,6 @@ nmax = 1
 arr = np.abs(S_pert)
 S_pert = ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
 
-# Export the data array as VTK so we can view in ParaView [2]
-polydata = vtk.vtkPolyData()
-pts = vtk.vtkPoints()
-points = algs.make_vector(X.ravel(), Y.ravel(), Z.ravel())
-pts.SetData(dsa.numpyTovtkDataArray(points, "Points"))
-polydata.SetPoints(pts)
-vectors = algs.make_vector(S_pert[:, :, 0].ravel(),
-                           S_pert[:, :, 1].ravel(),
-                           S_pert[:, :, 2].ravel()
-                           )
-breakpoint()
-polydata.GetPointData().SetScalars(dsa.numpyTovtkDataArray(vectors, "Velocity"))
-
-# Write the VTK file
-writer = vtk.vtkPolyDataWriter()
-writer.SetFileName("test.vtk")
-writer.SetInputData(polydata)
-writer.Update()
+# Plot volumetric cube with PyVista
+data = pv.wrap(S_pert)
+data.plot(volume=True, cmap="seismic_r")
