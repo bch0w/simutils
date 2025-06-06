@@ -1,0 +1,201 @@
+"""
+Generate a 1D velocity model (e.g., PREM) as a 3D external tomography model
+exportable to SPECFEM3D_Cartesian, then apply 3D stochastic perturbations
+using a Von Karman spectral filter, creating a 1D velocity model with stochastic
+3D perturbations that mimic small-scale heterogeneities and allow for 
+high-frequency scattering in spectral element simulations
+"""
+import sys
+import numpy as np
+import pyvista as pv
+
+from scipy.fft import fftn, ifftn
+from numpy.fft import fftfreq, fftshift, ifftshift
+
+
+# Define 1D PREM that can be interpolated and perturbed
+PREM  = {
+    "depth_m": np.array([
+        0.0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
+    ]),
+    "vp": np.array([
+        1.45, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
+    ]),
+    "vs": np.array([
+        1.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
+    ]),
+    "rho": np.array([
+        1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
+    ]),
+    "qmu": np.array([
+        0., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
+    ]),
+    "qkappa": np.array([57323.] * 11)
+    }
+
+
+def interp_1D_model(model, dz):
+    """
+    1D interpolation of the 1D model between major depth values to get gradients 
+    in between rather than just step functions.
+    """
+    z = model["depth_m"] * 1E3  # Convert to meters with positive up
+
+    # Define the new depth values to intepolate against
+    zs = np.arange(z.min(), z.max() + dz, dz)
+    print(f"{len(zs)} total values along a 1D depth profile")
+
+    # Create a new dictionary to store the interpolated values
+    model_out = {}
+    model_out["depth"] = zs
+
+    # Interpolate each of the other values
+    for key in model.keys():
+        if key == "depth":
+            continue
+        y = model[key] 
+        yinterp = np.interp(zs, z, y)
+        model_out[key] = yinterp
+    
+    return model_out
+
+
+def write_model(model, X, Y, fid="tomography_model.xyz"):
+    """
+    Generates a 1D model for SPECFEM3D_Cartesian. The model is defined by 
+    the depth, vp, vs, rho, qmu, and qkappa values. The model is then 
+    exported to a file in the SPECFEM3D_Cartesian format.
+    """
+    # Flip the Z axis because positive is up which means arange flipped it 
+    # previously
+    Z = model["depth"][::-1]
+
+    with open(fid, "w") as f:
+        # Header - min and max range values
+        f.write(f"{X.min():.1f} {Y.min():.1f} {Z.min():.1f} "
+                f"{X.max():.1f} {Y.max():.1f} {Z.max():.1f}\n")
+        # Header - spacing values
+        f.write(f"{X[1]-X[0]:.1f} {Y[1]-Y[0]:.1f} {Z[1]-Z[0]:.1f}\n")
+        # Header - number of grid points
+        f.write(f"{int(len(X)):d} {int(len(Y)):d} {int(len(Z)):d}\n")
+        # Header - parameter min max values
+        f.write(f"{model['vp'].min():.1f} {model['vp'].max():.1f} "
+                f"{model['vs'].min():.1f} {model['vs'].max():.1f} "
+                f"{model['rho'].min():.1f} {model['rho'].max():.1f}\n")
+        
+        for i, z in enumerate(Z):
+            for y in Y:
+                for x in X:
+                    f.write(f"{x:.1f} {y:.1f} {z:.1f} "
+                            f"{model['vp'][i]:.1f} {model['vs'][i]:.1f} "
+                            f"{model['rho'][i]:.1f} {model['qmu'][i]:.1f} "
+                            f"{model['kappa'][i]:.1f}\n"
+                            )
+     
+
+if __name__ == "__main__":
+    # ==========================================================================
+    #                               PARAMETERS
+    # ==========================================================================
+    choice = PREM
+
+    # GRID SPACING [m]
+    dx = 1E3
+    dy = 1E3
+    dz = 0.5E3
+
+    # DEFINE FULL DOMAIN; Format: (min, max, discretization)
+    xmin = 245.750E3
+    xmax = 890.650E3
+    ymin = 4487.550E3
+    ymax = 5050.670E3
+    zmin = 0.
+    zmax = 400E3
+    
+    # PERTURBATION
+    a = 80E3  # km
+    nmin = -0.1
+    nmax = 0.1
+    zmin_pert = 0  # depth extent of the perturbation
+    zmax_pert = 8E3
+    seed = 123  
+    mean_vel = 1  # km/s
+    std_vel = 0.1  
+
+    # PLOTTING
+    plot = False
+    cmap = "viridis"
+    # ==========================================================================    
+    # Define the brick in which the perturbation exists
+    x = np.arange(xmin, xmax, dx)  # x axis range
+    y = np.arange(ymin, ymax, dy)  # y axis range
+    z = np.arange(zmin, zmax, dz)  # z axis range
+    z_pert = np.arange(zmin_pert, zmax_pert, dz)  # y axis range
+    [X, Y, Z_PERT] = np.meshgrid(x, y, z_pert, indexing="ij")
+
+    # Print some information
+    print(f"dX = {(xmax - xmin) * 1E-3:.2f} km\n"
+          f"dY = {(ymax - ymin) * 1E-3:.2f} km\n"
+          f"dZ = {(zmax - zmin) * 1E-3:.2f} km\n"
+          f"dZ_pert = {(zmax_pert - zmin_pert) * 1E-3:.2f} km\n"
+          "\n"
+          f"nX = {len(x)}\n"
+          f"nY = {len(y)}\n"
+          f"nZ_pert = {len(z_pert)}\n"
+          )
+
+    # Create the 3D random velocity field with Gaussian distribution
+    np.random.seed(seed)
+    S = np.random.normal(mean_vel, std_vel, Z_PERT.shape)
+
+    # 3D FFT into wave number domain. Shift to get zero frequency at the center
+    FS = fftshift(fftn(S))
+
+    # Generate the frequency domain so that we can use it to index the 
+    # perturbation. Shift it so that zero frequency is at the center, so that 
+    # when we apply the perturbation it acts on the correct axes
+    kx = fftshift(fftfreq(len(x), d=dx))
+    ky = fftshift(fftfreq(len(y), d=dy))
+    kz = fftshift(fftfreq(len(z_pert), d=dz))
+    [KX, KY, KZ] = np.meshgrid(kx, ky, kz, indexing="ij")
+
+    # Generate perburations as a function of the wavenumber domain (Table 1 [1])
+    # Normalizations provide appropriate scaling (Appendix B [1])
+    KR = (KX**2 + KY**2 + KZ**2) ** 0.5  # radial wavenumber
+
+    # Von Karman spectral filter
+    perturbation = a**2 / (1 + KR**2 * a**2)
+
+    # Multiply the Gaussian with the RNG in the wavenumber domain 
+    FSP = FS * perturbation 
+
+    # Inverse Fourier transform to get back to space domain
+    FSPS = ifftshift(FSP) # Shift perturbed wavenumber spectra back
+    S_pert = ifftn(FSPS)  # Inverse FFT to space domain
+
+    # Normalize the final array from a to b 
+    arr = np.abs(S_pert)
+    S_pert = ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
+
+    # Plot volumetric cube with PyVista
+    if plot:
+        data = pv.wrap(S_pert)
+        data.plot(volume=True, cmap="seismic_r")
+
+    # Now we generate the velocity model cube. First interpolate to our `dz`
+    model = interp_1D_model(model=choice, dz=dz)
+
+    [X, Y, Z] = np.meshgrid(x, y, z, indexing="ij")
+
+    # Pick a parameter
+    for parameters in model.keys():
+        if parameters == "depth":
+            continue
+        # Generate the 3D cube
+        cube = np.ones((len(x), len(y), len(z)))
+        
+
+        breakpoint()
+
+        # NEXT STEPS FIGURE OUT HOW TO IMPLEMENT THE BRICK PERTURBATION INTO THE
+        # CUBE DOMAIN EFFICIENTLY

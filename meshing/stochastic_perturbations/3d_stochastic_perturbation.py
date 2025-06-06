@@ -62,7 +62,7 @@ except IndexError:
 x = np.arange(xmin, xmax, dx)  # x axis range
 y = np.arange(ymin, ymax, dy)  # y axis range
 z = np.arange(zmin, zmax, dz)  # y axis range
-[X, Y, Z] = np.meshgrid(x, y, z)
+[X, Y, Z] = np.meshgrid(x, y, z, indexing="ij")
 
 # Create the 2D random velocity field with Gaussian distribution
 np.random.seed(seed)
@@ -77,7 +77,7 @@ FS = fftshift(fftn(S))
 kx = fftshift(fftfreq(len(x), d=dx))
 ky = fftshift(fftfreq(len(y), d=dy))
 kz = fftshift(fftfreq(len(z), d=dz))
-[KX, KY, KZ] = np.meshgrid(kx, ky, kz)
+[KX, KY, KZ] = np.meshgrid(kx, ky, kz, indexing="ij")
 
 # Generate perburations as a function of the wavenumber domain (Table 1 [1])
 # Normalizations provide appropriate scaling (Appendix B [1])
