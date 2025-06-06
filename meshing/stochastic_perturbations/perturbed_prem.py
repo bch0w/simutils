@@ -4,6 +4,10 @@ exportable to SPECFEM3D_Cartesian, then apply 3D stochastic perturbations
 using a Von Karman spectral filter, creating a 1D velocity model with stochastic
 3D perturbations that mimic small-scale heterogeneities and allow for 
 high-frequency scattering in spectral element simulations
+
+
+NEXT STEPS
+write only the top layer and allow changing dz parameters and making new models
 """
 import sys
 import numpy as np
@@ -66,31 +70,6 @@ def write_model(model, X, Y, fid="tomography_model.xyz"):
     the depth, vp, vs, rho, qmu, and qkappa values. The model is then 
     exported to a file in the SPECFEM3D_Cartesian format.
     """
-    # Flip the Z axis because positive is up which means arange flipped it 
-    # previously
-    Z = model["depth"][::-1]
-
-    with open(fid, "w") as f:
-        # Header - min and max range values
-        f.write(f"{X.min():.1f} {Y.min():.1f} {Z.min():.1f} "
-                f"{X.max():.1f} {Y.max():.1f} {Z.max():.1f}\n")
-        # Header - spacing values
-        f.write(f"{X[1]-X[0]:.1f} {Y[1]-Y[0]:.1f} {Z[1]-Z[0]:.1f}\n")
-        # Header - number of grid points
-        f.write(f"{int(len(X)):d} {int(len(Y)):d} {int(len(Z)):d}\n")
-        # Header - parameter min max values
-        f.write(f"{model['vp'].min():.1f} {model['vp'].max():.1f} "
-                f"{model['vs'].min():.1f} {model['vs'].max():.1f} "
-                f"{model['rho'].min():.1f} {model['rho'].max():.1f}\n")
-        
-        for i, z in enumerate(Z):
-            for y in Y:
-                for x in X:
-                    f.write(f"{x:.1f} {y:.1f} {z:.1f} "
-                            f"{model['vp'][i]:.1f} {model['vs'][i]:.1f} "
-                            f"{model['rho'][i]:.1f} {model['qmu'][i]:.1f} "
-                            f"{model['kappa'][i]:.1f}\n"
-                            )
      
 
 if __name__ == "__main__":
@@ -104,7 +83,7 @@ if __name__ == "__main__":
     dy = 1E3
     dz = 0.5E3
 
-    # DEFINE FULL DOMAIN; Format: (min, max, discretization)
+    # DEFINE FULL DOMAIN [m]
     xmin = 245.750E3
     xmax = 890.650E3
     ymin = 4487.550E3
@@ -113,25 +92,40 @@ if __name__ == "__main__":
     zmax = 400E3
     
     # PERTURBATION
-    a = 80E3  # km
+    a = 80E3  # m
     nmin = -0.1
     nmax = 0.1
     zmin_pert = 0  # depth extent of the perturbation
-    zmax_pert = 8E3
+    zmax_pert = 16E3
     seed = 123  
     mean_vel = 1  # km/s
     std_vel = 0.1  
 
     # PLOTTING
-    plot = False
+    plot_cube = False    # model
+    plot_brick = False  # perturbation
     cmap = "viridis"
+
+    # EXPORT
+    fid = "tomography_model.xyz"
+
+    # MISC
+    indexing = "ij"
     # ==========================================================================    
     # Define the brick in which the perturbation exists
-    x = np.arange(xmin, xmax, dx)  # x axis range
-    y = np.arange(ymin, ymax, dy)  # y axis range
-    z = np.arange(zmin, zmax, dz)  # z axis range
-    z_pert = np.arange(zmin_pert, zmax_pert, dz)  # y axis range
-    [X, Y, Z_PERT] = np.meshgrid(x, y, z_pert, indexing="ij")
+    x = np.arange(xmin, xmax + dx, dx)  # x axis range
+    y = np.arange(ymin, ymax + dx, dy)  # y axis range
+    z = np.arange(zmin, zmax + dz, dz)  # z axis range
+    z_pert = np.arange(zmin_pert, zmax_pert, dz)  # z axis range, perturbation
+
+    # Figure out how to shift the indices of the perturbation brick so that
+    # we can use the same indexing of the depth model to access perturbation
+    try:
+        pert_idx_start = np.where(z == zmin_pert)[0][0]
+        pert_idx_end = np.where(z == zmax_pert)[0][0]
+    except IndexError:
+        print("`zmin_pert` and `zmax_pert` need to be multiples of `dz`")
+        sys.exit()
 
     # Print some information
     print(f"dX = {(xmax - xmin) * 1E-3:.2f} km\n"
@@ -144,7 +138,9 @@ if __name__ == "__main__":
           f"nZ_pert = {len(z_pert)}\n"
           )
 
+    # MAKE PERTURBATION BRICK
     # Create the 3D random velocity field with Gaussian distribution
+    [X, Y, Z_PERT] = np.meshgrid(x, y, z_pert, indexing=indexing)
     np.random.seed(seed)
     S = np.random.normal(mean_vel, std_vel, Z_PERT.shape)
 
@@ -157,13 +153,13 @@ if __name__ == "__main__":
     kx = fftshift(fftfreq(len(x), d=dx))
     ky = fftshift(fftfreq(len(y), d=dy))
     kz = fftshift(fftfreq(len(z_pert), d=dz))
-    [KX, KY, KZ] = np.meshgrid(kx, ky, kz, indexing="ij")
+    [KX, KY, KZ] = np.meshgrid(kx, ky, kz, indexing=indexing)
 
     # Generate perburations as a function of the wavenumber domain (Table 1 [1])
     # Normalizations provide appropriate scaling (Appendix B [1])
     KR = (KX**2 + KY**2 + KZ**2) ** 0.5  # radial wavenumber
 
-    # Von Karman spectral filter
+    # Von Karman spectral filter in wavenumber domain
     perturbation = a**2 / (1 + KR**2 * a**2)
 
     # Multiply the Gaussian with the RNG in the wavenumber domain 
@@ -178,24 +174,78 @@ if __name__ == "__main__":
     S_pert = ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
 
     # Plot volumetric cube with PyVista
-    if plot:
+    if plot_brick:
         data = pv.wrap(S_pert)
         data.plot(volume=True, cmap="seismic_r")
 
+    # GENERATE VELOCITY MODEL
     # Now we generate the velocity model cube. First interpolate to our `dz`
+    [X, Y, Z] = np.meshgrid(x, y, z, indexing=indexing)
     model = interp_1D_model(model=choice, dz=dz)
 
-    [X, Y, Z] = np.meshgrid(x, y, z, indexing="ij")
-
     # Pick a parameter
-    for parameters in model.keys():
-        if parameters == "depth":
+    model_dict = {}
+    for parameter in model.keys():
+        if parameter.startswith("q"):
             continue
-        # Generate the 3D cube
-        cube = np.ones((len(x), len(y), len(z)))
+        if parameter == "depth_m":
+            continue
         
+        print(parameter)
+        arr = model[parameter]
 
-        breakpoint()
+        # Generate the 3D cube shape
+        cube = np.ones((len(x), len(y), len(arr)))
 
-        # NEXT STEPS FIGURE OUT HOW TO IMPLEMENT THE BRICK PERTURBATION INTO THE
-        # CUBE DOMAIN EFFICIENTLY
+        # Fill in the cube by multiplying the correct depth with their assigned
+        # value. This is pretty brute force, let's see if it works
+        for i, val in enumerate(arr):
+            # Apply perturbation ontop of cube if we are in the correct layer
+            if pert_idx_start <= i < pert_idx_end:
+                j = i - pert_idx_start  # set correct index for perturbation
+                cube[:,:,i] *= (val + val * S_pert[:,:,j])
+            # If not, then we just assign the correct value
+            else:
+                cube[:,:,i] *= val  
+
+        # Store the unraveled 1D array for writing
+        model_dict[parameter] = cube.ravel()
+
+    # Plot volumetric cube with PyVista
+    if plot_cube:
+        data = pv.wrap(cube[:,:,::-1])  # Flip the cube so Z positive is down
+        data.plot(volume=True, cmap="rainbow_r")
+
+    # EXPORT MODEL
+    x_list = X.ravel()
+    y_list = Y.ravel()
+    z_list = Z.ravel()
+   
+    with open(fid, "w") as f:
+        # Header - min and max range values
+        f.write(f"{xmin:.1f} {ymin:.1f} {zmin:.1f} "
+                f"{xmax:.1f} {ymax:.1f} {zmax:.1f}\n")
+
+        # Header - spacing values
+        f.write(f"{dx:.1f} {dy:.1f} {dz:.1f}\n")
+
+        # Header - number of grid points
+        f.write(f"{int(len(x)):d} {int(len(y)):d} {int(len(z)):d}\n")
+
+        # Header - parameter min max values
+        f.write(f"{model['vp'].min():.1f} {model['vp'].max():.1f} "
+                f"{model['vs'].min():.1f} {model['vs'].max():.1f} "
+                f"{model['rho'].min():.1f} {model['rho'].max():.1f}"
+                # f"{model['qmu'].min():.1f} {model['qmu'].max():.1f}"
+                # f"{model['kappa'].min():.1f} {model['kappa'].min():.1f}"
+                f"\n"
+                )
+
+        for i in range(len(x_list)):
+            f.write(f"{x_list[i]:.1f} {y_list[i]:.1f} {z_list[i]:.1f} "
+                    f"{model_dict['vp'][i]:.1f} {model_dict['vs'][i]:.1f} "
+                    f"{model_dict['rho'][i]:.1f} "
+                    # f"{model_dict['qmu'][i]:.1f} {model_dict['kappa'][i]:.1f}"
+                    f"\n"
+                    )
+        
