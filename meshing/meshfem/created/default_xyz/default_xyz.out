@@ -30,7 +30,9 @@ CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
 	MIN GRID SPACE HORIZONTAL: 5
 	MIN GRID SPACE VERTICAL: 5
 CALCULATING NUMBER OF PROCESSORS
-	short direction is y
+	x-axis length = 250.0
+	y-axis length = 200.0
+	short direction is 'y'
 	NPROC_X = 12
 	NPROC_Y = 7
 CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
@@ -44,6 +46,7 @@ CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
 	DX = 2.6042km
 	DY = 3.5714km
 	Note: if values below too large, adjust 'shortest_period_s'
+	Note: if values below too small, check  'suppress_utm_proj'
 	GRID_SPACE_H - DX = 2.3958333333333335
 	GRID_SPACE_H - DY = 1.4285714285714284
 SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY

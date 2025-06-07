@@ -10,6 +10,7 @@ NEXT STEPS
 write only the top layer and allow changing dz parameters and making new models
 """
 import sys
+import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 
@@ -51,11 +52,11 @@ def interp_1D_model(model, dz):
 
     # Create a new dictionary to store the interpolated values
     model_out = {}
-    model_out["depth"] = zs
+    model_out["depth_m"] = zs
 
     # Interpolate each of the other values
     for key in model.keys():
-        if key == "depth":
+        if key == "depth_m":
             continue
         y = model[key] 
         yinterp = np.interp(zs, z, y)
@@ -72,115 +73,133 @@ def write_model(model, X, Y, fid="tomography_model.xyz"):
     """
      
 
-if __name__ == "__main__":
-    # ==========================================================================
-    #                               PARAMETERS
-    # ==========================================================================
-    choice = PREM
+# ==========================================================================
+#                               PARAMETERS
+# ==========================================================================
+choice = PREM
 
-    # GRID SPACING [m]
-    dx = 1E3
-    dy = 1E3
-    dz = 0.5E3
+# GRID SPACING LISTS [m]
+# d? lenght should be 1-len(zvals)
+DX = [1.E3, 2.5E3, 5E3, 10E3]
+DY = [1.E3, 2.5E3, 5E3, 10E3]
+DZ = [0.5E3, 1E3, 5E3, 10E3]
+ZVALS = [0, 20E3, 50E3, 100E3, 400E3]  # positive down, we will flip this later
 
-    # DEFINE FULL DOMAIN [m]
-    xmin = 245.750E3
-    xmax = 890.650E3
-    ymin = 4487.550E3
-    ymax = 5050.670E3
-    zmin = 0.
-    zmax = 400E3
-    
-    # PERTURBATION
-    a = 80E3  # m
-    nmin = -0.1
-    nmax = 0.1
-    zmin_pert = 0  # depth extent of the perturbation
-    zmax_pert = 16E3
-    seed = 123  
-    mean_vel = 1  # km/s
-    std_vel = 0.1  
+# DEFINE FULL DOMAIN [m]
+xmin = 245.750E3
+xmax = 890.650E3
+ymin = 4487.550E3
+ymax = 5050.670E3
 
-    # PLOTTING
-    plot_cube = False    # model
-    plot_brick = False  # perturbation
-    cmap = "viridis"
+# PERTURBATION
+a = 5E3  # m
+nmin = -0.1
+nmax = 0.1
+zmin_pert = 0.  # depth extent of the perturbation
+zmax_pert = 16.E3
+seed = 123  
+mean_vel = 1  # km/s
+std_vel = 0.1  
 
-    # EXPORT
-    fid = "tomography_model.xyz"
+# PLOTTING
+plot_cube = False    # model
+plot_brick = False  # perturbation
+cmap = "viridis"
 
-    # MISC
-    indexing = "ij"
-    # ==========================================================================    
+# EXPORT
+# fid length should match 1-len(ZVALS)
+fids = ["tomography_model_crust.xyz", "tomography_model_upper_mantle.xyz",
+        "tomography_model_mid_mantle.xyz", "tomography_model_lower_mantle.xyz"
+        ]
+
+# MISC
+indexing = "ij"
+order = "F"
+# ==========================================================================    
+for l, zmin in enumerate(ZVALS[:-1]):
+    print(fids[l])
+
+    # Assign the grid spacing and lower value
+    dx, dy, dz = DX[l], DY[l], DZ[l]
+    zmax = ZVALS[l+1]
+
+
     # Define the brick in which the perturbation exists
     x = np.arange(xmin, xmax + dx, dx)  # x axis range
     y = np.arange(ymin, ymax + dx, dy)  # y axis range
     z = np.arange(zmin, zmax + dz, dz)  # z axis range
     z_pert = np.arange(zmin_pert, zmax_pert, dz)  # z axis range, perturbation
-
-    # Figure out how to shift the indices of the perturbation brick so that
-    # we can use the same indexing of the depth model to access perturbation
+    
+    # Check if the perturbation exists in this layer
     try:
         pert_idx_start = np.where(z == zmin_pert)[0][0]
         pert_idx_end = np.where(z == zmax_pert)[0][0]
     except IndexError:
-        print("`zmin_pert` and `zmax_pert` need to be multiples of `dz`")
-        sys.exit()
+        pert_idx_start, pert_idx_end = np.inf, 0
 
-    # Print some information
-    print(f"dX = {(xmax - xmin) * 1E-3:.2f} km\n"
-          f"dY = {(ymax - ymin) * 1E-3:.2f} km\n"
-          f"dZ = {(zmax - zmin) * 1E-3:.2f} km\n"
-          f"dZ_pert = {(zmax_pert - zmin_pert) * 1E-3:.2f} km\n"
-          "\n"
-          f"nX = {len(x)}\n"
-          f"nY = {len(y)}\n"
-          f"nZ_pert = {len(z_pert)}\n"
-          )
+    # Generate the perturbation if it exists in this layer
+    if pert_idx_start is not None:
+        print("making perturbation brick")
+        # Figure out how to shift the indices of the perturbation brick so that
+        # we can use the same indexing of the depth model to access perturbation
 
-    # MAKE PERTURBATION BRICK
-    # Create the 3D random velocity field with Gaussian distribution
-    [X, Y, Z_PERT] = np.meshgrid(x, y, z_pert, indexing=indexing)
-    np.random.seed(seed)
-    S = np.random.normal(mean_vel, std_vel, Z_PERT.shape)
+        # Print some information
+        print(f"dX = {(xmax - xmin) * 1E-3:.2f} km\n"
+              f"dY = {(ymax - ymin) * 1E-3:.2f} km\n"
+              f"dZ = {(zmax - zmin) * 1E-3:.2f} km\n"
+              f"dZ_pert = {(zmax_pert - zmin_pert) * 1E-3:.2f} km\n"
+              "\n"
+              f"nX = {len(x)}\n"
+              f"nY = {len(y)}\n"
+              f"nZ_pert = {len(z_pert)}\n"
+              )
 
-    # 3D FFT into wave number domain. Shift to get zero frequency at the center
-    FS = fftshift(fftn(S))
+        # MAKE PERTURBATION BRICK
+        # Create the 3D random velocity field with Gaussian distribution
+        [X, Y, Z_PERT] = np.meshgrid(x, y, z_pert, indexing=indexing)
+        np.random.seed(seed)
+        S = np.random.normal(mean_vel, std_vel, Z_PERT.shape)
 
-    # Generate the frequency domain so that we can use it to index the 
-    # perturbation. Shift it so that zero frequency is at the center, so that 
-    # when we apply the perturbation it acts on the correct axes
-    kx = fftshift(fftfreq(len(x), d=dx))
-    ky = fftshift(fftfreq(len(y), d=dy))
-    kz = fftshift(fftfreq(len(z_pert), d=dz))
-    [KX, KY, KZ] = np.meshgrid(kx, ky, kz, indexing=indexing)
+        # 3D FFT into wave number domain. Shift for zero frequency at the center
+        FS = fftshift(fftn(S))
 
-    # Generate perburations as a function of the wavenumber domain (Table 1 [1])
-    # Normalizations provide appropriate scaling (Appendix B [1])
-    KR = (KX**2 + KY**2 + KZ**2) ** 0.5  # radial wavenumber
+        # Generate the frequency domain so that we can use it to index the 
+        # perturbation. Shift it so that zero frequency is at the center, so 
+        # that when we apply the perturbation it acts on the correct axes
+        kx = fftshift(fftfreq(len(x), d=dx))
+        ky = fftshift(fftfreq(len(y), d=dy))
+        kz = fftshift(fftfreq(len(z_pert), d=dz))
+        [KX, KY, KZ] = np.meshgrid(kx, ky, kz, indexing=indexing)
 
-    # Von Karman spectral filter in wavenumber domain
-    perturbation = a**2 / (1 + KR**2 * a**2)
+        # Generate perburations as a function of the wavenumber domain 
+        # (Table 1 [1])
+        # Normalizations provide appropriate scaling (Appendix B [1])
+        KR = (KX**2 + KY**2 + KZ**2) ** 0.5  # radial wavenumber
 
-    # Multiply the Gaussian with the RNG in the wavenumber domain 
-    FSP = FS * perturbation 
+        # Von Karman spectral filter in wavenumber domain
+        perturbation = a**2 / (1 + KR**2 * a**2)
 
-    # Inverse Fourier transform to get back to space domain
-    FSPS = ifftshift(FSP) # Shift perturbed wavenumber spectra back
-    S_pert = ifftn(FSPS)  # Inverse FFT to space domain
+        # Multiply the Gaussian with the RNG in the wavenumber domain 
+        FSP = FS * perturbation 
 
-    # Normalize the final array from a to b 
-    arr = np.abs(S_pert)
-    S_pert = ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
+        # Inverse Fourier transform to get back to space domain
+        FSPS = ifftshift(FSP) # Shift perturbed wavenumber spectra back
+        S_pert = ifftn(FSPS)  # Inverse FFT to space domain
 
-    # Plot volumetric cube with PyVista
-    if plot_brick:
-        data = pv.wrap(S_pert)
-        data.plot(volume=True, cmap="seismic_r")
+        # Normalize the final array from a to b 
+        arr = np.abs(S_pert)
+        S_pert = ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
+
+        # Plot volumetric cube with PyVista
+        if plot_brick:
+            data = pv.wrap(S_pert)
+            data.plot(volume=True, cmap="seismic_r")
 
     # GENERATE VELOCITY MODEL
     # Now we generate the velocity model cube. First interpolate to our `dz`
     [X, Y, Z] = np.meshgrid(x, y, z, indexing=indexing)
+    print(f"layer '{fids[l]}' has {np.prod(X.shape)} points")
+
     model = interp_1D_model(model=choice, dz=dz)
 
     # Pick a parameter
@@ -191,7 +210,7 @@ if __name__ == "__main__":
         if parameter == "depth_m":
             continue
         
-        print(parameter)
+        print(f"making {parameter}")
         arr = model[parameter]
 
         # Generate the 3D cube shape
@@ -207,9 +226,24 @@ if __name__ == "__main__":
             # If not, then we just assign the correct value
             else:
                 cube[:,:,i] *= val  
-
+        
+        # Plot test depth value
+        if False:
+            im = plt.imshow(cube[:,:,1], cmap="seismic_r", 
+                            extent=np.array([xmin, xmax, ymin, ymax]) * 1E-3)
+            plt.colorbar(im, shrink=0.8, pad=0.025, label=parameter)
+            plt.grid()
+            plt.xlabel("X [km]")
+            plt.ylabel("Y [km]")
+            ax = plt.gca()
+            # ax.ticklabel_format(style="sci", axis="both", scilimits=(0,0))
+            ax.ticklabel_format(style="plain", axis="both")
+            ax.set_aspect("equal")
+            plt.tight_layout()
+            plt.show()
+        
         # Store the unraveled 1D array for writing
-        model_dict[parameter] = cube.ravel()
+        model_dict[parameter] = cube.ravel(order=order)
 
     # Plot volumetric cube with PyVista
     if plot_cube:
@@ -217,11 +251,11 @@ if __name__ == "__main__":
         data.plot(volume=True, cmap="rainbow_r")
 
     # EXPORT MODEL
-    x_list = X.ravel()
-    y_list = Y.ravel()
-    z_list = Z.ravel()
-   
-    with open(fid, "w") as f:
+    x_list = X.ravel(order=order)
+    y_list = Y.ravel(order=order)
+    z_list = Z.ravel(order=order) * -1  # flip Z-axis so that positive is up
+
+    with open(fids[l], "w") as f:
         # Header - min and max range values
         f.write(f"{xmin:.1f} {ymin:.1f} {zmin:.1f} "
                 f"{xmax:.1f} {ymax:.1f} {zmax:.1f}\n")
