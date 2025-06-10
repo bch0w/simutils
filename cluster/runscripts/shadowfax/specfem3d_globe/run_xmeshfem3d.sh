@@ -3,7 +3,7 @@
 #SBATCH --job-name=xmeshfem3D
 #SBATCH --ntasks=48
 #SBATCH --partition=defq
-#SBATCH --time=00:05:00
+#SBATCH --time=00:10:00
 #SBATCH --output=meshfem3D_%j.out
 
 
@@ -14,8 +14,11 @@ NPROC_ETA=`grep ^NPROC_ETA DATA/Par_file | cut -d = -f 2`
 NCHUNKS=`grep ^NCHUNKS DATA/Par_file | cut -d = -f 2 ` 
 NPROC=$(( $NCHUNKS * $NPROC_XI * $NPROC_ETA )) 
 
-# Make the Database directory
+# remake the output directories assuming we are starting fresh
+rm -rf OUTPUT_FILES
 mkdir -p OUTPUT_FILES
+
+rm -rf ${BASEMPIDIR}
 mkdir -p ${BASEMPIDIR}
 
 echo "xmeshfem3D on ${NPROC} processors"
