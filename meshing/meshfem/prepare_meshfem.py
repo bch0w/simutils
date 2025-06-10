@@ -188,7 +188,7 @@ def myround(x, base=5, choice='near'):
     :param base: nearest integer to be rounded to                                
     :type choice: str                                                            
     :param choice: method of rounding, 'up', 'down' or 'near'                    
-    :rtype roundout: int                                                         
+    :rtype roundout: float
     :return: rounded value                                                       
     """                                                                          
     if choice == 'near':                                                         
@@ -446,9 +446,7 @@ def adjust_vertical_element_size(dx, dy, top_vertical_element_ratio):
     """
     logger.info("SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY")
     dz = (dx + dy) / 2 * top_vertical_element_ratio
-    import pdb;pdb.set_trace()
     dz = myround(dz, 0.25, "near")  # round off to get clean depth values
-    import pdb;pdb.set_trace()
     logger.info(f"\tDZ = (dx + dy)/2 * {top_vertical_element_ratio} ~= {dz}")
     return dz
 
