@@ -108,9 +108,7 @@ cmap = "viridis"
 
 # EXPORT
 # fid length should match 1-len(ZVALS)
-fids = ["tomography_model_crust.xyz", "tomography_model_upper_mantle.xyz",
-        "tomography_model_mid_mantle.xyz", "tomography_model_lower_mantle.xyz"
-        ]
+fids = [f"tomography_model_{_:0>2}.xyz" for _ in range(1, 5)]
 
 # MISC
 indexing = "ij"

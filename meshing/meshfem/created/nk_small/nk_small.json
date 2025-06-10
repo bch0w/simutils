@@ -10,20 +10,20 @@
     "mesh_depth_km": 400.0, 
     "mesh_top_km": 0, 
     "doubling_layers": [
-        50
+        50 
     ], 
     "interfaces": [
         0, 45
     ],
     "interface_increase": [
-        1, 2
+        2, 2
     ],
     "interface_fids": [
         "interface_topo.dat",
         "interface_1.dat"
     ], 
     "regions": [
-        20, 50, 100
+        15, 45, 95
     ],
     "materials": [
         [4400, 7500, 4500, 9999, 1001],
@@ -32,9 +32,9 @@
         [7500, 9000, 4500, 9999, 1000]
     ],
     "nproc": 4, 
-    "grid_space_top_hv": [10, 10], 
-    "shortest_period_s": 10.0, 
-    "vs_min_km_per_s": 3.0, 
+    "grid_space_top_hv": [5, 5], 
+    "shortest_period_s": 3.0, 
+    "vs_min_km_per_s": 1.5, 
     "vp_max_km_per_s": 8.8, 
     "points_per_wl": 5,
     "top_vertical_element_ratio": 1.0
