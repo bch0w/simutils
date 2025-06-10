@@ -192,11 +192,11 @@ def myround(x, base=5, choice='near'):
     :return: rounded value                                                       
     """                                                                          
     if choice == 'near':                                                         
-        roundout = int(base * round(float(x) / base))                            
+        roundout = float(base * round(float(x) / base))                            
     elif choice == 'down':                                                       
-        roundout = int(base * np.floor(float(x) / base))                         
+        roundout = float(base * np.floor(float(x) / base))                         
     elif choice == 'up':                                                         
-        roundout = int(base * np.ceil(float(x) / base))                          
+        roundout = float(base * np.ceil(float(x) / base))                          
                                                                                  
     return roundout  
 
@@ -446,7 +446,9 @@ def adjust_vertical_element_size(dx, dy, top_vertical_element_ratio):
     """
     logger.info("SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY")
     dz = (dx + dy) / 2 * top_vertical_element_ratio
+    import pdb;pdb.set_trace()
     dz = myround(dz, 0.25, "near")  # round off to get clean depth values
+    import pdb;pdb.set_trace()
     logger.info(f"\tDZ = (dx + dy)/2 * {top_vertical_element_ratio} ~= {dz}")
     return dz
 
