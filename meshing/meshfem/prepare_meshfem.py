@@ -178,7 +178,7 @@ logging.getLogger('').addHandler(console)
 logger = logging.getLogger("mesher")
 
 
-def myround(x, base=5, choice='near'):                                           
+def myround(x, base=5, choice='near', rtype=int):                                           
     """                                                                          
     Round value x to nearest base, round 'up','down' or to 'near'est base        
                                                                                  
@@ -192,11 +192,11 @@ def myround(x, base=5, choice='near'):
     :return: rounded value                                                       
     """                                                                          
     if choice == 'near':                                                         
-        roundout = float(base * round(float(x) / base))                            
+        roundout = rtype(base * round(float(x) / base))                            
     elif choice == 'down':                                                       
-        roundout = float(base * np.floor(float(x) / base))                         
+        roundout = rtype(base * np.floor(float(x) / base))                         
     elif choice == 'up':                                                         
-        roundout = float(base * np.ceil(float(x) / base))                          
+        roundout = rtype(base * np.ceil(float(x) / base))                          
                                                                                  
     return roundout  
 
@@ -446,7 +446,7 @@ def adjust_vertical_element_size(dx, dy, top_vertical_element_ratio):
     """
     logger.info("SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY")
     dz = (dx + dy) / 2 * top_vertical_element_ratio
-    dz = myround(dz, 0.25, "near")  # round off to get clean depth values
+    dz = myround(dz, 0.25, "near", rtype=float)  # round off to get clean values
     logger.info(f"\tDZ = (dx + dy)/2 * {top_vertical_element_ratio} ~= {dz}")
     return dz
 
