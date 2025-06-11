@@ -12,7 +12,10 @@ write only the top layer and allow changing dz parameters and making new models
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
-import pyvista as pv
+try:
+    import pyvista as pv
+except ImportError:
+    pass
 
 from scipy.fft import fftn, ifftn
 from numpy.fft import fftfreq, fftshift, ifftshift
@@ -65,14 +68,6 @@ def interp_1D_model(model, dz):
     return model_out
 
 
-def write_model(model, X, Y, fid="tomography_model.xyz"):
-    """
-    Generates a 1D model for SPECFEM3D_Cartesian. The model is defined by 
-    the depth, vp, vs, rho, qmu, and qkappa values. The model is then 
-    exported to a file in the SPECFEM3D_Cartesian format.
-    """
-     
-
 # ==========================================================================
 #                               PARAMETERS
 # ==========================================================================
@@ -80,10 +75,10 @@ choice = PREM
 
 # GRID SPACING LISTS [m]
 # d? lenght should be 1-len(zvals)
-DX = [1.E3, 2.5E3, 5E3, 10E3]
-DY = [1.E3, 2.5E3, 5E3, 10E3]
-DZ = [0.5E3, 1E3, 5E3, 10E3]
-ZVALS = [0, 20E3, 50E3, 100E3, 400E3]  # positive down, we will flip this later
+DX = [0.5E3, 25E3]
+DY = [0.5E3, 25E3]
+DZ = [0.5E3, 10E3]
+ZVALS = [0, 10E3, 200E3]  # positive down, we will flip this later
 
 # DEFINE FULL DOMAIN [m]
 xmin = 245.750E3
@@ -96,7 +91,7 @@ a = 5E3  # m
 nmin = -0.1
 nmax = 0.1
 zmin_pert = 0.  # depth extent of the perturbation
-zmax_pert = 16.E3
+zmax_pert = 10.E3
 seed = 123  
 mean_vel = 1  # km/s
 std_vel = 0.1  
@@ -104,6 +99,7 @@ std_vel = 0.1
 # PLOTTING
 plot_cube = False    # model
 plot_brick = False  # perturbation
+plot_2d = True
 cmap = "viridis"
 
 # EXPORT
@@ -226,7 +222,7 @@ for l, zmin in enumerate(ZVALS[:-1]):
                 cube[:,:,i] *= val  
         
         # Plot test depth value
-        if False:
+        if plot_2d:
             im = plt.imshow(cube[:,:,1], cmap="seismic_r", 
                             extent=np.array([xmin, xmax, ymin, ymax]) * 1E-3)
             plt.colorbar(im, shrink=0.8, pad=0.025, label=parameter)

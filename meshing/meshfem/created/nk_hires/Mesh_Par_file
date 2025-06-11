@@ -86,7 +86,7 @@ NUMBER_OF_PML_LAYERS_TO_ADD     = 3
 #-----------------------------------------------------------
 
 # number of materials
-NMATERIALS                      = 4
+NMATERIALS                      = 2
 # define the different materials in the model as :
 # #material_id  #rho  #vp  #vs  #Q  #anisotropy_flag #domain_id
 # NOTE:
@@ -99,8 +99,6 @@ NMATERIALS                      = 4
 #     domain_id        : 1=acoustic / 2=elastic
 1  4400  7500  4500  9999  1001  0  2
 2  6500  8500  4500  9999  1000  0  2
-3  7500  9000  4500  9999  1000  0  2
-4  7500  9000  4500  9999  1000  0  2
 
 
 #-----------------------------------------------------------
@@ -110,12 +108,10 @@ NMATERIALS                      = 4
 #-----------------------------------------------------------
 
 # number of regions
-NREGIONS                        = 4
+NREGIONS                        = 2
 # define the different regions of the model as :
 # NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-1     768   1     576   1     20    1    
-1     768   1     576   21    25    2    
-1     768   1     576   26    36    3    
-1     768   1     576   37    56    4    
+1     768   1     576   1     36    2   
+1     768   1     576   37    56    1    
 
 

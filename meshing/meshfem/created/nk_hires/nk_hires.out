@@ -1,6 +1,6 @@
 PREPARING MESH FOR MESHFEM3D
 
-{'tag': 'nk_hires', 'dir_name': './created/nk_hires', 'lat_min': 40.5, 'lat_max': 45.5, 'lon_min': 126.0, 'lon_max': 134.0, 'utm_projection': 52, 'suppress_utm_proj': False, 'mesh_depth_km': 200.0, 'mesh_top_km': 0, 'doubling_layers': [6, 18, 30], 'interfaces': [0, 10, 11, 30, 50], 'interface_increase': [2, 2, 2, 2, 2], 'interface_fids': ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat', 'interface_3.dat', 'interface_4.dat'], 'regions': [5, 15, 25], 'materials': [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000], [7500, 9000, 4500, 9999, 1000], [7500, 9000, 4500, 9999, 1000]], 'nproc': 48, 'grid_space_top_hv': [1, 1], 'shortest_period_s': 3.0, 'vs_min_km_per_s': 1.5, 'vp_max_km_per_s': 8.8, 'points_per_wl': 5, 'top_vertical_element_ratio': 0.25}
+{'tag': 'nk_hires', 'dir_name': './created/nk_hires', 'lat_min': 40.5, 'lat_max': 45.5, 'lon_min': 126.0, 'lon_max': 134.0, 'utm_projection': 52, 'suppress_utm_proj': False, 'mesh_depth_km': 200.0, 'mesh_top_km': 0, 'doubling_layers': [6, 18, 30], 'interfaces': [0, 10, 11, 30, 50], 'interface_increase': [2, 2, 2, 2, 2], 'interface_fids': ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat', 'interface_3.dat', 'interface_4.dat'], 'regions': [5], 'materials': [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000]], 'nproc': 48, 'grid_space_top_hv': [1, 1], 'shortest_period_s': 3.0, 'vs_min_km_per_s': 1.5, 'vp_max_km_per_s': 8.8, 'points_per_wl': 5, 'top_vertical_element_ratio': 0.25}
 
 PARAMETERS FOR: nk_hires
 	tag: nk_hires
@@ -17,8 +17,8 @@ PARAMETERS FOR: nk_hires
 	interfaces: [0, 10, 11, 30, 50]
 	interface_increase: [2, 2, 2, 2, 2]
 	interface_fids: ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat', 'interface_3.dat', 'interface_4.dat']
-	regions: [5, 15, 25]
-	materials: [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000], [7500, 9000, 4500, 9999, 1000], [7500, 9000, 4500, 9999, 1000]]
+	regions: [5]
+	materials: [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000]]
 	nproc: 48
 	grid_space_top_hv: [1, 1]
 	shortest_period_s: 3.0
@@ -67,12 +67,10 @@ FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
 	depth 6km is approx element 34 at depth 6.75km
 	NDOUBLING LAYERS = [18, 23, 34]
 FORMATTING NREGIONS AND NMATERIALS
-	nregions = nmaterials = 4
-	depth 25km is approx element 20 at depth 25.75km
-	depth 15km is approx element 25 at depth 15.75km
+	nregions = nmaterials = 2
 	depth 5km is approx element 36 at depth 5.25km
 	depth 0km is top of mesh 0km
-	REGION STARTING ELEMENT = [56, 36, 25, 20]
+	REGION STARTING ELEMENT = [56, 36]
 MESH HAS THE APPROXIMATE FORM
 	56/00; Z~=  0.00km
 		Top of Mesh
@@ -117,8 +115,6 @@ MESH HAS THE APPROXIMATE FORM
 	27/29; Z~=-25.50km
 	26/30; Z~=-27.50km
 	25/31; Z~=-29.50km
-		Region 3 begins
-		dx=1.68, dy=1.96, dz=2.0
 	24/32; Z~=-31.50km
 		Interface (vertical x2)
 		dx=1.68, dy=1.96, dz=4.0
@@ -128,8 +124,6 @@ MESH HAS THE APPROXIMATE FORM
 	22/34; Z~=-39.50km
 	21/35; Z~=-43.50km
 	20/36; Z~=-47.50km
-		Region 4 begins
-		dx=3.36, dy=3.91, dz=4.0
 	19/37; Z~=-51.50km
 		Interface (vertical x2)
 		dx=3.36, dy=3.91, dz=8.0
