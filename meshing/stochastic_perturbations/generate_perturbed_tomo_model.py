@@ -9,37 +9,41 @@ high-frequency scattering in spectral element simulations
 NEXT STEPS
 write only the top layer and allow changing dz parameters and making new models
 """
-import sys
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 try:
     import pyvista as pv
 except ImportError:
+    print("PyVista is not installed, skipping 3D plotting")
     pass
 
 from scipy.fft import fftn, ifftn
 from numpy.fft import fftfreq, fftshift, ifftshift
 
-from tomo_configs import *
+# Bad habit but import all variables from the config file
+from gptmcfg import *
 
 # Define 1D PREM that can be interpolated and perturbed
-PREM  = {
-    "depth": 1E3 * np.array([
-        0.0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
-    ]),  # km
-    "vp": 1E3 * np.array([
-        1.45, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
-    ]),  # km/s
-    "vs": 1E3 * np.array([
-        1.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
-    ]),  # km/s
-    "rho": 1E3 * np.array([
-        1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
-    ]),  # kg/m^3
-    "qmu": np.array([
-        0., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
-    ]),
-    "qkappa": np.array([57323.] * 11)
+MODELS = {
+    "PREM": {
+        "depth": 1E3 * np.array([
+            0.0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
+        ]),  # km
+        "vp": 1E3 * np.array([
+            1.45, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
+        ]),  # km/s
+        "vs": 1E3 * np.array([
+            1.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
+        ]),  # km/s
+        "rho": 1E3 * np.array([
+            1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
+        ]),  # kg/m^3
+        "qmu": np.array([
+            0., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
+        ]),
+        "qkappa": np.array([57323.] * 11)
+        }
     }
 
 
@@ -68,6 +72,23 @@ def interp_1D_model(model, dz):
     
     return model_out
 
+# ==============================================================================
+# Choose the Model
+model = MODELS[model_choice]
+
+# Simple numbering scheme for tomography files
+fids = [f"tomography_model_{_:0>2}.xyz" for _ in range(1, len(ZVALS)+1)]
+fids = [os.path.join("created", _) for _ in fids]
+
+# Misc parameters that we don't need to set
+indexing = "ij"
+order = "F"
+
+# Plotting parameters
+plot_cube = False    # model
+plot_brick = False  # perturbation
+plot_2d = False
+cmap = "viridis"
 
 for l, zmin in enumerate(ZVALS[:-1]):
     print(fids[l])
@@ -84,14 +105,15 @@ for l, zmin in enumerate(ZVALS[:-1]):
     z_pert = np.arange(zmin_pert, zmax_pert, dz)  # z axis range, perturbation
     
     # Check if the perturbation exists in this layer
-    try:
-        pert_idx_start = np.where(z == zmin_pert)[0][0]
-        pert_idx_end = np.where(z == zmax_pert)[0][0]
-    except IndexError:
-        pert_idx_start, pert_idx_end = None, None
-
-    # !!! SKIP
     pert_idx_start, pert_idx_end = None, None
+    if perturbations:
+        try:
+            pert_idx_start = np.where(z == zmin_pert)[0][0]
+            pert_idx_end = np.where(z == zmax_pert)[0][0]
+        except IndexError:
+            # Perturbations don't exist in this layer
+            continue
+
     # Generate the perturbation if it exists in this layer
     if pert_idx_start is not None:
         print("making perturbation brick")
@@ -155,7 +177,7 @@ for l, zmin in enumerate(ZVALS[:-1]):
     [X, Y, Z] = np.meshgrid(x, y, z, indexing=indexing)
     print(f"layer '{fids[l]}' has {np.prod(X.shape)} points")
 
-    model = interp_1D_model(model=choice, dz=dz)
+    model = interp_1D_model(model=model, dz=dz)
 
     # Pick a parameter
     model_dict = {}
