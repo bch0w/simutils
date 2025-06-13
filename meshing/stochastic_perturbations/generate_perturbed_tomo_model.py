@@ -20,21 +20,22 @@ except ImportError:
 from scipy.fft import fftn, ifftn
 from numpy.fft import fftfreq, fftshift, ifftshift
 
+from tomo_configs import *
 
 # Define 1D PREM that can be interpolated and perturbed
 PREM  = {
-    "depth_m": np.array([
+    "depth": 1E3 * np.array([
         0.0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
-    ]),
-    "vp": np.array([
+    ]),  # km
+    "vp": 1E3 * np.array([
         1.45, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
-    ]),
-    "vs": np.array([
+    ]),  # km/s
+    "vs": 1E3 * np.array([
         1.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
-    ]),
-    "rho": np.array([
+    ]),  # km/s
+    "rho": 1E3 * np.array([
         1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
-    ]),
+    ]),  # kg/m^3
     "qmu": np.array([
         0., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
     ]),
@@ -47,7 +48,7 @@ def interp_1D_model(model, dz):
     1D interpolation of the 1D model between major depth values to get gradients 
     in between rather than just step functions.
     """
-    z = model["depth_m"] * 1E3  # Convert to meters with positive up
+    z = model["depth"]  # Convert to meters with positive up
 
     # Define the new depth values to intepolate against
     zs = np.arange(z.min(), z.max() + dz, dz)
@@ -55,11 +56,11 @@ def interp_1D_model(model, dz):
 
     # Create a new dictionary to store the interpolated values
     model_out = {}
-    model_out["depth_m"] = zs
+    model_out["depth"] = zs
 
     # Interpolate each of the other values
     for key in model.keys():
-        if key == "depth_m":
+        if key == "depth":
             continue
         y = model[key] 
         yinterp = np.interp(zs, z, y)
@@ -68,48 +69,6 @@ def interp_1D_model(model, dz):
     return model_out
 
 
-# ==========================================================================
-#                               PARAMETERS
-# ==========================================================================
-choice = PREM
-
-# GRID SPACING LISTS [m]
-# d? lenght should be 1-len(zvals)
-DX = [0.5E3, 25E3]
-DY = [0.5E3, 25E3]
-DZ = [0.5E3, 10E3]
-ZVALS = [0, 10E3, 200E3]  # positive down, we will flip this later
-
-# DEFINE FULL DOMAIN [m]
-xmin = 245.750E3
-xmax = 890.650E3
-ymin = 4487.550E3
-ymax = 5050.670E3
-
-# PERTURBATION
-a = 5E3  # m
-nmin = -0.1
-nmax = 0.1
-zmin_pert = 0.  # depth extent of the perturbation
-zmax_pert = 10.E3
-seed = 123  
-mean_vel = 1  # km/s
-std_vel = 0.1  
-
-# PLOTTING
-plot_cube = False    # model
-plot_brick = False  # perturbation
-plot_2d = True
-cmap = "viridis"
-
-# EXPORT
-# fid length should match 1-len(ZVALS)
-fids = [f"tomography_model_{_:0>2}.xyz" for _ in range(1, 5)]
-
-# MISC
-indexing = "ij"
-order = "F"
-# ==========================================================================    
 for l, zmin in enumerate(ZVALS[:-1]):
     print(fids[l])
 
@@ -129,8 +88,10 @@ for l, zmin in enumerate(ZVALS[:-1]):
         pert_idx_start = np.where(z == zmin_pert)[0][0]
         pert_idx_end = np.where(z == zmax_pert)[0][0]
     except IndexError:
-        pert_idx_start, pert_idx_end = np.inf, 0
+        pert_idx_start, pert_idx_end = None, None
 
+    # !!! SKIP
+    pert_idx_start, pert_idx_end = None, None
     # Generate the perturbation if it exists in this layer
     if pert_idx_start is not None:
         print("making perturbation brick")
@@ -201,7 +162,7 @@ for l, zmin in enumerate(ZVALS[:-1]):
     for parameter in model.keys():
         if parameter.startswith("q"):
             continue
-        if parameter == "depth_m":
+        if parameter == "depth":
             continue
         
         print(f"making {parameter}")
@@ -214,7 +175,8 @@ for l, zmin in enumerate(ZVALS[:-1]):
         # value. This is pretty brute force, let's see if it works
         for i, val in enumerate(arr):
             # Apply perturbation ontop of cube if we are in the correct layer
-            if pert_idx_start <= i < pert_idx_end:
+            if pert_idx_start is not None and \
+                    (pert_idx_start <= i < pert_idx_end):
                 j = i - pert_idx_start  # set correct index for perturbation
                 cube[:,:,i] *= (val + val * S_pert[:,:,j])
             # If not, then we just assign the correct value

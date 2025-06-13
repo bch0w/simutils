@@ -10,7 +10,7 @@ LATITUDE_MIN                    = 40.5d0
 LATITUDE_MAX                    = 45.5d0
 LONGITUDE_MIN                   = 126.0d0
 LONGITUDE_MAX                   = 134.0d0
-DEPTH_BLOCK_KM                  = 400.0d0
+DEPTH_BLOCK_KM                  = 200.0d0
 UTM_PROJECTION_ZONE             = 52
 SUPPRESS_UTM_PROJECTION         = .false.
 
@@ -24,8 +24,8 @@ CAVITY_FILE                     = no_cavity.dat
 # (must be 8 * multiple of NPROC below if mesh is not regular and contains
 #  mesh doublings)
 # (must be multiple of NPROC below if mesh is regular)
-NEX_XI                          = 192
-NEX_ETA                         = 192
+NEX_XI                          = 576
+NEX_ETA                         = 576
 
 # number of MPI processors along xi and eta (can be different)
 NPROC_XI                        = 2
@@ -40,9 +40,11 @@ NPROC_ETA                       = 2
 # Regular/irregular mesh
 USE_REGULAR_MESH                = .false.
 # Only for irregular meshes, number of doubling layers and their position
-NDOUBLINGS                      = 1
+NDOUBLINGS                      = 3
 # NZ_DOUBLING_1 is the parameter to set up if there is only one doubling layer
-NZ_DOUBLING_1                   = 26
+NZ_DOUBLING_1                   = 18
+NZ_DOUBLING_2                   = 23
+NZ_DOUBLING_3                   = 33
 
 
 #-----------------------------------------------------------
@@ -84,7 +86,7 @@ NUMBER_OF_PML_LAYERS_TO_ADD     = 3
 #-----------------------------------------------------------
 
 # number of materials
-NMATERIALS                      = 4
+NMATERIALS                      = 2
 # define the different materials in the model as :
 # #material_id  #rho  #vp  #vs  #Q  #anisotropy_flag #domain_id
 # NOTE:
@@ -97,8 +99,6 @@ NMATERIALS                      = 4
 #     domain_id        : 1=acoustic / 2=elastic
 1  4400  7500  4500  9999  1001  0  2
 2  6500  8500  4500  9999  1000  0  2
-3  7500  9000  4500  9999  1000  0  2
-4  7500  9000  4500  9999  1000  0  2
 
 
 #-----------------------------------------------------------
@@ -108,12 +108,10 @@ NMATERIALS                      = 4
 #-----------------------------------------------------------
 
 # number of regions
-NREGIONS                        = 4
+NREGIONS                        = 2
 # define the different regions of the model as :
 # NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-1     192   1     192   1     19    4   
-1     192   1     192   20    27    3    
-1     192   1     192   28    33    2    
-1     192   1     192   34    38    1    
+1     576   1     576   1     34    2
+1     576   1     576   35    44    1    
 
 
