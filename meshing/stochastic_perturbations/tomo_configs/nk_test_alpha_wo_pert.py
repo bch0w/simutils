@@ -6,8 +6,8 @@ perturbations = False
 # We don't need the double layer but it helps to match the existing mesh
 DX = [25E3, 25E3]
 DY = [25E3, 25E3]
-DZ = [2E3, 10E3]
-ZVALS = [0, 10E3, 200E3]  # positive down, we will flip this later
+DZ = [1E3, 5E3]
+ZVALS = [[-1E3, 15E3], [5E3, 200E3]]  # positive down, we will flip this later
 
 # DEFINE FULL DOMAIN [m]
 xmin = 245.750E3

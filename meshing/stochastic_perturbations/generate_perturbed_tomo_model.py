@@ -28,7 +28,7 @@ from gptmcfg import *
 MODELS = {
     "PREM": {
         "depth": 1E3 * np.array([
-            0.0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
+            -1.0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
         ]),  # km
         "vp": 1E3 * np.array([
             1.45, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
@@ -90,13 +90,12 @@ plot_brick = False  # perturbation
 plot_2d = False
 cmap = "viridis"
 
-for l, zmin in enumerate(ZVALS[:-1]):
+for l, zvals in enumerate(ZVALS):
     print(fids[l])
+    zmin, zmax = zvals
 
     # Assign the grid spacing and lower value
     dx, dy, dz = DX[l], DY[l], DZ[l]
-    zmax = ZVALS[l+1]
-
 
     # Define the brick in which the perturbation exists
     x = np.arange(xmin, xmax + dx, dx)  # x axis range
