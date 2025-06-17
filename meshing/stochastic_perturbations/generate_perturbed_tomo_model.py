@@ -47,15 +47,21 @@ MODELS = {
     }
 
 
-def interp_1D_model(model, dz):
+def interp_1D_model(model, dz, zmin=None, zmax=None):
     """
     1D interpolation of the 1D model between major depth values to get gradients 
     in between rather than just step functions.
     """
     z = model["depth"]  # Convert to meters with positive up
+    
+    # User can set the bounds of the 1D model but if not just use entire model
+    if zmin is None:
+        zmin = z.min()
+    if zmax is None:
+        zmax = z.max()
 
     # Define the new depth values to intepolate against
-    zs = np.arange(z.min(), z.max() + dz, dz)
+    zs = np.arange(zmin, zmax + dz, dz)
     print(f"{len(zs)} total values along a 1D depth profile")
 
     # Create a new dictionary to store the interpolated values
@@ -76,19 +82,30 @@ def interp_1D_model(model, dz):
 # Choose the Model
 model = MODELS[model_choice]
 
+# Paths
+fig_path = "./figures"
+mod_path = "./created"
+
 # Simple numbering scheme for tomography files
 fids = [f"tomography_model_{_:0>2}.xyz" for _ in range(1, len(ZVALS)+1)]
-fids = [os.path.join("created", _) for _ in fids]
+fids = [os.path.join(mod_path, _) for _ in fids]
 
 # Misc parameters that we don't need to set
 indexing = "ij"
 order = "F"
 
 # Plotting parameters
-plot_cube = False    # model
-plot_brick = False  # perturbation
+plot_cube = True     # model
+plot_brick = False   # perturbation
+plot_profile = False  # 1D vel. profile
 plot_2d = False
 cmap = "viridis"
+# ==============================================================================
+
+# Make directories
+for path_ in [fig_path, mod_path]:
+    if not os.path.exists(path_):
+        os.makedirs(path_)
 
 for l, zvals in enumerate(ZVALS):
     print(fids[l])
@@ -176,7 +193,20 @@ for l, zvals in enumerate(ZVALS):
     [X, Y, Z] = np.meshgrid(x, y, z, indexing=indexing)
     print(f"layer '{fids[l]}' has {np.prod(X.shape)} points")
 
-    model = interp_1D_model(model=model, dz=dz)
+    # Interpolate the 1D model to the required DZ
+    model = interp_1D_model(model=model, dz=dz, zmin=zmin, zmax=zmax)
+
+    if plot_profile:
+        # Just plot one example parameter 
+        f, ax = plt.subplots(figsize=(6,8))
+        plt.plot(model["vs"], model["depth"], "ko-")
+        plt.gca().invert_yaxis()
+        plt.xlabel("Vs [m/s]")
+        plt.ylabel("Depth [m]")
+        plt.title(f"Interpolated 1D Model {model_choice}\n{fids[l]}")
+        plt.grid()
+        plt.savefig(os.path.join(fig_path, f"1d_profile_{zmin}-{zmax}.png"))
+        plt.show()
 
     # Pick a parameter
     model_dict = {}
@@ -217,6 +247,7 @@ for l, zvals in enumerate(ZVALS):
             ax.ticklabel_format(style="plain", axis="both")
             ax.set_aspect("equal")
             plt.tight_layout()
+            plt.savefig("2d_plot_{zmin}-{zmax}.png")
             plt.show()
         
         # Store the unraveled 1D array for writing
