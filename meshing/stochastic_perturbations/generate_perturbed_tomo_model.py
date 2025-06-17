@@ -95,6 +95,8 @@ indexing = "ij"
 order = "F"
 
 # Plotting parameters
+plot_all = True
+show = True
 plot_cube = True     # model
 plot_brick = False   # perturbation
 plot_profile = False  # 1D vel. profile
@@ -107,9 +109,16 @@ for path_ in [fig_path, mod_path]:
     if not os.path.exists(path_):
         os.makedirs(path_)
 
+# Overwrite Flags
+if plot_all is not None:
+    if plot_all:
+        plot_cube, plot_brick, plot_profile, plot_2d = True, True, True, True
+    else:
+        plot_cube, plot_brick, plot_profile, plot_2d = False, False, False, False
+
 for l, zvals in enumerate(ZVALS):
-    print(fids[l])
     zmin, zmax = zvals
+    print(f"{fids[l]} from {zmin} to {zmax}")
 
     # Assign the grid spacing and lower value
     dx, dy, dz = DX[l], DY[l], DZ[l]
@@ -128,7 +137,7 @@ for l, zvals in enumerate(ZVALS):
             pert_idx_end = np.where(z == zmax_pert)[0][0]
         except IndexError:
             # Perturbations don't exist in this layer
-            continue
+            pass
 
     # Generate the perturbation if it exists in this layer
     if pert_idx_start is not None:
@@ -206,7 +215,8 @@ for l, zvals in enumerate(ZVALS):
         plt.title(f"Interpolated 1D Model {model_choice}\n{fids[l]}")
         plt.grid()
         plt.savefig(os.path.join(fig_path, f"1d_profile_{zmin}-{zmax}.png"))
-        plt.show()
+        if show:
+            plt.show()
 
     # Pick a parameter
     model_dict = {}
@@ -234,9 +244,12 @@ for l, zvals in enumerate(ZVALS):
             else:
                 cube[:,:,i] *= val  
         
-        # Plot test depth value
-        if plot_2d:
-            im = plt.imshow(cube[:,:,1], cmap="seismic_r", 
+        # Store the unraveled 1D array for writing
+        model_dict[parameter] = cube.ravel(order=order)
+
+        # Plot test depth value and parameter
+        if plot_2d and parameter == "vs":
+            im = plt.imshow(cube[:,:,1], cmap=cmap, 
                             extent=np.array([xmin, xmax, ymin, ymax]) * 1E-3)
             plt.colorbar(im, shrink=0.8, pad=0.025, label=parameter)
             plt.grid()
@@ -246,12 +259,13 @@ for l, zvals in enumerate(ZVALS):
             # ax.ticklabel_format(style="sci", axis="both", scilimits=(0,0))
             ax.ticklabel_format(style="plain", axis="both")
             ax.set_aspect("equal")
+            plt.title(f"Vs [m/s] at {arr[1]}m")
             plt.tight_layout()
-            plt.savefig("2d_plot_{zmin}-{zmax}.png")
-            plt.show()
+            plt.savefig(os.path.join(fig_path, f"2d_plot_{zmin}-{zmax}.png"))
+            if show:
+                plt.show()
+
         
-        # Store the unraveled 1D array for writing
-        model_dict[parameter] = cube.ravel(order=order)
 
     # Plot volumetric cube with PyVista
     if plot_cube:
