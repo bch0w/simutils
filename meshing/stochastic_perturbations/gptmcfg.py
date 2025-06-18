@@ -1,1 +1,1 @@
-tomo_configs/nk_test_alpha_wo_pert.py
+tomo_configs/nk_midres.py

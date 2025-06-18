@@ -82,32 +82,47 @@ def interp_1D_model(model, dz, zmin=None, zmax=None):
 # Choose the Model
 model = MODELS[model_choice]
 
-# Paths
+# Paths (will be modified by 'tag')
 fig_path = "./figures"
 mod_path = "./created"
 
 # Simple numbering scheme for tomography files
 fids = [f"tomography_model_{_:0>2}.xyz" for _ in range(1, len(ZVALS)+1)]
-fids = [os.path.join(mod_path, _) for _ in fids]
 
 # Misc parameters that we don't need to set
 indexing = "ij"
 order = "F"
 
 # Plotting parameters
-plot_all = True
-show = True
-plot_cube = True     # model
+plot_all = None
+show = False
+plot_cube = False     # model
 plot_brick = False   # perturbation
 plot_profile = False  # 1D vel. profile
-plot_2d = False
+plot_2d = True       # 2d cross-sections
 cmap = "viridis"
 # ==============================================================================
+
+# Modify the tag and add final tag to paths
+if perturbations:
+    tag = tag+"_wpert"
+else:
+    tag = tag+"_nopert"
+
+# Modify the paths to include the tag subdir
+fig_path = os.path.join(fig_path, tag)
+mod_path = os.path.join(mod_path, tag)
 
 # Make directories
 for path_ in [fig_path, mod_path]:
     if not os.path.exists(path_):
         os.makedirs(path_)
+
+fids = [os.path.join(mod_path, _) for _ in fids]
+
+print(f"Tag is: {tag}")
+print(f"Figures will be saved to: {fig_path}")
+print(f"Models will be saved to: {mod_path}\n")
 
 # Overwrite Flags
 if plot_all is not None:
@@ -137,11 +152,12 @@ for l, zvals in enumerate(ZVALS):
             pert_idx_end = np.where(z == zmax_pert)[0][0]
         except IndexError:
             # Perturbations don't exist in this layer
+            print("No perturbations defined for this layer...")
             pass
 
     # Generate the perturbation if it exists in this layer
     if pert_idx_start is not None:
-        print("making perturbation brick")
+        print(f"generating perturbation brick from {zmin_pert} to {zmax_pert}")
         # Figure out how to shift the indices of the perturbation brick so that
         # we can use the same indexing of the depth model to access perturbation
 
@@ -245,7 +261,9 @@ for l, zvals in enumerate(ZVALS):
                 cube[:,:,i] *= val  
         
         # Store the unraveled 1D array for writing
-        model_dict[parameter] = cube.ravel(order=order)
+        # Flip the values because we will flip all the spatial coordinates so 
+        # that deepest points are listed first in the XYZ model
+        model_dict[parameter] = np.flip(cube.ravel(order=order))
 
         # Plot test depth value and parameter
         if plot_2d and parameter == "vs":
@@ -265,22 +283,23 @@ for l, zvals in enumerate(ZVALS):
             if show:
                 plt.show()
 
-        
-
     # Plot volumetric cube with PyVista
     if plot_cube:
         data = pv.wrap(cube[:,:,::-1])  # Flip the cube so Z positive is down
         data.plot(volume=True, cmap="rainbow_r")
 
     # EXPORT MODEL
-    x_list = X.ravel(order=order)
-    y_list = Y.ravel(order=order)
-    z_list = Z.ravel(order=order) * -1  # flip Z-axis so that positive is up
+    # Ravel turns the gridded data into 1D arrays that can be written
+    # We flip the arrays so that when written, the largest negative value starts
+    # Z axis is multiplied by -1 so that positive Z is defined as up
+    x_list = np.flip(X.ravel(order=order))
+    y_list = np.flip(Y.ravel(order=order))
+    z_list = np.flip(-1 * Z.ravel(order=order))
 
     with open(fids[l], "w") as f:
         # Header - min and max range values
-        f.write(f"{xmin:.1f} {ymin:.1f} {zmin:.1f} "
-                f"{xmax:.1f} {ymax:.1f} {zmax:.1f}\n")
+        f.write(f"{x_list.min():.1f} {y_list.min():.1f} {z_list.min():.1f} "
+                f"{x_list.max():.1f} {y_list.max():.1f} {z_list.max():.1f}\n")
 
         # Header - spacing values
         f.write(f"{dx:.1f} {dy:.1f} {dz:.1f}\n")
