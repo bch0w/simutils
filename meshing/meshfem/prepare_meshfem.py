@@ -264,6 +264,11 @@ def set_parameters(fid="./parmesh.json"):
         print("ERROR READING JSON FILE\n\n")
         sys.exit(-1)
 
+    # Assign the tag based on the name of the file
+    tag = os.path.splitext(os.path.basename(fid))[0]
+    parameters["tag"] = tag
+    parameters["dir_name"] = os.path.join(parameters["dir_name"], tag)
+
     # Print the parameters so the User knows what they've chosen
     logger.info(f"PREPARING MESH FOR MESHFEM3D")
     logger.info(f"\n{parameters}\n")
@@ -709,6 +714,7 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
     """
     # Ensure that we start from the top layer
     layers_from_top = layers[::-1]
+    # layers_from_top = layers
     cumulative_layers = np.cumsum(layers)
 
     logger.info("FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)")

@@ -1,24 +1,23 @@
 # NK Test model 6/13/25
 model_choice = "PREM"
-tag = "nk_lowres"
+tag = "test_res"
 perturbations = True
 include_q = True
 
 # GRID SPACING LISTS [m] (d? lenght should be 1-len(zvals))
-# We don't need the double layer but it helps to match the existing mesh
-DX = [5E3, 25E3]
-DY = [5E3, 25E3]
-DZ = [1E3, 5E3]
-ZVALS = [[-1E3, 15E3], [15E3, 200E3]]  # positive down, we will flip this later
+DX = [0.25E3, 25E3]
+DY = [0.25E3, 25E3]
+DZ = [0.25E3, 5E3]
+ZVALS = [[-1E3, 15E3], [15E3, 100E3]]  # positive down, we will flip this later
 
 # DEFINE FULL DOMAIN [m]
-xmin = 245.750E3
-xmax = 890.650E3
-ymin = 4487.550E3
-ymax = 5050.670E3
+xmin = 0.
+xmax = 100E3
+ymin = 0.
+ymax = 100E3
 
 # PERTURBATION PARAMETERS
-a = 16E3  # 5E3  # m
+a = 1E3  # m
 nmin = -0.1
 nmax = 0.1
 perturb = ["vp", "vs", "rho"]  # parameters to apply perturbations to

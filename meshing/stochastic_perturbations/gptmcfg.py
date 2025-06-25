@@ -1,1 +1,1 @@
-tomo_configs/nk_lowres.py
+tomo_configs/test_hires.py

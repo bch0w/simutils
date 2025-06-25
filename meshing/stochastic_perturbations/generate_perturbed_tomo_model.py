@@ -219,6 +219,7 @@ for l, zvals in enumerate(ZVALS):
         if plot_brick:
             data = pv.wrap(S_pert)
             data.plot(volume=True, cmap="seismic_r")
+            plt.close("all")
 
     # GENERATE VELOCITY MODEL
     # Now we generate the velocity model cube. First interpolate to our `dz`
@@ -240,6 +241,7 @@ for l, zvals in enumerate(ZVALS):
         plt.savefig(os.path.join(fig_path, f"1d_profile_{zmin}-{zmax}.png"))
         if show:
             plt.show()
+        plt.close("all")
 
     # Build model for each of the model parameters. Add perturbations if needed
     model_dict = {}
@@ -291,11 +293,13 @@ for l, zvals in enumerate(ZVALS):
                                      )
             if show:
                 plt.show()
+            plt.close("all")
 
     # Plot volumetric cube with PyVista
     if plot_cube:
         data = pv.wrap(cube[:,:,::-1])  # Flip the cube so Z positive is down
         data.plot(volume=True, cmap="rainbow_r")
+        plt.close("all")
 
     # EXPORT MODEL
     # Ravel turns the gridded data into 1D arrays that can be written
