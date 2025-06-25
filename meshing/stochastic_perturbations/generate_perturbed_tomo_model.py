@@ -103,6 +103,7 @@ plot_2d = True       # 2d cross-sections
 cmap = "viridis"
 # ==============================================================================
 
+# SETUP PROCEDURES
 # Modify the tag and add final tag to paths
 if perturbations:
     tag = tag+"_wpert"
@@ -131,6 +132,12 @@ if plot_all is not None:
     else:
         plot_cube, plot_brick, plot_profile, plot_2d = False, False, False, False
 
+# Drop attenuation if needed
+if not include_q:
+    print("droping 'Q' values from model")
+    MODEL = {key: val for key, val in model.items() if not key.startswith("q")}
+
+# BEGIN PROCESSING HERE
 for l, zvals in enumerate(ZVALS):
     zmin, zmax = zvals
     print(f"{fids[l]} from {zmin} to {zmax}")
@@ -234,26 +241,26 @@ for l, zvals in enumerate(ZVALS):
         if show:
             plt.show()
 
-    # Pick a parameter
+    # Build model for each of the model parameters. Add perturbations if needed
     model_dict = {}
     for parameter in model.keys():
-        if parameter.startswith("q"):
-            continue
+        # Ignore depth values, 
         if parameter == "depth":
             continue
         
-        print(f"making {parameter}")
+        print(f"making model for par: {parameter}")
         arr = model[parameter]
 
         # Generate the 3D cube shape
         cube = np.ones((len(x), len(y), len(arr)))
 
         # Fill in the cube by multiplying the correct depth with their assigned
-        # value. This is pretty brute force, let's see if it works
+        # value. This is pretty brute force but it works
         for i, val in enumerate(arr):
             # Apply perturbation ontop of cube if we are in the correct layer
-            if pert_idx_start is not None and \
-                    (pert_idx_start <= i < pert_idx_end):
+            if (parameter in perturb) and \
+                 pert_idx_start is not None and \
+                    (pert_idx_start <= i < pert_idx_end): 
                 j = i - pert_idx_start  # set correct index for perturbation
                 cube[:,:,i] *= (val + val * S_pert[:,:,j])
             # If not, then we just assign the correct value
@@ -266,7 +273,7 @@ for l, zvals in enumerate(ZVALS):
         model_dict[parameter] = np.flip(cube.ravel(order=order))
 
         # Plot test depth value and parameter
-        if plot_2d and parameter == "vs":
+        if plot_2d:
             im = plt.imshow(cube[:,:,1], cmap=cmap, 
                             extent=np.array([xmin, xmax, ymin, ymax]) * 1E-3)
             plt.colorbar(im, shrink=0.8, pad=0.025, label=parameter)
@@ -279,7 +286,9 @@ for l, zvals in enumerate(ZVALS):
             ax.set_aspect("equal")
             plt.title(f"Vs [m/s] at {arr[1]}m")
             plt.tight_layout()
-            plt.savefig(os.path.join(fig_path, f"2d_plot_{zmin}-{zmax}.png"))
+            plt.savefig(os.path.join(fig_path, 
+                                     f"2d_plot_{parameter}_{zmin}-{zmax}.png")
+                                     )
             if show:
                 plt.show()
 
@@ -310,17 +319,20 @@ for l, zvals in enumerate(ZVALS):
         # Header - parameter min max values
         f.write(f"{model['vp'].min():.1f} {model['vp'].max():.1f} "
                 f"{model['vs'].min():.1f} {model['vs'].max():.1f} "
-                f"{model['rho'].min():.1f} {model['rho'].max():.1f}"
-                # f"{model['qmu'].min():.1f} {model['qmu'].max():.1f}"
-                # f"{model['kappa'].min():.1f} {model['kappa'].min():.1f}"
-                f"\n"
-                )
+                f"{model['rho'].min():.1f} {model['rho'].max():.1f}")
+        # Optional Q header
+        if include_q:
+            f.write(f"{model['qmu'].min():.1f} {model['qmu'].max():.1f}"
+                    f"{model['qkappa'].min():.1f} {model['qkappa'].min():.1f}")
+        f.write("\n")
 
         for i in range(len(x_list)):
             f.write(f"{x_list[i]:.1f} {y_list[i]:.1f} {z_list[i]:.1f} "
                     f"{model_dict['vp'][i]:.1f} {model_dict['vs'][i]:.1f} "
-                    f"{model_dict['rho'][i]:.1f} "
-                    # f"{model_dict['qmu'][i]:.1f} {model_dict['kappa'][i]:.1f}"
-                    f"\n"
-                    )
+                    f"{model_dict['rho'][i]:.1f} ")
+            # Optional Q values
+            if include_q:
+                f.write(f"{model_dict['qmu'][i]:.1f} "
+                        f"{model_dict['qkappa'][i]:.1f}")
+            f.write("\n")
         

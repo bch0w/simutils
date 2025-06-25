@@ -1,1 +1,1 @@
-tomo_configs/nk_midres.py
+tomo_configs/nk_lowres.py

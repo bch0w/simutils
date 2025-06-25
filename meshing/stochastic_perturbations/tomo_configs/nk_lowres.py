@@ -2,6 +2,7 @@
 model_choice = "PREM"
 tag = "nk_lowres"
 perturbations = True
+include_q = False
 
 # GRID SPACING LISTS [m] (d? lenght should be 1-len(zvals))
 # We don't need the double layer but it helps to match the existing mesh
@@ -17,9 +18,10 @@ ymin = 4487.550E3
 ymax = 5050.670E3
 
 # PERTURBATION PARAMETERS
-a = 80E3  # 5E3  # m
+a = 16E3  # 5E3  # m
 nmin = -0.1
 nmax = 0.1
+perturb = ["vp", "vs", "rho"]  # parameters to apply perturbations to
 zmin_pert = -1E3  # depth extent of the perturbation
 zmax_pert = 10.E3
 seed = 123

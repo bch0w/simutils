@@ -50,10 +50,10 @@ CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
 	GRID_SPACE_H - DX = 2.3958333333333335
 	GRID_SPACE_H - DY = 1.4285714285714284
 SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY
-	DZ = (dx + dy)/2 * 1 ~= 3
+	DZ = (dx + dy)/2 * 1 ~= 3.0
 CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)
-	8 layers of 3km between 0km and 25km (24 km)
-	4 layers of 6km between 25km and 50km (24 km)
+	8 layers of 3.0km between 0km and 25km (24.0 km)
+	4 layers of 6.0km between 25km and 50km (24.0 km)
 	13 layers of 15.0km between 50km and 250.0km (195.0 km)
 	NLAYERS = 3
 	NELEMENTS_Z = 26
@@ -71,7 +71,7 @@ MESH HAS THE APPROXIMATE FORM
 		Top of Mesh
 		Interface (vertical x1)
 		Region 1 begins
-		dx=2.60, dy=3.57, dz=3
+		dx=2.60, dy=3.57, dz=3.0
 	25/01; Z~= -3.00km
 	24/02; Z~= -6.00km
 	23/03; Z~= -9.00km
@@ -82,11 +82,11 @@ MESH HAS THE APPROXIMATE FORM
 	18/08; Z~=-24.00km
 	17/09; Z~=-27.00km
 		Interface (vertical x2)
-		dx=2.60, dy=3.57, dz=6
+		dx=2.60, dy=3.57, dz=6.0
 	16/10; Z~=-33.00km
 	15/11; Z~=-39.00km
 		Region 2 begins
-		dx=2.60, dy=3.57, dz=6
+		dx=2.60, dy=3.57, dz=6.0
 	14/12; Z~=-45.00km
 	13/13; Z~=-51.00km
 		Interface (vertical x2.5)
