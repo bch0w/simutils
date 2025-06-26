@@ -1,0 +1,42 @@
+{
+    "tag": "nk_hires", 
+    "dir_name": "./created/nk_hires",
+    "lat_min": 40.5, 
+    "lat_max": 45.5, 
+    "lon_min": 126.0, 
+    "lon_max": 134.0, 
+    "utm_projection": 52, 
+    "suppress_utm_proj": false,   
+    "mesh_depth_km": 200.0, 
+    "mesh_top_km": 0, 
+    "doubling_layers": [
+        6, 18, 30
+  ], 
+    "interfaces": [
+        0, 10, 11, 30, 50
+    ],
+    "interface_increase": [
+        2, 2, 2, 2, 2
+    ],
+    "interface_fids": [
+        "interface_topo.dat",
+        "interface_1.dat",
+        "interface_2.dat",
+        "interface_3.dat",
+        "interface_4.dat"
+    ], 
+    "regions": [
+        5
+    ],
+    "materials": [
+        [4400, 7500, 4500, 9999, 1001],
+        [6500, 8500, 4500, 9999, 1000]
+    ],
+    "nproc": 48, 
+    "grid_space_top_hv": [1, 1], 
+    "shortest_period_s": 3.0, 
+    "vs_min_km_per_s": 1.5, 
+    "vp_max_km_per_s": 8.8, 
+    "points_per_wl": 5,
+    "top_vertical_element_ratio": 0.25
+}

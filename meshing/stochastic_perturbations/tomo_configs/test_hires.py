@@ -1,14 +1,14 @@
 # NK Test model 6/13/25
 model_choice = "PREM"
-tag = "test_res"
+tag = "test_hires"
 perturbations = True
 include_q = True
 
 # GRID SPACING LISTS [m] (d? lenght should be 1-len(zvals))
-DX = [0.25E3, 25E3]
-DY = [0.25E3, 25E3]
-DZ = [0.25E3, 5E3]
-ZVALS = [[-1E3, 15E3], [15E3, 100E3]]  # positive down, we will flip this later
+DX = [0.125E3, 0.5E3, 1.0E3] 
+DY = [0.125E3, 0.5E3, 1.0E3] 
+DZ = [0.125E3, 0.5E3, 1.0E3] 
+ZVALS = [[-1E3, 5E3], [5E3, 10E3], [10E3, 50E3]]  # positive down, we will flip this later
 
 # DEFINE FULL DOMAIN [m]
 xmin = 0.

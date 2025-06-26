@@ -154,17 +154,30 @@ for l, zvals in enumerate(ZVALS):
     # Check if the perturbation exists in this layer
     pert_idx_start, pert_idx_end = None, None
     if perturbations:
-        try:
-            pert_idx_start = np.where(z == zmin_pert)[0][0]
-            pert_idx_end = np.where(z == zmax_pert)[0][0]
-        except IndexError:
-            # Perturbations don't exist in this layer
-            print("No perturbations defined for this layer...")
-            pass
+        # Determine where to start the perturbation brick, either the brick 
+        # lives inside the layer, or it starts at the top of the layer
+        if zmin_pert <= zmax:
+           try:
+               # Brick lives inside the layer
+               pert_idx_start = np.where(z == zmin_pert)[0][0]
+           except IndexError:
+               # Brick starts at the top of the layer
+               pert_idx_start = np.where(z == zmin)[0][0]
+        if zmax_pert >= zmin:
+           try:
+               # Brick lives inside the layer
+               pert_idx_end = np.where(z == zmax_pert)[0][0]
+           except IndexError:
+               # Brick starts at the top of the layer
+               pert_idx_end = np.where(z == zmax)[0][0]
+    breakpoint()
+    if pert_idx_start is None:
+        print("No perturbations defined for this layer...")
 
     # Generate the perturbation if it exists in this layer
     if pert_idx_start is not None:
-        print(f"generating perturbation brick from {zmin_pert} to {zmax_pert}")
+        print(f"generating perturbation brick from {z['pert_idx_start']} to "
+              f"{z['pert_idx_end']}")
         # Figure out how to shift the indices of the perturbation brick so that
         # we can use the same indexing of the depth model to access perturbation
 
