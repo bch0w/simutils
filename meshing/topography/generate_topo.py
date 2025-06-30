@@ -2,7 +2,7 @@
 A script to generate topography data files for use in Meshfem3D
 Designed around the topography/bathymetry files of SRTM30P by Sandwell et al.
 
-https://topex.ucsd.edu/WWW_html/srtm30_plus.html (9.3.21 last access)
+https://topex.ucsd.edu/WWW_html/srtm30_plus.html (6/30/25 last access)
 
 .. note::
     Underlying topography files should be in .nc (NetCDF) format, these will be
@@ -13,7 +13,7 @@ import sys
 from glob import glob
 import numpy as np
 from pyproj import Proj
-from scipy.io.netcdf import NetCDFFile
+from scipy.io import netcdf_file
 from scipy.interpolate import griddata
 
 
@@ -31,7 +31,7 @@ def read_nc(fid):
     :rtype: np.array
     :return: Nx3 array with columns representing x, y, z
     """
-    with NetCDFFile(fid) as data:
+    with netcdf_file(fid) as data:
         try:
             x = data.variables["x"][:]
             y = data.variables["y"][:]
@@ -71,45 +71,6 @@ def convert_coordinates(data, utm_projection=-60):
     data_out[:, 1] = y_irreg
 
     return data_out
-
-
-# def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):
-#     """
-#     convert latitude and longitude coordinates to UTM projection
-#     From Pyatoa
-# 
-#     :type lon_or_x: float or int
-#     :param lon_or_x: longitude value in WGS84 or X in UTM-'zone' projection
-#     :type lat_or_y: float or int
-#     :param lat_or_y: latude value in WGS84 or Y in UTM-'zone' projection
-#     :type utm_zone: int
-#     :param utm_zone: UTM zone for conversion from WGS84
-#     :type inverse: bool
-#     :param inverse: if inverse == False, latlon => UTM, vice versa.
-#     :rtype x_or_lon: float
-#     :return x_or_lon: x coordinate in UTM or longitude in WGS84
-#     :rtype y_or_lat: float
-#     :return y_or_lat: y coordinate in UTM or latitude in WGS84
-#     """
-#     from pyproj import Proj
-# 
-#     # Determine if the projection is north or south
-#     if utm_zone < 0:
-#         direction = "south"
-#     else:
-#         direction = "north"
-#     # Proj doesn't accept negative zones
-#     utm_zone = abs(utm_zone)
-# 
-#     # Proj requires a string to tell it how to convert the coordinates
-#     projstr = (f"+proj=utm +zone={utm_zone}, +{direction} +ellps=WGS84"
-#                " +datum=WGS84 +units=m +no_defs")
-# 
-#     # Initiate a Proj object and convert the coordinates
-#     my_proj = Proj(projstr)
-#     x_or_lon, y_or_lat = my_proj(lon_or_x, lat_or_y, inverse=inverse)
-# 
-#     return x_or_lon, y_or_lat
 
 
 def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):
@@ -387,6 +348,53 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
         print_meshfem_stats(topo_interp, utm_projection)
 
 
+def call_mesh_nk():
+    """
+    Meshing script for NK test site
+    """
+    # Set parameters here
+    tag = "topo_nk"
+    utm_projection = "52"
+    method = "meshfem"  # 'meshfem' or 'trellis'
+    buffer_m = None  # extend each bound by a constant value `buffer_m` 
+    border_m = 2E3  # for cutting topo, ensures interpolation has enough points
+    moho = -100E3  # only used if `method`=='trellis'
+    spacing_m = 0.5E3  # uniform grid spacing 
+
+    # 'latlon': Define corners in lat lon and convert all to XY, doesn't work 
+    #   very well for domains that span multiple UTM zones
+    lat_min = 40.5
+    lat_max = 45.5
+    lon_min = 126.0
+    lon_max = 134.0
+    x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
+    x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
+    print(f"x_min: {x_min*1e-3:.2f}")
+    print(f"y_min: {y_min*1e-3:.2f}")
+    print(f"x_max: {x_max*1e-3:.2f}")
+    print(f"y_max: {y_max*1e-3:.2f}")
+    print(f"delta_x ={(x_max - x_min) * 1e-3:.2f}")
+    print(f"delta_y ={(y_max - y_min) * 1e-3:.2f}")
+
+    # Offset each bound by constant value 
+    if buffer_m is not None:
+        x_min -= buffer_m
+        y_min -= buffer_m
+        x_max += buffer_m
+        y_max += buffer_m
+
+    # Load the topography file to be interpolated, can use multiple files if
+    # your domain extends beyond a single file
+    path = "/Users/chow/Data/topography/SRTM30P/NK/*.nc"
+    srtm_files = glob(path)
+    if not srtm_files:
+        sys.exit("No input .nc files found")
+
+    main(tag=tag, method=method, srtm_files=srtm_files, x_min=x_min, 
+         x_max=x_max, y_min=y_min, y_max=y_max, spacing_m=spacing_m, 
+         border_m=border_m, utm_projection=utm_projection, plot=True)
+
+
 def call_mesh_nalaska():
     """
     Meshing script for northern Alaska
@@ -494,5 +502,15 @@ def call_mesh_nz():
 
 
 if __name__ == "__main__":
-    # call_mesh_nz()
-    call_mesh_nalaska()
+    try:
+        choice = sys.argv[1]
+    except IndexError:
+        print(f"choice must be in 'NZ', 'AK', 'NK'")
+        sys.exit()
+    if choice == "NZ":
+        call_mesh_nz()
+    elif choice == "AK":
+        call_mesh_nalaska()
+    elif choice == "NK":
+        call_mesh_nk()
+
