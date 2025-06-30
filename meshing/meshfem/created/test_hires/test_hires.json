@@ -9,10 +9,10 @@
     "mesh_depth_km": 50.0, 
     "mesh_top_km": 0, 
     "doubling_layers": [
-        10, 30
+        5, 10
   ], 
     "interfaces": [
-        0, 10, 30
+        0, 5, 10
     ],
     "interface_increase": [
         1, 2, 2
@@ -23,9 +23,10 @@
         "interface_2.dat"
     ], 
     "regions": [
-        5
+        5, 10
     ],
     "materials": [
+        [4400, 7500, 4500, 9999, 1001],
         [4400, 7500, 4500, 9999, 1001],
         [6500, 8500, 4500, 9999, 1000]
     ],

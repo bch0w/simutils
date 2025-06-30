@@ -170,14 +170,14 @@ for l, zvals in enumerate(ZVALS):
            except IndexError:
                # Brick starts at the top of the layer
                pert_idx_end = np.where(z == zmax)[0][0]
-    breakpoint()
+    
     if pert_idx_start is None:
         print("No perturbations defined for this layer...")
 
     # Generate the perturbation if it exists in this layer
     if pert_idx_start is not None:
-        print(f"generating perturbation brick from {z['pert_idx_start']} to "
-              f"{z['pert_idx_end']}")
+        print(f"generating perturbation brick from {z[pert_idx_start]} to "
+              f"{z[pert_idx_end]}")
         # Figure out how to shift the indices of the perturbation brick so that
         # we can use the same indexing of the depth model to access perturbation
 
@@ -336,11 +336,8 @@ for l, zvals in enumerate(ZVALS):
         # Header - parameter min max values
         f.write(f"{model['vp'].min():.1f} {model['vp'].max():.1f} "
                 f"{model['vs'].min():.1f} {model['vs'].max():.1f} "
-                f"{model['rho'].min():.1f} {model['rho'].max():.1f}")
-        # Optional Q header
-        if include_q:
-            f.write(f"{model['qmu'].min():.1f} {model['qmu'].max():.1f}"
-                    f"{model['qkappa'].min():.1f} {model['qkappa'].min():.1f}")
+                f"{model['rho'].min():.1f} {model['rho'].max():.1f} ")
+        # Note that Q does not need to be included in the header
         f.write("\n")
 
         for i in range(len(x_list)):

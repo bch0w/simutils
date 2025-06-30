@@ -10,6 +10,6 @@
  .true. 2 2 0.0d0 0.0d0 180.d0 180.d0
  interface_topo.dat
 # number of spectral elements per layer (from bottom)
+ 40
+ 10
  20
- 40
- 40

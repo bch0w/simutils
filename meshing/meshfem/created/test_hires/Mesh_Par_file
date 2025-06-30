@@ -42,8 +42,8 @@ USE_REGULAR_MESH                = .false.
 # Only for irregular meshes, number of doubling layers and their position
 NDOUBLINGS                      = 2
 # NZ_DOUBLING_1 is the parameter to set up if there is only one doubling layer
-NZ_DOUBLING_1                   = 20
-NZ_DOUBLING_2                   = 60
+NZ_DOUBLING_1                   = 40
+NZ_DOUBLING_2                   = 50
 
 
 #-----------------------------------------------------------
@@ -85,7 +85,7 @@ NUMBER_OF_PML_LAYERS_TO_ADD     = 3
 #-----------------------------------------------------------
 
 # number of materials
-NMATERIALS                      = 2
+NMATERIALS                      = 3
 # define the different materials in the model as :
 # #material_id  #rho  #vp  #vs  #Q  #anisotropy_flag #domain_id
 # NOTE:
@@ -97,7 +97,8 @@ NMATERIALS                      = 2
 #     anisotropy_flag  : 0=no anisotropy/ 1,2,.. check w/ aniso_model.f90
 #     domain_id        : 1=acoustic / 2=elastic
 1  4400  7500  4500  9999  1001  0  2
-2  6500  8500  4500  9999  1000  0  2
+2  4400  7500  4500  9999  1001  0  2
+3  6500  8500  4500  9999  1000  0  2
 
 
 #-----------------------------------------------------------
@@ -107,10 +108,11 @@ NMATERIALS                      = 2
 #-----------------------------------------------------------
 
 # number of regions
-NREGIONS                        = 2
+NREGIONS                        = 3
 # define the different regions of the model as :
 # NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-1     192   1     192   1     80    1    
-1     192   1     192   81    100   2    
+1     192   1     192   1     40    3
+1     192   1     192   41    50    2    
+1     192   1     192   51    70    1    
 
 
