@@ -3,6 +3,7 @@ SPECFEM3D can output movie files as .xyz files which list LAT LON VAL
 We can plot these as frames of a movie and collect them later as a .gif
 Can also add text, coastlines etc. easily with Matplotlib
 """
+import sys
 import os
 from glob import glob
 from subprocess import run
@@ -15,11 +16,11 @@ from pyproj import Proj
 
 
 # COORDINATE CONVERSION CONSTANTS
-UTM_ZONE = -60 
-XMIN = 171312.
-XMAX = 633468.
-YMIN = 5286952.
-YMAX = 5904085.
+UTM_ZONE = 52
+XMIN = 0
+XMAX = 100E3
+YMIN = 0
+YMAX = 100E3
 
 
 
@@ -166,108 +167,33 @@ def gif(path, duration, fid_out="output.gif"):
         run(call.split(" "))
 
 
-def nznorth_extras(f, ax, text=None, faults=None, xy=None, coord="xy"):
-    """
-    Plot extra features on NZNorth such as labels, coastline, bathymetry,
-    whatever
-    :type coord: str
-    :param coord: can be 'xy' (UTM 60S) or 'latlon' (WGS84)
-    """
-    base_dir = "/Users/Chow/Documents/academic/vuw/data/carto/"
-    if xy is None:
-        if coord == "latlon":
-            coast_fid = os.path.join(base_dir, "coastline/coast_latlon.txt")
-            xy = np.loadtxt(coast_fid).T
-            y, x = xy
-        elif coord == "xy":
-            coast_fid = os.path.join(base_dir, 
-                                     "coastline/coast_nznorth_utm60.txt")
-            xy = np.loadtxt(coast_fid).T
-            x, y = xy
-            # Zero origin and convert coordinates
-            for i, (val, min_) in enumerate(zip(xy, [XMIN, YMIN])):
-                xy[i] = (val - min_) * 1E-3
-    else:
-        x, y = xy
-       
-    if coord == "latlon":
-        xlabel = "Latitude"
-        ylabel = "Longitude"
-        xtext, ytext = (178.4, -42.4)
-    elif coord == "xy":
-        xlabel = "X [km]"
-        ylabel = "Y [km]"
-        xtext, ytext = (450, 10)
-
-    plt.scatter(x, y, c="k", s=.05, marker=".")
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel, rotation=90)
-    if text:
-        plt.text(x=xtext, y=ytext, s=text, color="k", fontsize=10, 
-                 verticalalignment="bottom", horizontalalignment="right")
-    
-    # Plot the trench
-    trench = os.path.join(base_dir, "trench", "hikurangi_trench_utm60s.txt")
-    xt, yt, _  = np.loadtxt(trench).T
-    # Zero origin based on coastline file
-    xt = (xt - XMIN) * 1E-3
-    yt = (yt - YMIN) * 1E-3
-    plt.plot(xt, yt, c="k", linewidth=1)
-
-    return xy
-
-
 if __name__ == "__main__":
     # =========================================================================
     # ACTIONS
     make_pngs = 1
-    make_gif = 0
+    make_gif = 1
     trial_run = 0
     # =========================================================================
     # PARAMETER SET HERE
-    choice = "2016p105478"
-    input_path = f"./inputs/{choice}/norm_vel"
-    output_path = "./simulation"
-    gif_fid = "sim_mov.gif"
+    input_path = sys.argv[1]
+    output_path = os.path.join(sys.argv[1], "frames")
+    gif_fid = os.path.join(sys.argv[1], "sim_mov.gif")
     file_ext = ".xyz"
     min_val = 9e-7
-    dt = .0125
+    dt = 0.02
     normalized = True
     gif_duration_ms = 200  # milliseconds
-    convert = True
-    if choice == "2018p130600":
-        max_val = 4E-5
-        source = [176.300, -39.949]  # 2018p130600
-        receiver = [177.674, -39.022]  # NZ.KNZ
-        text = ("2018p130600\n"
-                "2018-02-18T07:43:48Z\n"
-                "M5.2; 21km depth")
-    elif choice == "2016p105478":
-        max_val = 2.E-5
-        source = [173.075, -42.068]  # 2016p105478
-        receiver = [178.257, -38.072]  # NZ.PUZ
-        text = ("2016p105478\n"
-                "2016-02-09T00:39:00Z\n"
-                "M5.7, 48km depth")
-    elif choice == "2016p881118":
-        max_val = 8e-4
-        source = [177.229, -40.674]  # 2016p881118
-        receiver = [177.528, -38.334]  # NZ.MWZ
-        text = ("2016p881118\n"
-                "2016-11-22T00:19:42Z\n"
-                "M5.5, 29km depth")
-    elif choice == "adj_2016p105478":
-        max_val = 1.E-11
-        source = [173.075, -42.068]  # 2016p105478
-        receiver = [176.981, -38.616]  # NZ.PUZ
-        text = ("2016p105478\n"
-                "2016-02-09T00:39:00Z\n"
-                "M5.7, 48km depth")
+    convert = False
+
+    max_val = 1
+    source = [25E3, 25E3]
+    receiver = None
+    text = ""
 
     # =========================================================================
     # Controls on colorbar
     if normalized:
-        kwargs = {"cmap": "gist_heat_r",
+        kwargs = {"cmap": "gist_ncar_r", # "gist_heat_r",
                   "norm": plt.Normalize(0, max_val), 
                   "levels": 101,
                   }
@@ -318,7 +244,6 @@ if __name__ == "__main__":
             # Plot that ish
             plot(ax, x, y, z, min_val=min_val, max_val=max_val,  **kwargs)
             srcrcv(source, receiver, convert=convert)
-            xy = nznorth_extras(f, ax, text, xy=xy)
 
             plt.title(f"t={ts:6.2f} s")
             plt.xlim([x.min(), x.max()])
