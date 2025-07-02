@@ -1,1 +1,1 @@
-tomo_configs/test_hires.py
+tomo_configs/nk_aspen.py

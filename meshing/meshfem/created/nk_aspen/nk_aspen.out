@@ -1,0 +1,187 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'dir_name': './created/nk_aspen', 'lat_min': 40.5, 'lat_max': 45.5, 'lon_min': 126.0, 'lon_max': 134.0, 'utm_projection': 52, 'suppress_utm_proj': False, 'mesh_depth_km': 200.0, 'mesh_top_km': 2.5, 'doubling_layers': [15, 35, 55], 'interfaces': [0, 12, 32, 52], 'interface_increase': [1, 2, 2, 2], 'interface_fids': ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat', 'interace_3.dat'], 'regions': [15], 'materials': [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000]], 'nproc': 64, 'grid_space_top_hv': [0.5, 0.5], 'shortest_period_s': 3, 'vs_min_km_per_s': 1.5, 'vp_max_km_per_s': 8.8, 'points_per_wl': 5, 'top_vertical_element_ratio': 1, 'tag': 'nk_aspen'}
+
+PARAMETERS FOR: nk_aspen
+	dir_name: ./created/nk_aspen
+	lat_min: 40.5
+	lat_max: 45.5
+	lon_min: 126.0
+	lon_max: 134.0
+	utm_projection: 52
+	suppress_utm_proj: False
+	mesh_depth_km: 200.0
+	mesh_top_km: 2.5
+	doubling_layers: [15, 35, 55]
+	interfaces: [0, 12, 32, 52]
+	interface_increase: [1, 2, 2, 2]
+	interface_fids: ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat', 'interace_3.dat']
+	regions: [15]
+	materials: [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000]]
+	nproc: 64
+	grid_space_top_hv: [0.5, 0.5]
+	shortest_period_s: 3
+	vs_min_km_per_s: 1.5
+	vp_max_km_per_s: 8.8
+	points_per_wl: 5
+	top_vertical_element_ratio: 1
+	tag: nk_aspen
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 0.5
+	MIN GRID SPACE VERTICAL: 0.5
+CALCULATING NUMBER OF PROCESSORS
+	x-axis length = 644.8455351677607
+	y-axis length = 563.0894747246932
+	short direction is 'y'
+	NPROC_X = 8
+	NPROC_Y = 8
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 1344
+	NEX_Y = 1152
+	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
+		NEX_X: 1344 -> 1408
+	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
+		NEX_Y: 1152 -> 1152
+	DX = 0.4580km
+	DY = 0.4888km
+	Note: if values below too large, adjust 'shortest_period_s'
+	Note: if values below too small, check  'suppress_utm_proj'
+	GRID_SPACE_H - DX = 0.042013114227442694
+	GRID_SPACE_H - DY = 0.011207053190370464
+SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY
+	DZ = (dx + dy)/2 * 1 ~= 0.5
+CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)
+	24 layers of 0.5km between 0km and 12km (12.0 km)
+	20 layers of 1.0km between 12km and 32km (20.0 km)
+	10 layers of 2.0km between 32km and 52km (20.0 km)
+	37 layers of 4.0km between 52km and 200.0km (148.0 km)
+	NLAYERS = 4
+	NELEMENTS_Z = 92
+	NUM ELEM PER LAYER FROM BOTTOM = [37, 10, 20, 25]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	depth 55km is approx element 37 at depth 59.00km
+	depth 35km is approx element 47 at depth 37.00km
+	depth 15km is approx element 67 at depth 16.00km
+	NDOUBLING LAYERS = [37, 47, 67]
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 2
+	depth 15km is approx element 67 at depth 16.00km
+	depth 2.5km is top of mesh 2.5km
+	REGION STARTING ELEMENT = [92, 67]
+MESH HAS THE APPROXIMATE FORM
+	92/00; Z~=  2.50km
+		Top of Mesh
+		Interface (vertical x1)
+		Region 1 begins
+		dx=0.46, dy=0.49, dz=0.5
+	91/01; Z~=  2.00km
+	90/02; Z~=  1.50km
+	89/03; Z~=  1.00km
+	88/04; Z~=  0.50km
+	87/05; Z~=  0.00km
+	86/06; Z~= -0.50km
+	85/07; Z~= -1.00km
+	84/08; Z~= -1.50km
+	83/09; Z~= -2.00km
+	82/10; Z~= -2.50km
+	81/11; Z~= -3.00km
+	80/12; Z~= -3.50km
+	79/13; Z~= -4.00km
+	78/14; Z~= -4.50km
+	77/15; Z~= -5.00km
+	76/16; Z~= -5.50km
+	75/17; Z~= -6.00km
+	74/18; Z~= -6.50km
+	73/19; Z~= -7.00km
+	72/20; Z~= -7.50km
+	71/21; Z~= -8.00km
+	70/22; Z~= -8.50km
+	69/23; Z~= -9.00km
+	68/24; Z~= -9.50km
+	67/25; Z~=-10.00km
+		Interface (vertical x2)
+		Doubling (horizontal doubling)
+		Region 2 begins
+		dx=0.92, dy=0.98, dz=1.0
+	66/26; Z~=-11.00km
+	65/27; Z~=-12.00km
+	64/28; Z~=-13.00km
+	63/29; Z~=-14.00km
+	62/30; Z~=-15.00km
+	61/31; Z~=-16.00km
+	60/32; Z~=-17.00km
+	59/33; Z~=-18.00km
+	58/34; Z~=-19.00km
+	57/35; Z~=-20.00km
+	56/36; Z~=-21.00km
+	55/37; Z~=-22.00km
+	54/38; Z~=-23.00km
+	53/39; Z~=-24.00km
+	52/40; Z~=-25.00km
+	51/41; Z~=-26.00km
+	50/42; Z~=-27.00km
+	49/43; Z~=-28.00km
+	48/44; Z~=-29.00km
+	47/45; Z~=-30.00km
+		Interface (vertical x2)
+		Doubling (horizontal doubling)
+		dx=1.83, dy=1.96, dz=2.0
+	46/46; Z~=-32.00km
+	45/47; Z~=-34.00km
+	44/48; Z~=-36.00km
+	43/49; Z~=-38.00km
+	42/50; Z~=-40.00km
+	41/51; Z~=-42.00km
+	40/52; Z~=-44.00km
+	39/53; Z~=-46.00km
+	38/54; Z~=-48.00km
+	37/55; Z~=-50.00km
+		Interface (vertical x2)
+		Doubling (horizontal doubling)
+		dx=3.66, dy=3.91, dz=4.0
+	36/56; Z~=-54.00km
+	35/57; Z~=-58.00km
+	34/58; Z~=-62.00km
+	33/59; Z~=-66.00km
+	32/60; Z~=-70.00km
+	31/61; Z~=-74.00km
+	30/62; Z~=-78.00km
+	29/63; Z~=-82.00km
+	28/64; Z~=-86.00km
+	27/65; Z~=-90.00km
+	26/66; Z~=-94.00km
+	25/67; Z~=-98.00km
+	24/68; Z~=-102.00km
+	23/69; Z~=-106.00km
+	22/70; Z~=-110.00km
+	21/71; Z~=-114.00km
+	20/72; Z~=-118.00km
+	19/73; Z~=-122.00km
+	18/74; Z~=-126.00km
+	17/75; Z~=-130.00km
+	16/76; Z~=-134.00km
+	15/77; Z~=-138.00km
+	14/78; Z~=-142.00km
+	13/79; Z~=-146.00km
+	12/80; Z~=-150.00km
+	11/81; Z~=-154.00km
+	10/82; Z~=-158.00km
+	09/83; Z~=-162.00km
+	08/84; Z~=-166.00km
+	07/85; Z~=-170.00km
+	06/86; Z~=-174.00km
+	05/87; Z~=-178.00km
+	04/88; Z~=-182.00km
+	03/89; Z~=-186.00km
+	02/90; Z~=-190.00km
+	01/91; Z~=-194.00km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+WRITING INTERACE interface_topo.dat
+WRITING INTERACE interface_1.dat
+WRITING INTERACE interface_2.dat
+WRITING INTERACE interace_3.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	APPRX_NUM_ELEM = 52208640

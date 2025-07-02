@@ -1,7 +1,7 @@
 # NK Test model 6/13/25
 model_choice = "PREM"
 tag = "test_hires"
-perturbations = False
+perturbations = True
 include_q = True
 
 # GRID SPACING LISTS [m] (d? lenght should be 1-len(zvals))

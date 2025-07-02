@@ -1,0 +1,19 @@
+# number of interfaces
+ 4
+# interface number 1
+ .false. 2 2 126.0d0 40.5d0 180.d0 180.d0
+ interace_3.dat
+# interface number 2
+ .false. 2 2 126.0d0 40.5d0 180.d0 180.d0
+ interface_2.dat
+# interface number 3
+ .false. 2 2 126.0d0 40.5d0 180.d0 180.d0
+ interface_1.dat
+# interface number 4
+ .false. 2 2 126.0d0 40.5d0 180.d0 180.d0
+ interface_topo.dat
+# number of spectral elements per layer (from bottom)
+ 37
+ 10
+ 20
+ 25
