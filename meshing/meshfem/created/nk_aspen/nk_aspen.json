@@ -6,7 +6,7 @@
     "lon_max": 134.0, 
     "utm_projection": 52, 
     "suppress_utm_proj": false,   
-    "mesh_depth_km": 200.0, 
+    "mesh_depth_km": 100.0, 
     "mesh_top_km": 2.5, 
     "doubling_layers": [
         15, 35, 55
@@ -21,7 +21,7 @@
         "interface_topo.dat",
         "interface_1.dat",
         "interface_2.dat",
-		"interace_3.dat"
+		"interface_3.dat"
     ], 
     "regions": [
         15

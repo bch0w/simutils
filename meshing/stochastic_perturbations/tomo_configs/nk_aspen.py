@@ -8,7 +8,7 @@ include_q = True
 DX = [0.125E3, 0.5E3, 1.0E3] 
 DY = [0.125E3, 0.5E3, 1.0E3] 
 DZ = [0.125E3, 0.5E3, 1.0E3] 
-ZVALS = [[-1E3, 5E3], [5E3, 10E3], [10E3, 200E3]]  # positive down, we will flip this later
+ZVALS = [[-2.5E3, 5E3], [5E3, 10E3], [10E3, 200E3]]  # positive down, we will flip this later
 
 # DEFINE FULL DOMAIN [m]
 xmin = 245725.

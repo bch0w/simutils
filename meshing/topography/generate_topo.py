@@ -385,7 +385,7 @@ def call_mesh_nk():
 
     # Load the topography file to be interpolated, can use multiple files if
     # your domain extends beyond a single file
-    path = "/Users/chow/Data/topography/SRTM30P/NK/*.nc"
+    path = "/import/data/simulated_blasts/data/topography/SRTM30P/*.nc"
     srtm_files = glob(path)
     if not srtm_files:
         sys.exit("No input .nc files found")

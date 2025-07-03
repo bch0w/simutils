@@ -1,0 +1,46 @@
+x_min: 245.78
+y_min: 4487.58
+x_max: 890.63
+y_max: 5050.67
+delta_x =644.85
+delta_y =563.09
+reading file 1/1: e100n90.nc
+	converting latlon to UTM 52
+	topography file has size (28800000, 3)
+	cutting topography file to desired dimensions
+	topography file cut to size (585804, 3)
+final topo file has size (585804, 3)
+interpolating to regular grid
+	interpolated file has size (1453830, 3)
+writing to topo_nk
+
+TOPOGRAPHY INFO
+==================================================
+TOPO_MIN =  -3628.18
+TOPO_MAX =  2564.39
+TOPO_MEAN = -122.75
+TOPO_MED =  318.16
+
+
+MESHFEM INTERFACE STATS
+==================================================
+NPTS_LON = 1290
+NPTS_LAT = 1127
+DELTA_X  = 644500.0
+DELTA_Y  = 563000.0
+DELTA_LAT  = 4.999390949235284
+DELTA_LON  = 7.995522956587251
+dX  = 500.0
+dY  = 500.0
+dLON    = 0.006198079811307947
+dLAT    = 0.004436016813873366
+LON_MIN = 126.0
+LAT_MIN = 40.499999999999986
+LON_MAX = 133.99552295658725
+LAT_MAX = 45.49939094923527
+
+
+Place one of the following lines in your 'interfaces.dat' file:
+
+ .false. 1290 1127 126.00d0 40.50d0 0.006198d0 0.004436d0
+ .true. 1290 1127 245780d0 4487579d0 500.00d0 500.00d0

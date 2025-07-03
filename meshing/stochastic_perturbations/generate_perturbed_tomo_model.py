@@ -83,8 +83,8 @@ def interp_1D_model(model, dz, zmin=None, zmax=None):
 model = MODELS[model_choice]
 
 # Paths (will be modified by 'tag')
-fig_path = "./figures"
-mod_path = "./created"
+fig_path = "/import/data/simulated_blasts/data/tomo_files/figures"
+mod_path = "/import/data/simulated_blasts/data/tomo_files"
 
 # Simple numbering scheme for tomography files
 fids = [f"tomography_model_{_:0>2}.xyz" for _ in range(1, len(ZVALS)+1)]
@@ -194,6 +194,7 @@ for l, zvals in enumerate(ZVALS):
 
         # MAKE PERTURBATION BRICK
         # Create the 3D random velocity field with Gaussian distribution
+        print("making meshgrid")
         [X, Y, Z_PERT] = np.meshgrid(x, y, z_pert, indexing=indexing)
         np.random.seed(seed)
         S = np.random.normal(mean_vel, std_vel, Z_PERT.shape)

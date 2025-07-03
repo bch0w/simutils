@@ -10,7 +10,7 @@ LATITUDE_MIN                    = 40.5d0
 LATITUDE_MAX                    = 45.5d0
 LONGITUDE_MIN                   = 126.0d0
 LONGITUDE_MAX                   = 134.0d0
-DEPTH_BLOCK_KM                  = 200.0d0
+DEPTH_BLOCK_KM                  = 100.0d0
 UTM_PROJECTION_ZONE             = 52
 SUPPRESS_UTM_PROJECTION         = .false.
 
@@ -42,9 +42,9 @@ USE_REGULAR_MESH                = .false.
 # Only for irregular meshes, number of doubling layers and their position
 NDOUBLINGS                      = 3
 # NZ_DOUBLING_1 is the parameter to set up if there is only one doubling layer
-NZ_DOUBLING_1                   = 37
-NZ_DOUBLING_2                   = 47
-NZ_DOUBLING_3                   = 67
+NZ_DOUBLING_1                   = 12
+NZ_DOUBLING_2                   = 22
+NZ_DOUBLING_3                   = 42
 
 
 #-----------------------------------------------------------
@@ -111,7 +111,7 @@ NMATERIALS                      = 2
 NREGIONS                        = 2
 # define the different regions of the model as :
 # NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-1     1408  1     1152  1     67    2   
-1     1408  1     1152  68    92    1    
+1     1408  1     1152  1     42    1    
+1     1408  1     1152  43    66    2    
 
 
