@@ -1,1 +1,1 @@
-tomo_configs/nk_aspen.py
+tomo_configs/nk_mdj.py

@@ -796,13 +796,15 @@ def nmaterials_nregions_ndoublings(doubling_layers, regions, layers, nex_xi,
                                        top=top, bottom=bottom,
                                        grid_space_top=grid_space_z,
                                        interface_increase=interface_increase)
-        
+      
+        # Increment the regions backwards to match tomography model order
+        k = len(regions) - i
         regions_out += regions_template.format(nex_begin="1",
                                                nex_xi=nex_xi,
                                                nex_eta=nex_eta,
                                                nz_beg=nz_begin,
                                                nz_end=nz_end,
-                                               j=j)
+                                               j=k)
         rgn_elem.append(nz_end)
     
         # Ensure that the next layer starts on the next element

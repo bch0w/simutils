@@ -1,9 +1,9 @@
 {
 	"dir_name": "./created",
-    "lat_min": 40.5, 
-    "lat_max": 45.5, 
-    "lon_min": 126.0, 
-    "lon_max": 134.0, 
+    "lat_min": 41.5, 
+    "lat_max": 44.7, 
+    "lon_min": 128.9, 
+    "lon_max": 129.75, 
     "utm_projection": 52, 
     "suppress_utm_proj": false,   
     "mesh_depth_km": 100.0, 
@@ -12,7 +12,7 @@
         8, 16, 36
     ], 
     "interfaces": [
-        0, 5, 12, 33
+        0, 5.5, 13, 33
     ],
     "interface_increase": [
         1, 2, 2, 2
