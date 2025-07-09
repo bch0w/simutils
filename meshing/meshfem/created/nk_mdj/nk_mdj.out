@@ -1,12 +1,12 @@
 PREPARING MESH FOR MESHFEM3D
 
-{'dir_name': './created/nk_mdj', 'lat_min': 41.5, 'lat_max': 44.7, 'lon_min': 128.9, 'lon_max': 129.75, 'utm_projection': 52, 'suppress_utm_proj': False, 'mesh_depth_km': 100.0, 'mesh_top_km': 2.5, 'doubling_layers': [8, 16, 36], 'interfaces': [0, 5.5, 13, 33], 'interface_increase': [1, 2, 2, 2], 'interface_fids': ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat', 'interface_3.dat'], 'regions': [8.5], 'materials': [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000]], 'nproc': 64, 'grid_space_top_hv': [0.5, 0.5], 'shortest_period_s': 3, 'vs_min_km_per_s': 1.5, 'vp_max_km_per_s': 8.8, 'points_per_wl': 5, 'top_vertical_element_ratio': 1, 'tag': 'nk_mdj'}
+{'dir_name': './created/nk_mdj', 'lat_min': 41.25, 'lat_max': 44.75, 'lon_min': 128.75, 'lon_max': 129.75, 'utm_projection': 52, 'suppress_utm_proj': False, 'mesh_depth_km': 100.0, 'mesh_top_km': 2.5, 'doubling_layers': [8, 16, 36], 'interfaces': [0, 5.5, 13, 33], 'interface_increase': [1, 2, 2, 2], 'interface_fids': ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat', 'interface_3.dat'], 'regions': [8.5, 16], 'materials': [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000], [6500, 8500, 4500, 9999, 1000]], 'nproc': 32, 'grid_space_top_hv': [0.5, 0.5], 'shortest_period_s': 3, 'vs_min_km_per_s': 1.5, 'vp_max_km_per_s': 8.8, 'points_per_wl': 5, 'top_vertical_element_ratio': 1, 'tag': 'nk_mdj'}
 
 PARAMETERS FOR: nk_mdj
 	dir_name: ./created/nk_mdj
-	lat_min: 41.5
-	lat_max: 44.7
-	lon_min: 128.9
+	lat_min: 41.25
+	lat_max: 44.75
+	lon_min: 128.75
 	lon_max: 129.75
 	utm_projection: 52
 	suppress_utm_proj: False
@@ -16,9 +16,9 @@ PARAMETERS FOR: nk_mdj
 	interfaces: [0, 5.5, 13, 33]
 	interface_increase: [1, 2, 2, 2]
 	interface_fids: ['interface_topo.dat', 'interface_1.dat', 'interface_2.dat', 'interface_3.dat']
-	regions: [8.5]
-	materials: [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000]]
-	nproc: 64
+	regions: [8.5, 16]
+	materials: [[4400, 7500, 4500, 9999, 1001], [6500, 8500, 4500, 9999, 1000], [6500, 8500, 4500, 9999, 1000]]
+	nproc: 32
 	grid_space_top_hv: [0.5, 0.5]
 	shortest_period_s: 3
 	vs_min_km_per_s: 1.5
@@ -31,25 +31,25 @@ CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
 	MIN GRID SPACE HORIZONTAL: 0.5
 	MIN GRID SPACE VERTICAL: 0.5
 CALCULATING NUMBER OF PROCESSORS
-	x-axis length = 67.7654208657461
-	y-axis length = 355.62958958306535
+	x-axis length = 80.3137257527142
+	y-axis length = 388.91257363563216
 	short direction is 'x'
 	NPROC_X = 4
-	NPROC_Y = 16
+	NPROC_Y = 8
 CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
-	integer multiple found as c=3
+	integer multiple found as c=2
 	NEX_X = 192
-	NEX_Y = 768
+	NEX_Y = 832
 	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
 		NEX_X: 192 -> 192
 	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
-		NEX_Y: 768 -> 768
-	DX = 0.3529km
-	DY = 0.4631km
+		NEX_Y: 832 -> 896
+	DX = 0.4183km
+	DY = 0.4341km
 	Note: if values below too large, adjust 'shortest_period_s'
 	Note: if values below too small, check  'suppress_utm_proj'
-	GRID_SPACE_H - DX = 0.1470550996575724
-	GRID_SPACE_H - DY = 0.03694063856371699
+	GRID_SPACE_H - DX = 0.08169934503794685
+	GRID_SPACE_H - DY = 0.06594578835308912
 SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY
 	DZ = (dx + dy)/2 * 1 ~= 0.5
 CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)
@@ -66,16 +66,17 @@ FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
 	depth 8km is approx element 35 at depth 9.00km
 	NDOUBLING LAYERS = [17, 27, 35]
 FORMATTING NREGIONS AND NMATERIALS
-	nregions = nmaterials = 2
+	nregions = nmaterials = 3
+	depth 16km is approx element 27 at depth 18.00km
 	depth 8.5km is approx element 35 at depth 9.00km
 	depth 2.5km is top of mesh 2.5km
-	REGION STARTING ELEMENT = [46, 35]
+	REGION STARTING ELEMENT = [46, 35, 27]
 MESH HAS THE APPROXIMATE FORM
 	46/00; Z~=  2.50km
 		Top of Mesh
 		Interface (vertical x1)
 		Region 1 begins
-		dx=0.35, dy=0.46, dz=0.5
+		dx=0.42, dy=0.43, dz=0.5
 	45/01; Z~=  2.00km
 	44/02; Z~=  1.50km
 	43/03; Z~=  1.00km
@@ -90,7 +91,7 @@ MESH HAS THE APPROXIMATE FORM
 		Interface (vertical x2)
 		Doubling (horizontal doubling)
 		Region 2 begins
-		dx=0.71, dy=0.93, dz=1.0
+		dx=0.84, dy=0.87, dz=1.0
 	34/12; Z~= -4.00km
 	33/13; Z~= -5.00km
 	32/14; Z~= -6.00km
@@ -101,7 +102,8 @@ MESH HAS THE APPROXIMATE FORM
 	27/19; Z~=-11.00km
 		Interface (vertical x2)
 		Doubling (horizontal doubling)
-		dx=1.41, dy=1.85, dz=2.0
+		Region 3 begins
+		dx=1.67, dy=1.74, dz=2.0
 	26/20; Z~=-13.00km
 	25/21; Z~=-15.00km
 	24/22; Z~=-17.00km
@@ -114,7 +116,7 @@ MESH HAS THE APPROXIMATE FORM
 	17/29; Z~=-31.00km
 		Interface (vertical x2)
 		Doubling (horizontal doubling)
-		dx=2.82, dy=3.70, dz=4.0
+		dx=3.35, dy=3.47, dz=4.0
 	16/30; Z~=-35.00km
 	15/31; Z~=-39.00km
 	14/32; Z~=-43.00km
@@ -138,4 +140,4 @@ WRITING INTERACE interface_1.dat
 WRITING INTERACE interface_2.dat
 WRITING INTERACE interface_3.dat
 APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
-	APPRX_NUM_ELEM = 2193408
+	APPRX_NUM_ELEM = 2558976

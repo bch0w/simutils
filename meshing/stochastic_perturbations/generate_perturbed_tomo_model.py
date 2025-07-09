@@ -24,25 +24,26 @@ from numpy.fft import fftfreq, fftshift, ifftshift
 # Bad habit but import all variables from the config file
 from gptmcfg import *
 
-# Define 1D PREM that can be interpolated and perturbed
+# Define 1D PREM that can be interpolated and perturbed, extend up to top of
+# topography so that we can put stochperts above 0km
 MODELS = {
     "PREM": {
         "depth": 1E3 * np.array([
-            0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
+            -3.0, 0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
         ]),  # km
         "vp": 1E3 * np.array([
-            1.45, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
+            1.45, 1.45, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
         ]),  # km/s
         "vs": 1E3 * np.array([
-            1.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
+            1.0, 1.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
         ]),  # km/s
         "rho": 1E3 * np.array([
-            1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
+            1.02, 1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
         ]),  # kg/m^3
         "qmu": np.array([
-            600., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
+            600., 600., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
         ]),
-        "qkappa": np.array([9999.] * 11)
+        "qkappa": np.array([9999.] * 12)
         }
     }
 
@@ -276,6 +277,7 @@ for l, zvals in enumerate(ZVALS):
             # Apply perturbation ontop of cube if we are in the correct layer
             if (parameter in perturb) and \
                  pert_idx_start is not None and \
+                    pert_idx_end is not None and \
                     (pert_idx_start <= i < pert_idx_end): 
                 j = i - pert_idx_start  # set correct index for perturbation
                 cube[:,:,i] *= (val + val * S_pert[:,:,j])

@@ -168,6 +168,11 @@ def gif(path, duration, fid_out="output.gif"):
 
 
 if __name__ == "__main__":
+    try:
+        input_path = sys.argv[1]
+    except IndexError:
+        input_path = "./"
+
     # =========================================================================
     # ACTIONS
     make_pngs = 1
@@ -175,12 +180,11 @@ if __name__ == "__main__":
     trial_run = 0
     # =========================================================================
     # PARAMETER SET HERE
-    input_path = sys.argv[1]
-    output_path = os.path.join(sys.argv[1], "frames")
-    gif_fid = os.path.join(sys.argv[1], "sim_mov.gif")
+    output_path = os.path.join(input_path, "frames")
+    gif_fid = os.path.join(input_path, "sim_mov.gif")
     file_ext = ".xyz"
     min_val = 9e-7
-    dt = 0.02
+    dt = 0.005
     normalized = True
     gif_duration_ms = 200  # milliseconds
     convert = False
@@ -189,7 +193,6 @@ if __name__ == "__main__":
     source = [25E3, 25E3]
     receiver = None
     text = ""
-
     # =========================================================================
     # Controls on colorbar
     if normalized:
@@ -211,7 +214,10 @@ if __name__ == "__main__":
     if trial_run:
         files = find(input_path, file_ext)
         n = int(len(files))
-        files = [files[0], files[40], files[int(n/3)], files[int(2*n/3)], files[-1]]
+        files = [files[0], files[40], files[int(n/3)], files[int(2*n/3)], 
+                 files[-1]]
+
+    files = files[:1000]
     # =========================================================================
 
     # Prep the file system

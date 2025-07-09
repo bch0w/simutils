@@ -6,9 +6,9 @@
 #-----------------------------------------------------------
 
 # coordinates of mesh block in latitude/longitude and depth in km
-LATITUDE_MIN                    = 41.5d0
-LATITUDE_MAX                    = 44.7d0
-LONGITUDE_MIN                   = 128.9d0
+LATITUDE_MIN                    = 41.2d0
+LATITUDE_MAX                    = 44.8d0
+LONGITUDE_MIN                   = 128.8d0
 LONGITUDE_MAX                   = 129.8d0
 DEPTH_BLOCK_KM                  = 100.0d0
 UTM_PROJECTION_ZONE             = 52
@@ -25,11 +25,11 @@ CAVITY_FILE                     = no_cavity.dat
 #  mesh doublings)
 # (must be multiple of NPROC below if mesh is regular)
 NEX_XI                          = 192
-NEX_ETA                         = 768
+NEX_ETA                         = 896
 
 # number of MPI processors along xi and eta (can be different)
 NPROC_XI                        = 4
-NPROC_ETA                       = 16
+NPROC_ETA                       = 8
 
 #-----------------------------------------------------------
 #
@@ -86,7 +86,7 @@ NUMBER_OF_PML_LAYERS_TO_ADD     = 3
 #-----------------------------------------------------------
 
 # number of materials
-NMATERIALS                      = 2
+NMATERIALS                      = 3
 # define the different materials in the model as :
 # #material_id  #rho  #vp  #vs  #Q  #anisotropy_flag #domain_id
 # NOTE:
@@ -99,6 +99,7 @@ NMATERIALS                      = 2
 #     domain_id        : 1=acoustic / 2=elastic
 1  4400  7500  4500  9999  1001  0  2
 2  6500  8500  4500  9999  1000  0  2
+3  6500  8500  4500  9999  1000  0  2
 
 
 #-----------------------------------------------------------
@@ -108,10 +109,11 @@ NMATERIALS                      = 2
 #-----------------------------------------------------------
 
 # number of regions
-NREGIONS                        = 2
+NREGIONS                        = 3
 # define the different regions of the model as :
 # NEX_XI_BEG #NEX_XI_END #NEX_ETA_BEG #NEX_ETA_END #NZ_BEG #NZ_END #material_id
-1     192   1     768   1     35    2   
-1     192   1     768   36    46    1    
+1     192   1     896   1     27    3    
+1     192   1     896   28    35    2    
+1     192   1     896   36    46    1    
 
 
