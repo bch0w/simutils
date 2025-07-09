@@ -1,0 +1,285 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'tag': 'aakash_mesh', 'dir_name': './created/aakash_mesh', 'lat_min': -100000.0, 'lat_max': 100000.0, 'lon_min': -125000.0, 'lon_max': 125000.0, 'utm_projection': -99, 'suppress_utm_proj': True, 'mesh_depth_km': 250.0, 'mesh_top_km': 0, 'doubling_layers': [], 'interfaces': [0, 50], 'interface_fids': ['interface_topo.dat', 'interface_ladkjfal.dat'], 'interface_increase': [1, 1.3], 'regions': [20, 40, 60], 'nproc': 84, 'topo': 'nznorth_ext', 'grid_space_top_hv': [1, 1], 'shortest_period_s': 12, 'vs_min_km_per_s': 3.0, 'vp_max_km_per_s': 9.3, 'top_vertical_element_ratio': 1.0}
+
+PARAMETERS FOR: aakash_mesh
+	tag: aakash_mesh
+	dir_name: ./created/aakash_mesh
+	lat_min: -100000.0
+	lat_max: 100000.0
+	lon_min: -125000.0
+	lon_max: 125000.0
+	utm_projection: -99
+	suppress_utm_proj: True
+	mesh_depth_km: 250.0
+	mesh_top_km: 0
+	doubling_layers: []
+	interfaces: [0, 50]
+	interface_fids: ['interface_topo.dat', 'interface_ladkjfal.dat']
+	interface_increase: [1, 1.3]
+	regions: [20, 40, 60]
+	nproc: 84
+	topo: nznorth_ext
+	grid_space_top_hv: [1, 1]
+	shortest_period_s: 12
+	vs_min_km_per_s: 3.0
+	vp_max_km_per_s: 9.3
+	top_vertical_element_ratio: 1.0
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 1
+	MIN GRID SPACE VERTICAL: 1
+CALCULATING NUMBER OF PROCESSORS
+	short direction is y
+	NPROC_X = 12
+	NPROC_Y = 7
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 288
+	NEX_Y = 224
+	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
+		NEX_X: 288 -> 288
+	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
+		NEX_Y: 224 -> 224
+	DX = 0.8681km
+	DY = 0.8929km
+CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)
+	0 layers of 1km between 0km and 0km
+	50 layers of 1km between 0km and 50km
+	154 layers of 1.3km between 50km and 250.0km
+	NLAYERS = 3
+	NELEMENTS_Z = 204
+	LAYER SIZE FROM BOTTOM = [154, 50, 0]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	NDOUBLING LAYERS = []
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 4
+	depth 60km is approx element 174 at depth 62.00km
+	depth 40km is approx element 184 at depth 42.00km
+	depth 20km is approx element 194 at depth 22.00km
+	depth 0km is top of mesh 0km
+	REGION STARTING ELEMENT = [204, 194, 184, 174]
+MESH HAS THE APPROXIMATE FORM
+	204/01; Z~=  0.00km
+		Top of Mesh
+		Interface (vertical x1)
+		Region 1 begins
+		dx=0.87, dy=0.89, dz=1
+	203/02; Z~= -1.00km
+	202/03; Z~= -2.00km
+	201/04; Z~= -3.00km
+	200/05; Z~= -4.00km
+	199/06; Z~= -5.00km
+	198/07; Z~= -6.00km
+	197/08; Z~= -7.00km
+	196/09; Z~= -8.00km
+	195/10; Z~= -9.00km
+	194/11; Z~=-10.00km
+		Region 2 begins
+		dx=0.87, dy=0.89, dz=1
+	193/12; Z~=-11.00km
+	192/13; Z~=-12.00km
+	191/14; Z~=-13.00km
+	190/15; Z~=-14.00km
+	189/16; Z~=-15.00km
+	188/17; Z~=-16.00km
+	187/18; Z~=-17.00km
+	186/19; Z~=-18.00km
+	185/20; Z~=-19.00km
+	184/21; Z~=-20.00km
+		Region 3 begins
+		dx=0.87, dy=0.89, dz=1
+	183/22; Z~=-21.00km
+	182/23; Z~=-22.00km
+	181/24; Z~=-23.00km
+	180/25; Z~=-24.00km
+	179/26; Z~=-25.00km
+	178/27; Z~=-26.00km
+	177/28; Z~=-27.00km
+	176/29; Z~=-28.00km
+	175/30; Z~=-29.00km
+	174/31; Z~=-30.00km
+		Region 4 begins
+		dx=0.87, dy=0.89, dz=1
+	173/32; Z~=-31.00km
+	172/33; Z~=-32.00km
+	171/34; Z~=-33.00km
+	170/35; Z~=-34.00km
+	169/36; Z~=-35.00km
+	168/37; Z~=-36.00km
+	167/38; Z~=-37.00km
+	166/39; Z~=-38.00km
+	165/40; Z~=-39.00km
+	164/41; Z~=-40.00km
+	163/42; Z~=-41.00km
+	162/43; Z~=-42.00km
+	161/44; Z~=-43.00km
+	160/45; Z~=-44.00km
+	159/46; Z~=-45.00km
+	158/47; Z~=-46.00km
+	157/48; Z~=-47.00km
+	156/49; Z~=-48.00km
+	155/50; Z~=-49.00km
+	154/51; Z~=-50.00km
+		Interface (vertical x1.3)
+		dx=0.87, dy=0.89, dz=1.3
+	153/52; Z~=-51.30km
+	152/53; Z~=-52.60km
+	151/54; Z~=-53.90km
+	150/55; Z~=-55.20km
+	149/56; Z~=-56.50km
+	148/57; Z~=-57.80km
+	147/58; Z~=-59.10km
+	146/59; Z~=-60.40km
+	145/60; Z~=-61.70km
+	144/61; Z~=-63.00km
+	143/62; Z~=-64.30km
+	142/63; Z~=-65.60km
+	141/64; Z~=-66.90km
+	140/65; Z~=-68.20km
+	139/66; Z~=-69.50km
+	138/67; Z~=-70.80km
+	137/68; Z~=-72.10km
+	136/69; Z~=-73.40km
+	135/70; Z~=-74.70km
+	134/71; Z~=-76.00km
+	133/72; Z~=-77.30km
+	132/73; Z~=-78.60km
+	131/74; Z~=-79.90km
+	130/75; Z~=-81.20km
+	129/76; Z~=-82.50km
+	128/77; Z~=-83.80km
+	127/78; Z~=-85.10km
+	126/79; Z~=-86.40km
+	125/80; Z~=-87.70km
+	124/81; Z~=-89.00km
+	123/82; Z~=-90.30km
+	122/83; Z~=-91.60km
+	121/84; Z~=-92.90km
+	120/85; Z~=-94.20km
+	119/86; Z~=-95.50km
+	118/87; Z~=-96.80km
+	117/88; Z~=-98.10km
+	116/89; Z~=-99.40km
+	115/90; Z~=-100.70km
+	114/91; Z~=-102.00km
+	113/92; Z~=-103.30km
+	112/93; Z~=-104.60km
+	111/94; Z~=-105.90km
+	110/95; Z~=-107.20km
+	109/96; Z~=-108.50km
+	108/97; Z~=-109.80km
+	107/98; Z~=-111.10km
+	106/99; Z~=-112.40km
+	105/100; Z~=-113.70km
+	104/101; Z~=-115.00km
+	103/102; Z~=-116.30km
+	102/103; Z~=-117.60km
+	101/104; Z~=-118.90km
+	100/105; Z~=-120.20km
+	99/106; Z~=-121.50km
+	98/107; Z~=-122.80km
+	97/108; Z~=-124.10km
+	96/109; Z~=-125.40km
+	95/110; Z~=-126.70km
+	94/111; Z~=-128.00km
+	93/112; Z~=-129.30km
+	92/113; Z~=-130.60km
+	91/114; Z~=-131.90km
+	90/115; Z~=-133.20km
+	89/116; Z~=-134.50km
+	88/117; Z~=-135.80km
+	87/118; Z~=-137.10km
+	86/119; Z~=-138.40km
+	85/120; Z~=-139.70km
+	84/121; Z~=-141.00km
+	83/122; Z~=-142.30km
+	82/123; Z~=-143.60km
+	81/124; Z~=-144.90km
+	80/125; Z~=-146.20km
+	79/126; Z~=-147.50km
+	78/127; Z~=-148.80km
+	77/128; Z~=-150.10km
+	76/129; Z~=-151.40km
+	75/130; Z~=-152.70km
+	74/131; Z~=-154.00km
+	73/132; Z~=-155.30km
+	72/133; Z~=-156.60km
+	71/134; Z~=-157.90km
+	70/135; Z~=-159.20km
+	69/136; Z~=-160.50km
+	68/137; Z~=-161.80km
+	67/138; Z~=-163.10km
+	66/139; Z~=-164.40km
+	65/140; Z~=-165.70km
+	64/141; Z~=-167.00km
+	63/142; Z~=-168.30km
+	62/143; Z~=-169.60km
+	61/144; Z~=-170.90km
+	60/145; Z~=-172.20km
+	59/146; Z~=-173.50km
+	58/147; Z~=-174.80km
+	57/148; Z~=-176.10km
+	56/149; Z~=-177.40km
+	55/150; Z~=-178.70km
+	54/151; Z~=-180.00km
+	53/152; Z~=-181.30km
+	52/153; Z~=-182.60km
+	51/154; Z~=-183.90km
+	50/155; Z~=-185.20km
+	49/156; Z~=-186.50km
+	48/157; Z~=-187.80km
+	47/158; Z~=-189.10km
+	46/159; Z~=-190.40km
+	45/160; Z~=-191.70km
+	44/161; Z~=-193.00km
+	43/162; Z~=-194.30km
+	42/163; Z~=-195.60km
+	41/164; Z~=-196.90km
+	40/165; Z~=-198.20km
+	39/166; Z~=-199.50km
+	38/167; Z~=-200.80km
+	37/168; Z~=-202.10km
+	36/169; Z~=-203.40km
+	35/170; Z~=-204.70km
+	34/171; Z~=-206.00km
+	33/172; Z~=-207.30km
+	32/173; Z~=-208.60km
+	31/174; Z~=-209.90km
+	30/175; Z~=-211.20km
+	29/176; Z~=-212.50km
+	28/177; Z~=-213.80km
+	27/178; Z~=-215.10km
+	26/179; Z~=-216.40km
+	25/180; Z~=-217.70km
+	24/181; Z~=-219.00km
+	23/182; Z~=-220.30km
+	22/183; Z~=-221.60km
+	21/184; Z~=-222.90km
+	20/185; Z~=-224.20km
+	19/186; Z~=-225.50km
+	18/187; Z~=-226.80km
+	17/188; Z~=-228.10km
+	16/189; Z~=-229.40km
+	15/190; Z~=-230.70km
+	14/191; Z~=-232.00km
+	13/192; Z~=-233.30km
+	12/193; Z~=-234.60km
+	11/194; Z~=-235.90km
+	10/195; Z~=-237.20km
+	09/196; Z~=-238.50km
+	08/197; Z~=-239.80km
+	07/198; Z~=-241.10km
+	06/199; Z~=-242.40km
+	05/200; Z~=-243.70km
+	04/201; Z~=-245.00km
+	03/202; Z~=-246.30km
+	02/203; Z~=-247.60km
+	01/204; Z~=-248.90km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+	setting topography to 'nznorth_ext', points to 'interface_topo.dat'
+WRITING INTERACE interface_topo.dat
+WRITING INTERACE interface_ladkjfal.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	APPRX_NUM_ELEM = 13160448

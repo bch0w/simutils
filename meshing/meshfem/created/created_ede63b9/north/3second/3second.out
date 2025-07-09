@@ -1,0 +1,66 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'tag': 'nztn1664', 'dir_name': '/scale_wlg_persistent/filesets/home/chowbr/primer/meshes/nz_tall_north/nztn_reloaded', 'lat_min': -42.5, 'lat_max': -37.0, 'lon_min': 173.0, 'lon_max': 178.5, 'utm_projection': -60, 'mesh_depth_km': 400.0, 'mesh_top_km': -2.67, 'doubling_layers': [12, 64, 128], 'interfaces': [6, 12, 64, 128], 'interface_fids': ['topo_to_shallow.dat', 'shallow_to_crust.dat', 'crust_to_mantle.dat', 'mid_mantle.dat'], 'regions': [8, 50], 'nproc': 120, 'grid_space_top_hv': [4, 2], 'shortest_period_s': 10.0, 'vs_min_km_per_s': 1.0, 'top_vertical_element_ratio': 0.5}
+
+PARAMETERS FOR: nztn1664
+	tag: nztn1664
+	dir_name: /scale_wlg_persistent/filesets/home/chowbr/primer/meshes/nz_tall_north/nztn_reloaded
+	lat_min: -42.5
+	lat_max: -37.0
+	lon_min: 173.0
+	lon_max: 178.5
+	utm_projection: -60
+	mesh_depth_km: 400.0
+	mesh_top_km: -2.67
+	doubling_layers: [12, 64, 128]
+	interfaces: [6, 12, 64, 128]
+	interface_fids: ['topo_to_shallow.dat', 'shallow_to_crust.dat', 'crust_to_mantle.dat', 'mid_mantle.dat']
+	regions: [8, 50]
+	nproc: 120
+	grid_space_top_hv: [4, 2]
+	shortest_period_s: 10.0
+	vs_min_km_per_s: 1.0
+	top_vertical_element_ratio: 0.5
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 4
+	MIN GRID SPACE VERTICAL: 2
+CALCULATING NUMBER OF PROCESSORS
+	short direction is x
+	NPROC_X = 10
+	NPROC_Y = 12
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 160
+	NEX_Y = 192
+	DX = 2.8885km
+	DY = 3.2142km
+CALCULATING NUMBER OF VERTICAL DOUBLING LAYERS (interfaces)
+	4 layers of 2km between -2.67km and 6km
+	2 layers of 4km between 6km and 12km
+	6 layers of 8km between 12km and 64km
+	4 layers of 16km between 64km and 128km
+	8 layers of 32km between 128km and 400.0km
+	NLAYERS = 5
+	NELEMENTS_Z = 24
+	LAYER SIZE FROM BOTTOM = [8, 4, 6, 2, 4]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	depth 128km is approx element 8 at depth 157.33km
+	!!! doubling layer matches interface layer, placing avove interface
+	depth 64km is approx element 12 at depth 77.33km
+	!!! doubling layer matches interface layer, placing avove interface
+	depth 12km is approx element 19 at depth 13.33km
+	NDOUBLING LAYERS = [9, 13, 19]
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 3
+	depth 50km is approx element 14 at depth 53.33km
+	depth 8km is approx element 20 at depth 9.33km
+	depth -2.67km is top of mesh -2.67km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+WRITING INTERACE topo_to_shallow.dat
+WRITING INTERACE shallow_to_crust.dat
+WRITING INTERACE crust_to_mantle.dat
+WRITING INTERACE mid_mantle.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	NUM_ELEM = 241920

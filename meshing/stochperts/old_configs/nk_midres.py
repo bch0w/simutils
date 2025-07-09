@@ -1,0 +1,28 @@
+# NK Test model 6/13/25
+model_choice = "PREM"
+tag = "nk_midres"
+perturbations = False
+include_q = True
+
+# GRID SPACING LISTS [m] (d? lenght should be 1-len(zvals))
+DX = [1E3, 25E3]
+DY = [1E3, 25E3]
+DZ = [1E3, 5E3]
+ZVALS = [[-1E3, 15E3], [15E3, 200E3]]  # positive down, we will flip this later
+
+# DEFINE FULL DOMAIN [m]
+xmin = 245.750E3
+xmax = 890.650E3
+ymin = 4487.550E3
+ymax = 5050.670E3
+
+# PERTURBATION PARAMETERS
+a = 5E3  # m
+nmin = -0.1
+nmax = 0.1
+perturb = ["vp", "vs", "rho"]  # parameters to apply perturbations to
+zmin_pert = -1E3  # depth extent of the perturbation
+zmax_pert = 10.E3
+seed = 123
+mean_vel = 1  # km/s
+std_vel = 0.1

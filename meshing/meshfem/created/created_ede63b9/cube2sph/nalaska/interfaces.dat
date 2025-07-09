@@ -1,0 +1,27 @@
+# number of interfaces
+ 6
+# interface number 1
+ .true. 2 2 -799500.0d0 -549500.0d0 180.d0 180.d0
+ interface_400.dat
+# interface number 2
+ .true. 2 2 -799500.0d0 -549500.0d0 180.d0 180.d0
+ interface_220.dat
+# interface number 3
+ .true. 2 2 -799500.0d0 -549500.0d0 180.d0 180.d0
+ interface_80.dat
+# interface number 4
+ .true. 2 2 -799500.0d0 -549500.0d0 180.d0 180.d0
+ interface_40.dat
+# interface number 5
+ .true. 2 2 -799500.0d0 -549500.0d0 180.d0 180.d0
+ interface_24p4.dat
+# interface number 6 (topo)
+ .true. 1600 1100 -799500.0d0 -549500.0d0 1000.d0 1000.d0
+ interface_topo.dat
+# number of spectral elements per layer (from bottom)
+ 6
+ 6
+ 9
+ 5
+ 4
+ 8

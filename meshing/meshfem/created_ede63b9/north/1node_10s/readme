@@ -1,5 +1,0 @@
-25.8.20
-
-This is actually a ~6s mesh. Initially I thought it was a 10s mesh but a formal
-resolution test shows that it is relatively good up to 6s, with some slight 
-numerical differences at 6s. 

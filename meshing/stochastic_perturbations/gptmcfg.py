@@ -1,1 +1,0 @@
-tomo_configs/nk_mdj_lowres.py

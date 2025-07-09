@@ -1,0 +1,15 @@
+# number of interfaces
+ 3
+# interface number 1
+ .false. 2 2 165.0d0 -47.5d0 180.d0 180.d0
+ interface_2.dat
+# interface number 2
+ .false. 2 2 165.0d0 -47.5d0 180.d0 180.d0
+ interface_1.dat
+# interface number 3 (topo)
+ .true. 899 859 38192d0 -5288202d0 1000.00d0 1000.00d0
+ interface_topo.dat
+# number of spectral elements per layer (from bottom)
+ 21
+ 2
+ 13

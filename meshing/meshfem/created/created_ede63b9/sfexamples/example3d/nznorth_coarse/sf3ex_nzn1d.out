@@ -1,0 +1,100 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'tag': 'sf3ex_nzn1d', 'dir_name': './created/sf3ex_nzni1d', 'lat_min': -42.5, 'lat_max': -37.0, 'lon_min': 173.0, 'lon_max': 178.5, 'utm_projection': -60, 'mesh_depth_km': 400.0, 'mesh_top_km': -2.67, 'doubling_layers': [60], 'interfaces': [50], 'interface_increase': 2, 'interface_fids': ['interface_1.dat'], 'regions': [8, 50], 'nproc': 40, 'topo': 'nznorth', 'grid_space_top_hv': [15, 10], 'shortest_period_s': 15.0, 'vs_min_km_per_s': 1.7, 'vp_max_km_per_s': 8.8, 'top_vertical_element_ratio': 1.0}
+
+PARAMETERS FOR: sf3ex_nzn1d
+	tag: sf3ex_nzn1d
+	dir_name: ./created/sf3ex_nzni1d
+	lat_min: -42.5
+	lat_max: -37.0
+	lon_min: 173.0
+	lon_max: 178.5
+	utm_projection: -60
+	mesh_depth_km: 400.0
+	mesh_top_km: -2.67
+	doubling_layers: [60]
+	interfaces: [50]
+	interface_increase: 2
+	interface_fids: ['interface_1.dat']
+	regions: [8, 50]
+	nproc: 40
+	topo: nznorth
+	grid_space_top_hv: [15, 10]
+	shortest_period_s: 15.0
+	vs_min_km_per_s: 1.7
+	vp_max_km_per_s: 8.8
+	top_vertical_element_ratio: 1.0
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 15
+	MIN GRID SPACE VERTICAL: 10
+CALCULATING NUMBER OF PROCESSORS
+	short direction is x
+	NPROC_X = 5
+	NPROC_Y = 8
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 40
+	NEX_Y = 64
+	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
+		NEX_X: 40 -> 40
+	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
+		NEX_Y: 64 -> 64
+	DX = 11.5539km
+	DY = 9.6426km
+CALCULATING NUMBER OF VERTICAL TRIPLING LAYERS (interfaces)
+	5 layers of 10km between -2.67km and 50km
+	18 layers of 20km between 50km and 400.0km
+	NLAYERS = 2
+	NELEMENTS_Z = 24
+	LAYER SIZE FROM BOTTOM = [18, 6]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	depth 60km is approx element 18 at depth 77.33km
+	NDOUBLING LAYERS = [18]
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 3
+	depth 50km is approx element 19 at depth 57.33km
+	depth 8km is approx element 23 at depth 17.33km
+	depth -2.67km is top of mesh -2.67km
+	REGION STARTING ELEMENT = [24, 23, 19]
+MESH HAS THE APPROXIMATE FORM
+	24/01; Z~= -2.67km
+		Top of Mesh
+		Region 1 begins
+		dx=11.55, dy=9.64, dz=10
+	23/02; Z~=-12.67km
+		Region 2 begins
+		dx=11.55, dy=9.64, dz=10
+	22/03; Z~=-22.67km
+	21/04; Z~=-32.67km
+	20/05; Z~=-42.67km
+	19/06; Z~=-52.67km
+		Region 3 begins
+		dx=11.55, dy=9.64, dz=10
+	18/07; Z~=-62.67km
+		Interface (vertical x2)
+		Doubling (horizontal doubling)
+		dx=23.11, dy=19.29, dz=20
+	17/08; Z~=-82.67km
+	16/09; Z~=-102.67km
+	15/10; Z~=-122.67km
+	14/11; Z~=-142.67km
+	13/12; Z~=-162.67km
+	12/13; Z~=-182.67km
+	11/14; Z~=-202.67km
+	10/15; Z~=-222.67km
+	09/16; Z~=-242.67km
+	08/17; Z~=-262.67km
+	07/18; Z~=-282.67km
+	06/19; Z~=-302.67km
+	05/20; Z~=-322.67km
+	04/21; Z~=-342.67km
+	03/22; Z~=-362.67km
+	02/23; Z~=-382.67km
+	01/24; Z~=-402.67km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+	setting topography to 'nznorth', points to 'interface_topo.dat'
+WRITING INTERACE interface_1.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	APPRX_NUM_ELEM = 28800

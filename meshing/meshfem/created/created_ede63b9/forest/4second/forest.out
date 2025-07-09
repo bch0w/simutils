@@ -1,0 +1,111 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'tag': 'forest', 'dir_name': './created/forest/6second', 'lat_min': -42.5, 'lat_max': -37.0, 'lon_min': 173.0, 'lon_max': 178.5, 'utm_projection': -60, 'mesh_depth_km': 400.0, 'mesh_top_km': -2.67, 'doubling_layers': [16, 68], 'interfaces': [8, 48], 'interface_fids': ['shallow_to_crust.dat', 'crust_to_mantle.dat'], 'regions': [8, 50], 'nproc': 80, 'grid_space_top_hv': [6, 2], 'shortest_period_s': 6.0, 'vs_min_km_per_s': 1.2, 'vp_max_km_per_s': 9.3, 'top_vertical_element_ratio': 1.0}
+
+PARAMETERS FOR: forest
+	tag: forest
+	dir_name: ./created/forest/6second
+	lat_min: -42.5
+	lat_max: -37.0
+	lon_min: 173.0
+	lon_max: 178.5
+	utm_projection: -60
+	mesh_depth_km: 400.0
+	mesh_top_km: -2.67
+	doubling_layers: [16, 68]
+	interfaces: [8, 48]
+	interface_fids: ['shallow_to_crust.dat', 'crust_to_mantle.dat']
+	regions: [8, 50]
+	nproc: 80
+	grid_space_top_hv: [6, 2]
+	shortest_period_s: 6.0
+	vs_min_km_per_s: 1.2
+	vp_max_km_per_s: 9.3
+	top_vertical_element_ratio: 1.0
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 6
+	MIN GRID SPACE VERTICAL: 2
+CALCULATING NUMBER OF PROCESSORS
+	short direction is x
+	NPROC_X = 8
+	NPROC_Y = 10
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 128
+	NEX_Y = 160
+	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
+		NEX_X: 128 -> 128
+	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
+		NEX_Y: 160 -> 160
+	DX = 3.6106km
+	DY = 3.8570km
+CALCULATING NUMBER OF VERTICAL TRIPLING LAYERS (interfaces)
+	5 layers of 2km between -2.67km and 8km
+	7 layers of 6km between 8km and 48km
+	20 layers of 18km between 48km and 400.0km
+	NLAYERS = 3
+	NELEMENTS_Z = 32
+	LAYER SIZE FROM BOTTOM = [20, 7, 5]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	depth 68km is approx element 19 at depth 85.33km
+	depth 16km is approx element 26 at depth 19.33km
+	NDOUBLING LAYERS = [19, 26]
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 3
+	depth 50km is approx element 20 at depth 67.33km
+	depth 8km is approx element 27 at depth 13.33km
+	depth -2.67km is top of mesh -2.67km
+	REGION STARTING ELEMENT = [32, 27, 20]
+MESH HAS THE APPROXIMATE FORM
+	32/01; Z~= -2.67km
+		Top of Mesh
+		Region 1 begins
+		dx=3.61, dy=3.86, dz=2
+	31/02; Z~= -4.67km
+	30/03; Z~= -6.67km
+	29/04; Z~= -8.67km
+	28/05; Z~=-10.67km
+	27/06; Z~=-12.67km
+		Interface (vertical tripling)
+		Region 2 begins
+		dx=3.61, dy=3.86, dz=6
+	26/07; Z~=-18.67km
+		Doubling (horizontal doubling)
+		dx=7.22, dy=7.71, dz=6
+	25/08; Z~=-24.67km
+	24/09; Z~=-30.67km
+	23/10; Z~=-36.67km
+	22/11; Z~=-42.67km
+	21/12; Z~=-48.67km
+	20/13; Z~=-54.67km
+		Interface (vertical tripling)
+		Region 3 begins
+		dx=7.22, dy=7.71, dz=18
+	19/14; Z~=-72.67km
+		Doubling (horizontal doubling)
+		dx=14.44, dy=15.43, dz=18
+	18/15; Z~=-90.67km
+	17/16; Z~=-108.67km
+	16/17; Z~=-126.67km
+	15/18; Z~=-144.67km
+	14/19; Z~=-162.67km
+	13/20; Z~=-180.67km
+	12/21; Z~=-198.67km
+	11/22; Z~=-216.67km
+	10/23; Z~=-234.67km
+	09/24; Z~=-252.67km
+	08/25; Z~=-270.67km
+	07/26; Z~=-288.67km
+	06/27; Z~=-306.67km
+	05/28; Z~=-324.67km
+	04/29; Z~=-342.67km
+	03/30; Z~=-360.67km
+	02/31; Z~=-378.67km
+	01/32; Z~=-396.67km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+WRITING INTERACE shallow_to_crust.dat
+WRITING INTERACE crust_to_mantle.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	APPRX_NUM_ELEM = 202240
