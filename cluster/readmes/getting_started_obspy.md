@@ -4,6 +4,7 @@ Notes for Il-Sang and Jay started 7/14
 ## Links
 - [Conda: Package manager for Python](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions)
 - [ObsPy: Python library for seismology](https://docs.obspy.org/)
+- [SmartSolo Response Files](https://ds.iris.edu/ds/nrl/datalogger/dtcc/smartsolo-igu-bd3c-5/)
 
 ## Install Instructions (run this once)
 1. Open your `Terminal` application
@@ -17,6 +18,7 @@ Notes for Il-Sang and Jay started 7/14
 conda
 ```
   You should see a help message displayed. If not, something has gone wrong.
+
 4. In your `Terminal` copy-paste the following commands:
 ```bash
 conda create -n obspy
@@ -54,7 +56,7 @@ convert the amplitudes from counts to velocity in meters per second.
 1. Ask Joey/Sylvia what the sensor parameters were (sampling rate, filter phase,
   DC filter, preamp Db)
 2. Download the corresponding `StationXML` file by saving it as a text file on
-  your computer
+  your computer (https://ds.iris.edu/ds/nrl/datalogger/dtcc/smartsolo-igu-bd3c-5/)
 3. Modify the script below where it says MODIFY
 4. Start `IPython` in your `Terminal` and copy-paste the modified code
 5. Converted files will be stored with the same file name but with a suffix 
