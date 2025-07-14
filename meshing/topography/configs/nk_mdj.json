@@ -1,0 +1,16 @@
+{
+    "coords": "latlon",
+    "y_min": 40.5,
+    "y_max": 45.5,
+    "x_min": 126.0,
+    "x_max": 134.0,
+    "utm_projection": 52,
+    "spacing_m": 5000,
+    "topography_path": "/Users/chow/Data/topography/SRTM30P/NK/*.nc",
+    "path": "./",
+    "method": "meshfem",
+    "border_m": 2000,
+    "buffer_m": null,
+    "moho": null,
+    "plot": false
+}

@@ -1,0 +1,16 @@
+{
+    "coords": "latlon",
+    "y_min": -41.6,
+    "y_max": -34.3,
+    "x_min": 172.5,
+    "x_max": 179.0,
+    "utm_projection": -60,
+    "spacing_m": 1000,
+    "topography_path": "",
+    "path": "./",
+    "border_m": 2000,
+    "buffer_m": null,
+    "method": "meshfem",
+    "moho": null,
+    "plot": true
+}

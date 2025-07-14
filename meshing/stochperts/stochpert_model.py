@@ -23,6 +23,7 @@ except ImportError:
 
 from scipy.fft import fftn, ifftn
 from numpy.fft import fftfreq, fftshift, ifftshift
+from pyproj import Proj
 
 
 # Define 1D PREM that can be interpolated and perturbed, extend up to top of
@@ -65,6 +66,40 @@ def set_parameters(fid="./gptmcfg.py"):
     return parameters
 
 
+def lonlat_utm(lon, lat, utm_zone=None):                 
+    """                                                                          
+    convert latitude and longitude coordinates to UTM projection                 
+    From Pyatoa                                                                  
+                                                                                 
+    :type lon: float
+    :param lon: longitude value in WGS84 
+    :type lat: float                                                  
+    :param lat: latude value in WGS84 
+    :type utm_zone: int                                                          
+    :param utm_zone: UTM zone for conversion from WGS84                          
+    :type inverse: bool                                                          
+    :param inverse: if inverse == False, latlon => UTM, vice versa.              
+    :rtype x: float                                                       
+    :return x: x coordinate in UTM              
+    :rtype y: float                                                       
+    :return y: y coordinate in UTM         
+    """                                                                          
+    # Determine if the projection is north or south                              
+    if utm_zone < 0:                                                             
+        direction = "south"                                                      
+    else:                                                                        
+        direction = "north"                                                      
+    # Proj doesn't accept negative zones                                         
+    utm_zone = abs(utm_zone)                                                                       
+
+    # Initiate a Proj object and convert the coordinates                         
+    my_proj = Proj(proj="utm", zone=abs(utm_zone), south=True, ellps="WGS84",
+                   datum="WGS84", units="m", no_defs=True)
+    x, y = my_proj(lon, lat, inverse=False)            
+                                                                                 
+    return x, y         
+
+
 def interp_1D_model(model, dz, zmin=None, zmax=None):
     """
     1D interpolation of the 1D model between major depth values to get gradients 
@@ -99,8 +134,8 @@ def interp_1D_model(model, dz, zmin=None, zmax=None):
 
 def main(fid=None, model_choice="PREM", tag=None, path="./",
         # Model definition parameters
-         xmin=None, xmax=None, ymin=None, ymax=None, 
-         ZVALS=None, DX=None, DY=None, DZ=None,
+         utm=False, xmin=None, xmax=None, ymin=None, ymax=None, 
+         ZVALS=None, DX=None, DY=None, DZ=None, 
          # Perturbation flags
          perturbations=True, include_q=True, 
          # Perturbation control parameters
@@ -138,6 +173,10 @@ def main(fid=None, model_choice="PREM", tag=None, path="./",
     :param nmin: Minimum value for the velocity perturbation normalization
     :type nmax: float
     :param nmax: Maximum value for the velocity perturbation normalization
+    :type utm: int
+    :param utm: Whether the coordinates are in UTM or not. If a value is given
+        then the coordinates are assumed to be in lon/lat and will be
+        converted to UTM in meters
     :type xmin: float
     :param xmin: Minimum x-coordinate for the model grid (in meters)
     :type xmax: float
@@ -178,6 +217,7 @@ def main(fid=None, model_choice="PREM", tag=None, path="./",
     path = path or parameters["path"]
 
     # Model grid parameters    
+    utm = utm or parameters["utm"]
     xmin = xmin or parameters["xmin"]
     xmax = xmax or parameters["xmax"]
     ymin = ymin or parameters["ymin"]
@@ -227,21 +267,9 @@ def main(fid=None, model_choice="PREM", tag=None, path="./",
     plot_cube = False     # model
     plot_brick = False   # perturbation
     plot_profile = False  # 1D vel. profile
-    plot_2d = True       # 2d cross-sections
+    plot_2d = False       # 2d cross-sections
     cmap = "viridis"
     # ==========================================================================
-    # Choose the Model
-    model = MODELS[model_choice]
-
-    # Make directories
-    for path_ in [fig_path, mod_path]:
-        if not os.path.exists(path_):
-            os.makedirs(path_)
-
-    print(f"Tag is: {tag}")
-    print(f"Figures will be saved to: {fig_path}")
-    print(f"Models will be saved to: {mod_path}\n")
-
     # Overwrite Flags
     if plot_all is not None:
         if plot_all:
@@ -251,11 +279,30 @@ def main(fid=None, model_choice="PREM", tag=None, path="./",
             plot_cube, plot_brick, plot_profile, plot_2d = \
                 False, False, False, False
 
+    # Choose the Model
+    model = MODELS[model_choice]
+
+    # Make directories
+    if not os.path.exists(mod_path):
+        os.makedirs(mod_path)
+    if any([plot_cube, plot_brick, plot_profile, plot_2d]):
+        if not os.path.exists(fig_path):
+            os.makedirs(fig_path)
+
+    print(f"Tag is: {tag}")
+    print(f"Figures will be saved to: {fig_path}")
+    print(f"Models will be saved to: {mod_path}\n")
+
     # Drop attenuation if needed
     if not include_q:
         print("droping 'Q' values from model")
         model = {key: val for key, val in model.items() 
                  if not key.startswith("q")}
+        
+    # Convert coordinates to UTM from lat/lon if needed
+    if utm:
+        x_min, y_min = lonlat_utm(x_min, y_min, utm_zone=utm)
+        x_max, y_max = lonlat_utm(x_max, y_max, utm_zone=utm)
 
     # BEGIN PROCESSING HERE
     for l, zvals in enumerate(ZVALS):

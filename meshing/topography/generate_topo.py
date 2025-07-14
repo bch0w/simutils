@@ -9,12 +9,31 @@ https://topex.ucsd.edu/WWW_html/srtm30_plus.html (6/30/25 last access)
     converted to numpy arrays internally
 """
 import os
+import json
 import sys
-from glob import glob
+import traceback
 import numpy as np
+import matplotlib.pyplot as plt
+from glob import glob
 from pyproj import Proj
 from scipy.io import netcdf_file
 from scipy.interpolate import griddata
+
+
+def set_parameters(fid):
+    """
+    Load parameters from configuration file
+    """
+    try:
+        with open(fid, "r") as f:
+            parameters = json.load(f)
+    except Exception as e:
+        print("\n\nERROR READING JSON FILE") 
+        traceback.print_exc()
+        print("ERROR READING JSON FILE\n\n")
+        sys.exit(-1)
+
+    return parameters
 
 
 def read_nc(fid):
@@ -166,7 +185,6 @@ def interpolate_points(data, x_min, x_max, y_min, y_max, spacing_m, plot=False):
     interp_vals = griddata(points=points, values=values, xi=(x_grid, y_grid))
 
     if plot:
-        import matplotlib.pyplot as plt
         plt.imshow(interp_vals)
         plt.gca().invert_yaxis()
         plt.title("NAlaska UTM3 SRTM30P Topography")
@@ -183,7 +201,7 @@ def interpolate_points(data, x_min, x_max, y_min, y_max, spacing_m, plot=False):
     return data_out
 
 
-def write_data(data, method, tag="topo"):
+def write_data(data, method, tag, path="./"):
     """
     Saves the topo as an npy and an ascii, with a descriptive file name
 
@@ -196,16 +214,17 @@ def write_data(data, method, tag="topo"):
     """
     # Meshfem only requires a single value of Z-values
     if method == "meshfem":
-        np.savetxt(tag + '.dat', data[:, 2], fmt='%d')
+        fid = os.path.join(path, f"{tag}_topography.dat")
+        np.savetxt(os.path.join(path, tag + '.dat'), data[:, 2], fmt='%d')
+        os.symlink(fid, os.path.join(path, "interface_topo.dat"))
+
     # Trelis requires XYZ files. If a flat moho is required, it must be the same
     # sampling rate as the topo
     elif method == "trelis":
-        np.savetxt(tag + '.xyz', data, fmt='%.1f')
-    else:
-        print("Invalid method")
+        np.savetxt(os.path.join(path, tag + '.xyz'), data, fmt='%.1f')
 
 
-def print_meshfem_stats(data, utm_projection):
+def print_meshfem_stats(data, utm_projection, log="./log.txt"):
     """
     Meshfem3D requires an interfaces.dat file which describes the format of
     the topography file to the mesher. Information required:
@@ -235,47 +254,76 @@ def print_meshfem_stats(data, utm_projection):
     dlat = deltalat / len(y)
     dlon = deltalon / len(x)
 
-    print(f"\nTOPOGRAPHY INFO\n{'='*50}\n"
-          f"TOPO_MIN =  {data[:,2].min():.2f}\n"
-          f"TOPO_MAX =  {data[:,2].max():.2f}\n"
-          f"TOPO_MEAN = {data[:,2].mean():.2f}\n"
-          f"TOPO_MED =  {np.median(data[:,2]):.2f}\n"
-          )
+    with open(log, "w") as f:
+        print(f"\nTOPOGRAPHY INFO\n{'='*50}\n"
+            f"TOPO_MIN =  {data[:,2].min():.2f}\n"
+            f"TOPO_MAX =  {data[:,2].max():.2f}\n"
+            f"TOPO_MEAN = {data[:,2].mean():.2f}\n"
+            f"TOPO_MED =  {np.median(data[:,2]):.2f}\n",
+            file=f
+            )
 
-    print(f"\nMESHFEM INTERFACE STATS\n{'='*50}\n"
-          f"NPTS_LON = {len(x)}\n"
-          f"NPTS_LAT = {len(y)}\n"
-          f"DELTA_X  = {deltax}\n"
-          f"DELTA_Y  = {deltay}\n"
-          f"DELTA_LAT  = {deltalat}\n"
-          f"DELTA_LON  = {deltalon}\n"
-          f"dX  = {dx}\n"
-          f"dY  = {dy}\n"
-          f"dLON    = {dlon}\n"
-          f"dLAT    = {dlat}\n"
-          f"LON_MIN = {lon_min}\n"
-          f"LAT_MIN = {lat_min}\n"
-          f"LON_MAX = {lon_max}\n"
-          f"LAT_MAX = {lat_max}\n"
-          )
+        print(f"\nMESHFEM INTERFACE STATS\n{'='*50}\n"
+            f"NPTS_LON = {len(x)}\n"
+            f"NPTS_LAT = {len(y)}\n"
+            f"DELTA_X  = {deltax}\n"
+            f"DELTA_Y  = {deltay}\n"
+            f"DELTA_LAT  = {deltalat}\n"
+            f"DELTA_LON  = {deltalon}\n"
+            f"dX  = {dx}\n"
+            f"dY  = {dy}\n"
+            f"dLON    = {dlon}\n"
+            f"dLAT    = {dlat}\n"
+            f"LON_MIN = {lon_min}\n"
+            f"LAT_MIN = {lat_min}\n"
+            f"LON_MAX = {lon_max}\n"
+            f"LAT_MAX = {lat_max}\n",
+            file=f
+            )
 
-    print(f"Place one of the following lines in your 'interfaces.dat' file:\n")
-    print(f" .false. {len(x)} {len(y)} {lon_min:.2f}d0 {lat_min:.2f}d0 "
-          f"{dlon:.6f}d0 {dlat:.6f}d0")
-    print(f" .true. {len(x)} {len(y)} {x.min():.0f}d0 {y.min():.0f}d0 "
-          f"{dx:.2f}d0 {dy:.2f}d0")
+        print(f"Place one of the following in your 'interfaces.dat' file:\n\n",
+              file=f)
+        
+        print(f" .false. {len(x)} {len(y)} {lon_min:.2f}d0 {lat_min:.2f}d0 "
+              f"{dlon:.6f}d0 {dlat:.6f}d0", file=f)
+        print(f" .true. {len(x)} {len(y)} {x.min():.0f}d0 {y.min():.0f}d0 "
+              f"{dx:.2f}d0 {dy:.2f}d0", file=f)
+                
+
+def overwrite_interfaces_line(interfaces_fid, data):
+    """
+    Sort of brute force approach to modify the interfaces file expecting that
+    the topography file name is `interface_topo.dat`
+    """
+    assert os.path.exists(interfaces_fid)
+
+    x, y = data[:, :2].T
+    dx = x[1] - x[0]
+    dy = y[1] - y[0]
+
+    print("replacing topography line in interfaces file")
+    # Replacement topo line matching the created file. We use the UTM 
+    # version because it probably has cleaner numbers
+    topo_line = (
+        f" .true. {len(x)} {len(y)} {x.min():.0f}d0 {y.min():.0f}d0 "
+        f"{dx:.2f}d0 {dy:.2f}d0\n"
+        )
+
+    lines = open(interfaces_fid, "r").readlines()
+    for l, line in enumerate(lines):
+        if "interface_topo.dat" in line:
+            lines[l-1] = topo_line
+            break
+    with(open(interfaces_fid, "w")) as f:
+        f.writelines(lines)
 
 
-def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
-         border_m=10E3, utm_projection=-60, plot=False):
+def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, coords, spacing_m,
+         border_m=10E3, buffer_m=None, utm_projection=-60, plot=False, 
+         path="./"
+         ):
     """
     Create topography files for a mesher using underlying SRTM30P data files
-
-    Configs:
-        NZ_North: x_min=125E3, x_max = 725E3, y_min = 5150E3, y_max = 5950E3
-        spacing_m = 1E3
-
-        Hackfish:
 
     :type tag: str
     :param tag: tag for file saving
@@ -294,6 +342,11 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
     :param y_min: minimum y value
     :type y_min: float
     :param y_max: maximum y value
+    :type coords: str
+    :param coords: coordinate system to use for the mesh, either 'latlon' or
+        'xyz'. If 'latlon', the coordinates are given in latitude and longitude
+        and will be converted to UTM coordinates. If 'xyz', the coordinates are
+        given in UTM coordinates (easting, northing) and will not be converted.
     :type spacing_m: int
     :param spacing_m: spacing of the new interpolated mesh
     :type border_m: float
@@ -303,6 +356,23 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
     :param utm_projection: projection label, defaults to -60 / 60S for 
         New Zealand
     """
+    if coords == "latlon":
+        print(f"converting latlon to UTM {utm_projection} coordinates")
+        x_min, y_min = lonlat_utm(x_min, y_min, utm_projection)
+        x_max, y_max = lonlat_utm(x_max, y_max, utm_projection)
+
+    # Add buffer to the given bounds for flexibility
+    if buffer_m is not None:
+        x_min -= buffer_m
+        y_min -= buffer_m
+        x_max += buffer_m
+        y_max += buffer_m
+
+    print(f"x_min, x_max: {x_min*1e-3:.2f}, {x_max*1e-3:.2f} km")
+    print(f"y_min, y_max: {y_min*1e-3:.2f}, {y_max*1e-3:.2f} km")
+    print(f"delta_x ={(x_max - x_min) * 1e-3:.2f}")
+    print(f"delta_y ={(y_max - y_min) * 1e-3:.2f}")
+
     topography = None
     for i, fid in enumerate(srtm_files):
         print(f"reading file {i+1}/{len(srtm_files)}: {os.path.basename(fid)}")
@@ -342,175 +412,39 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m,
 
     # Write the topo and moho files
     print(f"writing to {tag}")
-    write_data(data=topo_interp, method=method, tag=tag)
+    write_data(data=topo_interp, method=method, tag=tag, path=path)
 
     if method == "meshfem":
-        print_meshfem_stats(topo_interp, utm_projection)
+        log = os.path.join(path, f"{tag}_log.txt")
+        print_meshfem_stats(topo_interp, utm_projection, log=log)
 
-
-def call_mesh_nk():
-    """
-    Meshing script for NK test site
-    """
-    # Set parameters here
-    tag = "topo_nk"
-    utm_projection = "52"
-    method = "meshfem"  # 'meshfem' or 'trellis'
-    buffer_m = None  # extend each bound by a constant value `buffer_m` 
-    border_m = 2E3  # for cutting topo, ensures interpolation has enough points
-    moho = -100E3  # only used if `method`=='trellis'
-    spacing_m = 0.5E3  # uniform grid spacing 
-
-    # 'latlon': Define corners in lat lon and convert all to XY, doesn't work 
-    #   very well for domains that span multiple UTM zones
-    lat_min = 40.5
-    lat_max = 45.5
-    lon_min = 126.0
-    lon_max = 134.0
-    x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
-    x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
-    print(f"x_min: {x_min*1e-3:.2f}")
-    print(f"y_min: {y_min*1e-3:.2f}")
-    print(f"x_max: {x_max*1e-3:.2f}")
-    print(f"y_max: {y_max*1e-3:.2f}")
-    print(f"delta_x ={(x_max - x_min) * 1e-3:.2f}")
-    print(f"delta_y ={(y_max - y_min) * 1e-3:.2f}")
-
-    # Offset each bound by constant value 
-    if buffer_m is not None:
-        x_min -= buffer_m
-        y_min -= buffer_m
-        x_max += buffer_m
-        y_max += buffer_m
-
-    # Load the topography file to be interpolated, can use multiple files if
-    # your domain extends beyond a single file
-    path = "/import/data/simulated_blasts/data/topography/SRTM30P/*.nc"
-    srtm_files = glob(path)
-    if not srtm_files:
-        sys.exit("No input .nc files found")
-
-    main(tag=tag, method=method, srtm_files=srtm_files, x_min=x_min, 
-         x_max=x_max, y_min=y_min, y_max=y_max, spacing_m=spacing_m, 
-         border_m=border_m, utm_projection=utm_projection, plot=True)
-
-
-def call_mesh_nalaska():
-    """
-    Meshing script for northern Alaska
-    """
-    # Set parameters here
-    tag = "topo_nalaska"
-    utm_projection = "3"
-    method = "meshfem"  # 'meshfem' or 'trellis'
-    coords = "corner"  # define corner points in 'latlon' or 'xyz'
-    buffer_m = None  # extend each bound by a constant value `buffer_m` 
-    border_m = 2E3  # for cutting topo, ensures interpolation has enough points
-    moho = -100E3  # only used if `method`=='trellis'
-    spacing_m = 1E3  # uniform grid spacing 
-
-    # 'latlon': Define corners in lat lon and convert all to XY, doesn't work 
-    #   very well for domains that span multiple UTM zones
-    if coords == "latlon":
-        lat_min = 63.  # 63.
-        lat_max = 72.  # 72
-        lon_min = -170.  # -170
-        lon_max = -135.  # -135
-        x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
-        x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
-        print(f"x_min: {x_min*1e-3:.2f}")
-        print(f"y_min: {y_min*1e-3:.2f}")
-        print(f"x_max: {x_max*1e-3:.2f}")
-        print(f"y_max: {y_max*1e-3:.2f}")
-        print(f"delta_x ={(x_max - x_min) * 1e-3:.2f}")
-        print(f"delta_y ={(y_max - y_min) * 1e-3:.2f}")
-    # 'xyz': Define everything in XYZ using the northing and easting of UTM
-    elif coords == "xyz":
-        x_min = 125E3
-        x_max = 725E3
-        y_min = 5150E3
-        y_max = 5950E3
-    # 'Corner': Set a lat/lon corner and then push out using X and Y values
-    #   Best for large domains that span multiple UTM zones
-    elif coords == "corner":
-        lat_min = 63.
-        lon_min = -170.
-        x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)  
-        x_max = x_min + 1.6E6
-        y_max = y_min + 1.1E6
-        lon_max, lat_max = lonlat_utm(x_max, y_max, utm_projection, 
-                                      inverse=True)
-
-    # Offset each bound by constant value 
-    if buffer_m is not None:
-        x_min -= buffer_m
-        y_min -= buffer_m
-        x_max += buffer_m
-        y_max += buffer_m
-
-    # Load the topography file to be interpolated, can use multiple files if
-    # your domain extends beyond a single file
-    path = "/home/bchow/Work/data/topography/nalaska_srtm30p/*nc"
-    srtm_files = glob(path)
-    if not srtm_files:
-        sys.exit("No input .nc files found")
-
-    main(tag=tag, method=method, srtm_files=srtm_files, x_min=x_min, 
-         x_max=x_max, y_min=y_min, y_max=y_max, spacing_m=spacing_m, 
-         border_m=border_m, utm_projection=utm_projection, plot=True)
-
-def call_mesh_nz():
-    """
-    Create Topography file for the North Island New Zealand
-    """
-    # Set parameters here
-    tag = "topo_c2s_utm60s"
-    utm_projection = -60
-    method = "meshfem"
-    coords = "latlon"
-    buffer_m = 0  # 10E3  # add some wiggle room if the bounds are precise
-    plot = True
-    if coords == "latlon":
-        lat_min = -41.6
-        lat_max = -34.3
-        lon_min = 172.5
-        lon_max = 179.0
-        x_min, y_min = lonlat_utm(lon_min, lat_min, utm_projection)
-        x_max, y_max = lonlat_utm(lon_max, lat_max, utm_projection)
-    elif coords == "xyz":
-        x_min = 125E3
-        x_max = 725E3
-        y_min = 5150E3
-        y_max = 5950E3
-    moho = -100E3
-    spacing_m = 1E3
-
-    if buffer_m is not None:
-        x_min -= buffer_m
-        y_min -= buffer_m
-        x_max += buffer_m
-        y_max += buffer_m
-
-    # Load the topography file to be interpolated, can use multiple files if
-    # your domain extends beyond a single file
-    path = ("/home/bchow/Work/data/topography/*.nc")
-    srtm_files = glob(path)
-    if not srtm_files:
-        sys.exit("No .nc files found, please check your path")
-
-    main(tag, method, srtm_files, x_min, x_max, y_min, y_max, spacing_m, plot)
-
+        # Overwrite the interfaces.dat file with the new topography
+        interfaces_fid = os.path.join(path, "interfaces.dat")
+        overwrite_interfaces_line(interfaces_fid, topo_interp)
+        
 
 if __name__ == "__main__":
     try:
-        choice = sys.argv[1]
+        fid = sys.argv[1]
     except IndexError:
         print(f"choice must be in 'NZ', 'AK', 'NK'")
-        sys.exit()
-    if choice == "NZ":
-        call_mesh_nz()
-    elif choice == "AK":
-        call_mesh_nalaska()
-    elif choice == "NK":
-        call_mesh_nk()
+        sys.exit()  
 
+    # Read the configuration file
+    pars = set_parameters(fid)
+
+    # Find the topography data files that are to be used
+    srtm_files = glob(pars["topography_path"])
+    if not srtm_files:
+        sys.exit("No input .nc files found")
+
+    tag = os.path.basename(fid).split(".")[0]
+
+    main(tag=tag, method=pars["method"], srtm_files=srtm_files, 
+         x_min=pars["x_min"],  x_max=pars["x_max"], 
+         y_min=pars["y_min"], y_max=pars["y_max"], 
+         coords=pars["coords"], spacing_m=pars["spacing_m"], 
+         border_m=pars["border_m"], utm_projection=pars["utm_projection"], 
+         plot=pars["plot"], path= pars["path"]
+         )
+    

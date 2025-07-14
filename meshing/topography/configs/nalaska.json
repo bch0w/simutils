@@ -1,0 +1,16 @@
+{
+    "coords": "latlon",
+    "lat_min": 63.0,  
+    "lat_max": 72.0,  
+    "lon_min": -170.0,
+    "lon_max": -135.0,
+    "utm_projection": 3,
+    "spacing_m": 1000,
+    "topography_path": "/home/bchow/Work/data/topography/nalaska_srtm30p/*nc",
+    "path": "./",
+    "border_m": 2000,
+    "buffer_m": null,
+    "method": "meshfem",
+    "moho": null,
+    "plot": true
+}
