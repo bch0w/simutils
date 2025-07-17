@@ -99,10 +99,10 @@ def lonlat_utm(lon_or_x, lat_or_y, utm_zone=None, inverse=False):
 
 # =============================================================================
 specfem_data = "./"
-lat_min = 40.5
-lat_max = 45.5
-lon_min = 126.
-lon_max = 134.
+lat_min = 41.2
+lat_max = 44.8
+lon_min = 128.8
+lon_max = 129.8
 utm_zone = 52
 plot_cmtsolutions = True
 plot_stations = True
