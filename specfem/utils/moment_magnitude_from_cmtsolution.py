@@ -1,3 +1,7 @@
+"""
+Simple script to convert MT components from a CMTSOLUTION file to moment 
+magnitude Mw. Expected units of MT components is dyne*cm
+"""
 import sys
 import numpy as np
 
@@ -30,15 +34,18 @@ def moment_magnitude(moment, c=10.7):
     """
     return 2 / 3 * np.log10(moment) - c
 
+
 if __name__ == "__main__":
     with open(sys.argv[1], "r") as f:
         lines = f.readlines()
 
     fm = []
     for line in lines[7:]:
-        print(line)
         key, val = line.strip().split(":")
         fm.append(float(val))
 
-    print(moment_magnitude(seismic_moment(fm))
+    mw = moment_magnitude(seismic_moment(fm))S
+    print("\n")
+    print("".join(lines[7:]))
+    print(f"Mw = {mw:.2f}")
 
