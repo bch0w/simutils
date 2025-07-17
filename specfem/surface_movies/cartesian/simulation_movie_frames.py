@@ -177,7 +177,7 @@ if __name__ == "__main__":
     # ACTIONS
     make_pngs = 1
     make_gif = 1
-    trial_run = 0
+    trial_run = 1
     # =========================================================================
     # PARAMETER SET HERE
     output_path = os.path.join(input_path, "frames")
