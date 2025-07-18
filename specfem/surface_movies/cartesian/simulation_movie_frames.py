@@ -3,54 +3,85 @@ SPECFEM3D can output movie files as .xyz files which list LAT LON VAL
 We can plot these as frames of a movie and collect them later as a .gif
 Can also add text, coastlines etc. easily with Matplotlib
 """
-import sys
+import argparse
 import os
+import glob
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from glob import glob
-from subprocess import run
-from scipy import interpolate
+from concurrent.futures import ProcessPoolExecutor, wait
 from PIL import Image
 from pyproj import Proj
 
 
-def read(fid):
+def parse_args():
     """
-    Simple read and parse of the XYZ data files using numpy
-    :return: lon, lat, z
+    Parse command line arguments
     """
-    data = np.loadtxt(fid)
-    assert(data.shape[1] == 3), ".xyz file is in the wrong format"
-    x, y, z = data.T
-    return x, y, z
+    parser = argparse.ArgumentParser()
+
+    # PATHS
+    parser.add_argument("-D", "--data", default="DATA", type=str,
+                        nargs="?", help="Path to SPECFEM DATA/ directory")
+    parser.add_argument("-m", "--mov_files", type=str, nargs="?",
+                        help="Path to moviedata*.xyz text files")
+    parser.add_argument("-o", "--output", default="./movie_frames", type=str,
+                        nargs="?", help="Path to store output files")
+
+    # PARAMETERS
+    parser.add_argument("--min_val", default=None, type=float, nargs="?",
+                        help="force minimum value on cmap")
+    parser.add_argument("--max_val", default=None, type=float, nargs="?",
+                        help="force maximum value on cmap")
+    parser.add_argument("-c", "--cmap", default=None, type=str, nargs="?",
+                        help="Colormap to plot image with")
+    parser.add_argument("-u", "--utm", default=None, type=int, nargs="?",
+                        help="UTM zone to convert coordinates if given")
+
+    # FLAGS
+    parser.add_argument("-p", "--parallel", action="store_true",
+                        help="run plotting in parallel with subprocess")
+    parser.add_argument("-d", "--dry_run", type=int, default=None, 
+                        help="Test out with a user-selected number of frames")
+    parser.add_argument("--plot_source", type=bool, default=False,
+                        help="Plot the source location")
+    parser.add_argument("--plot_stations", type=bool, default=False,
+                        help="Plot the station locations")
+
+    return parser.parse_args()
 
 
-def find(path="./", ext=".xyz"):
+def parse_data(path="./DATA"):
     """
-    Find all the availalbe data files with the given extension in the given
-    path and return an ordered list of all the frames and let the user know
+    Get some key information from the DATA directory
     """
-    wildcard = os.path.join(path, "*" + ext)
-    files = sorted(glob(wildcard))
-    print(f"{len(files)} files with matching extension '{ext}' found")
-    print(f"{files[0]} ... {files[-1]}")
-    return files
+    # Par_file
+    with open(os.path.join(path, "Par_file"), "r") as f:
+        for line in f.readlines():
+            if line.startswith("NSTEP"):
+                nstep = float(line.strip().split("=")[-1])
+            if line.startswith("DT"):
+                dt = float(line.strip().split("=")[-1])
+                break
 
+    # CMTSOLUTION
+    with open(os.path.join(path, "CMTSOLUTION"), "r") as f:
+        for line in f.readlines():
+            if line.startswith("latitude"):
+                src_lat = float(line.strip().split(":")[-1])
+            if line.startswith("longitude"):
+                src_lon = float(line.strip().split(":")[-1])
+                break
+    source = {"lat": src_lat, "lon": src_lon}
 
-def time_step(fid, dt=1):
-    """
-    Parse the standard Specfem movie name into a time stamp
-    Expected format is e.g., 'gmt_movie_012600.xyz'
-    """
-    parts = os.path.basename(fid).split("_")
-    step = parts[2].split(".")[0]
-    try:
-        step = int(step)
-    except ValueError:
-        print("file name does not adhere to expected format")
-    return float(step * dt)
+    # STATIONS
+    stations = {}
+    with open(os.path.join(path, "STATIONS"), "r") as f:
+        for line in f.readlines():
+            sta, net, lat, lon, *_ = line.strip().split()
+            stations[f"{net}.{sta}"] = {"lat": float(lat), "lon": float(lon)}
+
+    return nstep, dt, source, stations
 
 
 def convert_coords(lon, lat, utm_zone=None):
@@ -59,9 +90,6 @@ def convert_coords(lon, lat, utm_zone=None):
     This only needs to be done for the first file because the remaining files
     are assumed to follow the same coordinate points.
     """
-    if utm_zone is None:
-        utm_zone = UTM_ZONE
-
     if utm_zone < 0:
         south=True
     elif utm_zone > 0:
@@ -72,8 +100,8 @@ def convert_coords(lon, lat, utm_zone=None):
     x, y = projection(lon, lat, inverse=False)
 
     # Zero out the origin
-    x -= XMIN
-    y -= YMIN
+    x -= x.min()
+    y -= y.min()
 
     # Convert units of m to km
     x /= 1E3
@@ -82,179 +110,190 @@ def convert_coords(lon, lat, utm_zone=None):
     return x, y
 
 
-def plot(ax, x, y, z, min_val=None, max_val=None, show=True, save=False, 
-         **kwargs):
+def plot_frame(fid, x, y, dt, min_val=None, max_val=None, source=None, 
+               stations=None, utm=False, save="./", dpi=200, norm=None, 
+               cmap="viridis", levels=100):
     """
     Plot the xyz file in the same fashion each time. Use tricontourf because
     the data is not in a uniform grid so we use a triangular interpolation
     """
-    # Mask out values before plotting
-    if min_val:
-        tri = mpl.tri.Triangulation(x, y)
-        masked_vals = np.less(z, min_val)
-        mask = np.all(np.where(masked_vals[tri.triangles], True, False), axis=1)
-        tri.set_mask(mask)
-        # Set custom levels to keep the colorbar segmented the same across figs
-        kwargs["levels"] = np.linspace(0, max_val, kwargs["levels"])
-        try:
-            tcf = ax.tricontourf(tri, z, vmin=0, vmax=max_val, extend="max", 
-                                 **kwargs)
-        except ValueError:
-            # ValueError occurs when we mask out all the values (e.g. T < 0s)
-            tcf = ax.tricontourf(x, y, np.zeros(len(z)), vmin=0, vmax=max_val,
-                                 extend="max", **kwargs) 
-    # Or just plot the values straight up
-    else:
-        tcf = ax.tricontourf(x, y, z, **kwargs) 
+    # Get some values from the actual data file
+    z = np.loadtxt(fid, usecols=-1) 
+    f, ax = plt.subplots(1)
 
+    # Mask out values before plotting
+    tcf = ax.tricontourf(x, y, z, norm=norm, cmap=cmap, levels=levels) 
+
+    # !!! FIX THIS, NEED TO FIND OUT HOW TO GET MIN ABS VALUE FOR MASKING
+    # if mask_pct:
+    #     raise NotImplementedError("fix me bro")
+    #     tri = mpl.tri.Triangulation(x, y)
+    #     mask_val = z.max() * mask_pct
+    #     masked_vals = np.where((z > mask_val) & ())
+    #     mask = np.all(np.where(masked_vals[tri.triangles], True, False), axis=1)
+    #     tri.set_mask(mask)
+    #     # Set custom levels to keep the colorbar segmented the same across figs
+    #     kwargs["levels"] = np.linspace(0, max_val, kwargs["levels"])
+    #     try:
+    #         tcf = ax.tricontourf(tri, z, vmin=0, vmax=max_val, extend="max", 
+    #                              **kwargs)
+    #     except ValueError:
+    #         # ValueError occurs when we mask out all the values (e.g. T < 0s)
+    #         tcf = ax.tricontourf(x, y, np.zeros(len(z)), vmin=0, vmax=max_val,
+    #                              extend="max", **kwargs) 
+    # # Or just plot the values straight up
+    # else:
+    #     tcf = ax.tricontourf(x, y, z, **kwargs) 
+
+    # Source and stations
+    if source:        
+        plt.scatter(source["lon"], source["lat"], marker="*", s=150, color="y", 
+                    linewidth=1, edgecolors="k"
+                    )
+    if stations:
+        for key, val in stations.items():
+            stax, stay = val["lon"], val["lat"]
+            plt.text(stax, stay, key, fontsize=4, alpha=0.5, ha="center")
+            plt.scatter(stax, stay, marker="v", s=20, color="w", linewidth=0.5, 
+                        edgecolors="k", alpha=0.5)
+            
     # Colorbar
-    cbar = plt.colorbar(tcf, label=cbar_title, shrink=0.5,aspect=8, 
-                        pad=.03, ticks=[0, max_val/2, max_val])
+    if min_val > 0:
+        ticks = np.linspace(min_val, max_val, 5)
+    else:
+        ticks = [min_val, 0, max_val]
+    cbar = plt.colorbar(tcf, shrink=0.5, aspect=8, 
+                        pad=.03, ticks=ticks, format="%4.2E")
     cbar.ax.yaxis.set_offset_position("left")
-    # cbar.ax.set_yticklabels(["0", "2", ">4"])
+    ticklabs = cbar.ax.get_yticklabels()
+    cbar.ax.set_yticklabels(ticklabs, fontsize=6)
+
     # Mark where the min value threshold is set
-    cbar.ax.plot([0, 1], [min_val, min_val], "cyan")
+    # if mask_pct:
+    #     cbar.ax.plot([0, 1], [min_val, min_val], "cyan")
 
     cbar.update_ticks()
 
     # Accoutrement
+    timestep = int(os.path.basename(fid).split("_")[2].split(".")[0]) * dt
+    ax.set_title(f"t={timestep:.2f}s")
+    if utm:
+        plt.xlabel("X [m]")
+        plt.ylabel("Y [m]")
+    else:
+        plt.xlabel("Longitude")
+        plt.ylabel("Latitude")
+
     for axis in ["top", "bottom", "left", "right"]:
         ax.spines[axis].set_linewidth(2)
+    ax.set_aspect(1)
+    plt.xlim([x.min(), x.max()])
+    plt.ylim([y.min(), y.max()]) 
+    f.tight_layout()
+
+    fid_out = os.path.join(save, os.path.basename(fid) + ".png")
+    plt.savefig(fid_out, dpi=dpi)
+
+    plt.close()
 
 
-def srcrcv(source=None, receiver=None, convert=False):
-    """
-    Plot the source and receiver as simple markers
-    """
-    if source:
-        if convert:
-            x, y = convert_coords(source[0], source[1])
-        else:
-            x, y = source
-        plt.scatter(x, y, marker="*", s=100, color="k", linewidth=1, 
-                    edgecolors="k")
-    if receiver:
-        if convert:
-            x, y = convert_coords(receiver[0], receiver[1])
-        else:
-            x, y = receiver
-        plt.scatter(x, y, marker="v", s=100, color="w", linewidth=1.5, 
-                    edgecolors="k")
-
-
-def gif(path, duration, fid_out="output.gif"):
-    """
-    Generate a .gif file from all the resulting .png files
-    PIL runs into a '[Errno 24] Too many open files' for large numbers of files
-    So use ImageMagick convert wrapped with subprocess instead for those
-    """
-    files = sorted(glob(os.path.join(path, "*.png")))
-    if len(files) < 256:
-        img, *imgs = [Image.open(f) for f in files] 
-        img.save(fp=fid_out, format="GIF", append_images=imgs, save_all=True,
-                 duration=duration, loop=1)
-    else:
-        os.chdir(path)
-        call = f"convert -delay 0 -loop 1 *.png {fid_out}"
-        run(call.split(" "))
+# def gif(path, duration, fid_out="output.gif"):
+#     """
+#     Generate a .gif file from all the resulting .png files
+#     PIL runs into a '[Errno 24] Too many open files' for large numbers of files
+#     So use ImageMagick convert wrapped with subprocess instead for those
+#     """
+#     files = sorted(glob(os.path.join(path, "*.png")))
+#     if len(files) < 256:
+#         img, *imgs = [Image.open(f) for f in files] 
+#         img.save(fp=fid_out, format="GIF", append_images=imgs, save_all=True,
+#                  duration=duration, loop=1)
+#     else:
+#         os.chdir(path)
+#         call = f"convert -delay 0 -loop 1 *.png {fid_out}"
+#         run(call.split(" "))
 
 
 if __name__ == "__main__":
-    input_path = sys.argv[1]
+    args = parse_args()
 
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
 
-    # =========================================================================
-    # ACTIONS
-    make_pngs = 1
-    make_gif = 1
-    trial_run = 1
-    # =========================================================================
-    # PARAMETER SET HERE
-    output_path = os.path.join(input_path, "frames")
-    gif_fid = os.path.join(input_path, "sim_mov.gif")
-    file_ext = ".xyz"
-    min_val = 9e-7
-    dt = 0.005
-    normalized = True
-    gif_duration_ms = 200  # milliseconds
-    convert = False
+    print("parsing data from files")
+    # Get information from SPECFEM
+    nstep, dt, source, stations = parse_data(args.data)
 
-    max_val = 1
-    source = [25E3, 25E3]
-    receiver = None
-    text = ""
-    # =========================================================================
-    # Controls on colorbar
-    if normalized:
-        kwargs = {"cmap": "gist_ncar_r", # "gist_heat_r",
-                  "norm": plt.Normalize(0, max_val), 
-                  "levels": 101,
-                  }
-        cbar_title = "norm of velocity [m/s]"
+    # Figure out what waveforms we'll be using
+    files = glob.glob(os.path.join(args.mov_files, "*"))
+    if args.dry_run:
+        idxs = np.linspace(0, len(files)-1, args.dry_run, dtype=int)
+        files = np.array(files)[idxs]
+    
+    print("determining amplitude bounds for colorbars")
+    # Parse through the movie files and find the min and max values
+    # Check every 10 seconds to avoid reading every file
+    if not args.dry_run:
+        df = int(10 * 1 // dt)  # 10 seconds in samples
     else:
-        # For single component 
-        kwargs = {"cmap": "seismic", 
-                  "norm": plt.Normalize(-1 * max_val, max_val), 
-                  "levels": 100,
-                  }
-        cbar_title = "z comp. velocity [m/s]"
+        df = 1
+    
+    minval = np.inf
+    maxval = 0
+    for i in np.arange(0, len(files), df, dtype=int):
+        arr = np.loadtxt(files[i], usecols=-1)
+        if arr.min() < minval:
+            minval =  arr.min()
+        if arr.max() > maxval:
+            maxval = arr.max()
 
-    files = []
-    # Test files to sample random data points to get an idea of relative amps
-    if trial_run:
-        files = find(input_path, file_ext)
-        n = int(len(files))
-        files = [files[0], files[40], files[int(n/3)], files[int(2*n/3)], 
-                 files[-1]]
-
-    files = files[:1000]
-    # =========================================================================
-
-    # Prep the file system
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-    if not files:
-        files = find(input_path, file_ext)
-        
-    # Make the .png files
-    xy = None
-    if convert:
-        x_utm, y_utm = True, True
+    # Figure out if we have a diverging colormap (like velocity) 
+    if minval < 0:
+        levels = 101  # 1 for zero
+        cmap = args.cmap or "seismic"
+        _cmap_max = np.max([np.abs(minval), np.abs(maxval)])
+        norm = plt.Normalize(-1 * _cmap_max, _cmap_max)  # ensure 0 at center 
+    # or sequential (like norm of velocity)
     else:
-        x_utm, y_utm = None, None
-    if make_pngs:
-        ts_max = time_step(files[-1], dt=dt)
-        for i, file_ in enumerate(files):
-            # Set up the plot
-            ts = time_step(file_, dt=dt)
-            x, y, z = read(file_)
-            if x_utm is not None:
-                if i == 0:
-                    x_utm, y_utm = convert_coords(x, y)
-                x, y = x_utm, y_utm
+        levels = 100
+        cmap = args.cmap or "viridis"
+        norm = plt.Normalize(0, maxval)
 
-            f, ax = plt.subplots(1)
-            ax.set_aspect(1)
-            print(f"{int(ts):0>3}/{int(ts_max)}")
+    # Assuming all the files have the same grid so we only need to read geo
+    # information one time
+    lon, lat, _ = np.loadtxt(files[0]).T 
 
-            # Plot that ish
-            plot(ax, x, y, z, min_val=min_val, max_val=max_val,  **kwargs)
-            srcrcv(source, receiver, convert=convert)
+    # Convert to UTM coordinates if necessary
+    if args.utm:
+        print(f"converting coordinates to UTM {args.utm}")
+        x, y = convert_coords(lon, lat, args.utm)
 
-            plt.title(f"t={ts:6.2f} s")
-            plt.xlim([x.min(), x.max()])
-            plt.ylim([y.min(), y.max()])
-            # plt.xlim([173, 178.5])
-            # plt.ylim([-42.5, -37])
+        srcx, srcy = convert_coords(source["lon"], source["lon"], args.utm)
+        source = {"lat": srcy, "lon": srcx}
 
-            # Clean up the end
-            fid_out = os.path.join(output_path, 
-                                   os.path.basename(file_) + ".png")
-            f.tight_layout()
-            plt.savefig(fid_out)
-            plt.close()
+        stations_xy = {}
+        for sta, val in stations.items():
+            stax, stay = convert_coords(val["lon"], val["lat"], args.utm)
+            stations_xy[sta] = {"lat": stay, "lon": stax}
+        stations = stations_xy
+    else:
+        x, y = lon, lat
 
-    # Create the output .gif
-    if make_gif:
-        gif(output_path, gif_duration_ms)
-
+    # Read through and plot each of the moviefiles
+    print("plotting movie frames")
+    if args.parallel:
+        with ProcessPoolExecutor() as executor:
+            futures = [executor.submit(plot_frame, fid, x, y, dt, 
+                                       minval, maxval, source, stations, 
+                                       args.utm, args.output, 200,
+                                       norm, cmap, levels) 
+                                       for fid in files]
+        wait(futures)
+        futures[0].result()
+    else:
+        for i, fid in enumerate(files):
+            plot_frame(fid=fid, x=x, y=y, dt=dt, min_val=minval, max_val=maxval, 
+                       source=source, stations=stations, 
+                       levels=levels, norm=norm, cmap=cmap, utm=args.utm,
+                       save=args.output)
+   
