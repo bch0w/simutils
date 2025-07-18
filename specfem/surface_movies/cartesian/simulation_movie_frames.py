@@ -5,23 +5,15 @@ Can also add text, coastlines etc. easily with Matplotlib
 """
 import sys
 import os
-from glob import glob
-from subprocess import run
 import numpy as np
-from scipy import interpolate
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
+from glob import glob
+from subprocess import run
+from scipy import interpolate
 from PIL import Image
 from pyproj import Proj
-
-
-# COORDINATE CONVERSION CONSTANTS
-UTM_ZONE = 52
-XMIN = 0
-XMAX = 100E3
-YMIN = 0
-YMAX = 100E3
-
 
 
 def read(fid):
@@ -168,10 +160,8 @@ def gif(path, duration, fid_out="output.gif"):
 
 
 if __name__ == "__main__":
-    try:
-        input_path = sys.argv[1]
-    except IndexError:
-        input_path = "./"
+    input_path = sys.argv[1]
+
 
     # =========================================================================
     # ACTIONS
