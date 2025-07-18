@@ -45,7 +45,10 @@ MODELS = {
         "qmu": np.array([
             600., 600., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
         ]),
-        "qkappa": np.array([9999.] * 12)
+        # QK in PREM is inifinite, these values are inspired by Olsen et al 2018
+        "qkappa": np.array([
+            350., 350., 350., 350., 350., 350., 350., 200., 200., 200., 200., 200.
+        ]),
         }
     }
 
@@ -134,10 +137,10 @@ def interp_1D_model(model, dz, zmin=None, zmax=None):
 
 def main(fid=None, model_choice="PREM", tag=None, path="./",
         # Model definition parameters
-         utm=False, xmin=None, xmax=None, ymin=None, ymax=None, 
+         utm=None, xmin=None, xmax=None, ymin=None, ymax=None, 
          ZVALS=None, DX=None, DY=None, DZ=None, 
          # Perturbation flags
-         perturbations=True, include_q=True, 
+         perturbations=None, include_q=None, 
          # Perturbation control parameters
          seed=None, a=None, mean_vel=None, std_vel=None, nmin=None, nmax=None,
          zmin_pert=None, zmax_pert=None, perturb=None
@@ -301,8 +304,8 @@ def main(fid=None, model_choice="PREM", tag=None, path="./",
         
     # Convert coordinates to UTM from lat/lon if needed
     if utm:
-        x_min, y_min = lonlat_utm(x_min, y_min, utm_zone=utm)
-        x_max, y_max = lonlat_utm(x_max, y_max, utm_zone=utm)
+        xmin, ymin = lonlat_utm(xmin, ymin, utm_zone=utm)
+        xmax, ymax = lonlat_utm(xmax, ymax, utm_zone=utm)
 
     # BEGIN PROCESSING HERE
     for l, zvals in enumerate(ZVALS):

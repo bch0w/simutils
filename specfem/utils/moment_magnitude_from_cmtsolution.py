@@ -44,8 +44,9 @@ if __name__ == "__main__":
         key, val = line.strip().split(":")
         fm.append(float(val))
 
-    mw = moment_magnitude(seismic_moment(fm))S
+    mw = moment_magnitude(seismic_moment(fm))
     print("\n")
     print("".join(lines[7:]))
     print(f"Mw = {mw:.2f}")
+    print("\n")
 

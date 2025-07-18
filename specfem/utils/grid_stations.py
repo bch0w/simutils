@@ -33,12 +33,12 @@ def write_to_stations(lat_grid, lon_grid, network="NN", sta_tag="S{:0>3}",
     print(f"{i} stations written")
 
 if __name__ == "__main__":
-    kwargs = {"lat_min": 41.5,
-              "lat_max": 44.7,
-              "lon_min": 128.9,
-              "lon_max": 129.8,
-              "dlat": 0.1,
-              "dlon": 0.1}
+    kwargs = {"lat_min": 37.1,
+              "lat_max": 41.9,
+              "lon_min": 126.6,
+              "lon_max": 130.0,
+              "dlat": .5,
+              "dlon": .5}
 
     lat_grid, lon_grid = uniform_grid_latlon(**kwargs)
     write_to_stations(lat_grid, lon_grid)
