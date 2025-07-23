@@ -925,10 +925,17 @@ def prepare_meshfem(parameter_file, mesh_par_file_template,
 
     pars = set_parameters(parameter_file)
 
+
     try:
         # Put the outputs into a directory for easy transfer
         if not os.path.exists(pars["dir_name"]):
             os.makedirs(pars["dir_name"])
+
+
+        # ! Delete me
+        # # Push all the layers by the mesh top to ensure depth information kept
+        # for key in ["doubling_layers", "interfaces", "regions"]: 
+        #     pars[key] = [_ - pars["mesh_top_km"] for _ in pars[key]]
 
         # Determine the grid space based on wavespeed/min period or by user set
         grid_space_h, grid_space_v = minimum_grid_spacing(

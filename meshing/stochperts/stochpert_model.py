@@ -26,9 +26,8 @@ from numpy.fft import fftfreq, fftshift, ifftshift
 from pyproj import Proj
 
 
-# Define 1D PREM that can be interpolated and perturbed, extend up to top of
-# topography so that we can put stochperts above 0km
 MODELS = {
+    # 1D PREM from IRIS EMC (warning might be too slow)
     "PREM": {
         "depth": 1E3 * np.array([
             -3.0, 0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
@@ -49,6 +48,37 @@ MODELS = {
         "qkappa": np.array([
             350., 350., 350., 350., 350., 350., 350., 200., 200., 200., 200., 200.
         ]),
+        },
+    # 1D PREM from SPECFEM3D
+    "PREM_fast": {
+        "depth": 1E3 * np.array([
+            -3.0, 0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
+        ]),  # km
+        "vp": 1E3 * np.array([
+            3.0, 3.0, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
+        ]),  # km/s
+        "vs": 1E3 * np.array([
+            2.0, 2.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
+        ]),  # km/s
+        "rho": 1E3 * np.array([
+            1.02, 1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
+        ]),  # kg/m^3
+        "qmu": np.array([
+            600., 600., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
+        ]),
+        # QK in PREM is inifinite, these values are inspired by Olsen et al 2018
+        "qkappa": np.array([
+            350., 350., 350., 350., 350., 350., 350., 200., 200., 200., 200., 200.
+        ]),
+        },
+    # HOMOGENEOUS HALFSPACE values from SPECFEM3D_Cartesian HH example
+    "homogeneous_halfspace": {
+        "depth":  np.array([0, 6371E3]),
+        "vp":     np.array([2.8E3, 2.8E3]),
+        "vs":     np.array([1.5E3, 1.5E3]),
+        "rho":    np.array([2.3E3, 2.3E3]),
+        "qmu":    np.array([300., 300.]),
+        "qkappa": np.array([2444.4, 2444.4]),
         }
     }
 
@@ -131,11 +161,11 @@ def interp_1D_model(model, dz, zmin=None, zmax=None):
         y = model[key] 
         yinterp = np.interp(zs, z, y)
         model_out[key] = yinterp
-    
+
     return model_out
 
 
-def main(fid=None, model_choice="PREM", tag=None, path="./",
+def main(fid=None, model_choice=None, tag=None, path=None,
         # Model definition parameters
          utm=None, xmin=None, xmax=None, ymin=None, ymax=None, 
          ZVALS=None, DX=None, DY=None, DZ=None, 
@@ -298,7 +328,7 @@ def main(fid=None, model_choice="PREM", tag=None, path="./",
 
     # Drop attenuation if needed
     if not include_q:
-        print("droping 'Q' values from model")
+        print("dropping 'Q' values from model")
         model = {key: val for key, val in model.items() 
                  if not key.startswith("q")}
         

@@ -23,6 +23,9 @@ mv *.sem? ${TAG}/SEM
 mkdir ${TAG}/MOVDATA
 mv moviedata?????? ${TAG}/MOVDATA
 
+mkdir ${TAG}/AVSMOVIE
+mv *.inp ${TAG}/AVSMOVIE
+
 # Move log files
 mv output_solver.txt ${TAG}
 mv output_list_s*.txt ${TAG}
