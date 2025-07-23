@@ -25,7 +25,7 @@ def parse_args():
                         nargs="?", help="Path to SPECFEM DATA/ directory")
     parser.add_argument("-m", "--mov_files", type=str, nargs="?",
                         help="Path to moviedata*.xyz text files")
-    parser.add_argument("-o", "--output", default="./movie_frames", type=str,
+    parser.add_argument("-o", "--output", default="./frames", type=str,
                         nargs="?", help="Path to store output files")
 
     # PARAMETERS
@@ -39,6 +39,8 @@ def parse_args():
                         help="UTM zone to convert coordinates if given")
 
     # FLAGS
+    parser.add_argument("-f", "--frames", nargs="+", type=int,
+                        help="start and end index of frames you want to make")
     parser.add_argument("-p", "--parallel", action="store_true",
                         help="run plotting in parallel with subprocess")
     parser.add_argument("-d", "--dry_run", type=int, default=None, 
@@ -117,12 +119,18 @@ def plot_frame(fid, x, y, dt, min_val=None, max_val=None, source=None,
     Plot the xyz file in the same fashion each time. Use tricontourf because
     the data is not in a uniform grid so we use a triangular interpolation
     """
+    fid_out = os.path.join(save, os.path.basename(fid) + ".png")
+    if os.path.exists(fid_out):
+        return
+
+
     # Get some values from the actual data file
     z = np.loadtxt(fid, usecols=-1) 
     f, ax = plt.subplots(1)
 
     # Mask out values before plotting
-    tcf = ax.tricontourf(x, y, z, norm=norm, cmap=cmap, levels=levels) 
+    tcf = ax.tricontourf(x, y, z, norm=norm, cmap=cmap, levels=levels,
+                         vmin=min_val, vmax=max_val) 
 
     # !!! FIX THIS, NEED TO FIND OUT HOW TO GET MIN ABS VALUE FOR MASKING
     # if mask_pct:
@@ -191,7 +199,6 @@ def plot_frame(fid, x, y, dt, min_val=None, max_val=None, source=None,
     plt.ylim([y.min(), y.max()]) 
     f.tight_layout()
 
-    fid_out = os.path.join(save, os.path.basename(fid) + ".png")
     plt.savefig(fid_out, dpi=dpi)
 
     plt.close()
@@ -224,11 +231,27 @@ if __name__ == "__main__":
     # Get information from SPECFEM
     nstep, dt, source, stations = parse_data(args.data)
 
-    # Figure out what waveforms we'll be using
-    files = glob.glob(os.path.join(args.mov_files, "*"))
+    files = sorted(glob.glob(os.path.join(args.mov_files, "*")))
+
+    # Determine min and max val out of all the movie frames
+    print("getting min/max amplitudes from movie files")
+    minval = np.inf
+    maxval = 0
+    for i in np.arange(0, len(files), 1, dtype=int):
+        arr = np.loadtxt(files[i], usecols=-1)
+        if arr.min() < minval:
+            minval =  arr.min()
+        if arr.max() > maxval:
+            maxval = arr.max()
+    print(f"minimum value = {minval}")
+    print(f"maximum value = {maxval}")
+
     if args.dry_run:
         idxs = np.linspace(0, len(files)-1, args.dry_run, dtype=int)
         files = np.array(files)[idxs]
+    elif args.frames:
+        start, end = args.frames
+        files = files[start:end]
     
     print("determining amplitude bounds for colorbars")
     # Parse through the movie files and find the min and max values
@@ -237,15 +260,6 @@ if __name__ == "__main__":
         df = int(10 * 1 // dt)  # 10 seconds in samples
     else:
         df = 1
-    
-    minval = np.inf
-    maxval = 0
-    for i in np.arange(0, len(files), df, dtype=int):
-        arr = np.loadtxt(files[i], usecols=-1)
-        if arr.min() < minval:
-            minval =  arr.min()
-        if arr.max() > maxval:
-            maxval = arr.max()
 
     # Figure out if we have a diverging colormap (like velocity) 
     if minval < 0:
@@ -282,7 +296,7 @@ if __name__ == "__main__":
     # Read through and plot each of the moviefiles
     print("plotting movie frames")
     if args.parallel:
-        with ProcessPoolExecutor() as executor:
+        with ProcessPoolExecutor(max_workers=os.cpu_count()-1) as executor:
             futures = [executor.submit(plot_frame, fid, x, y, dt, 
                                        minval, maxval, source, stations, 
                                        args.utm, args.output, 200,
