@@ -1,7 +1,7 @@
 {
     "model_choice": "homogeneous_halfspace",
     "path": "./",
-    "perturbations": false,
+    "perturbations": true,
     "include_q": false,
     "DX": [5E3, 10E3, 25E3],
     "DY": [5E3, 10E3, 25E3],

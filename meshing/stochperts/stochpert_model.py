@@ -9,6 +9,7 @@ high-frequency scattering in spectral element simulations
 NEXT STEPS
 write only the top layer and allow changing dz parameters and making new models
 """
+import argparse
 import os
 import json
 import sys
@@ -83,7 +84,7 @@ MODELS = {
     }
 
 
-def set_parameters(fid="./gptmcfg.py"):
+def set_parameters(fid):
     """
     Load parameters from configuration file
     """
@@ -97,6 +98,37 @@ def set_parameters(fid="./gptmcfg.py"):
         sys.exit(-1)
 
     return parameters
+
+
+def parse_args():
+    """
+    Allow plotting to be toggled from the command line
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("fid", type=str, help="file id")
+    parser.add_argument("-A", "--all", action="store_true",
+                        help="plot all figures")
+    parser.add_argument("-m", "--map", action="store_true",
+                        help="plot map view for a test parameter at a "
+                             "random depth")
+    parser.add_argument("-c", "--cross", action="store_true",
+                        help="plot cross section through middle of model")
+    parser.add_argument("-C", "--cube", action="store_true",
+                        help="plot cube defining the whole 3D perturbed model, "
+                             "require PyVista")
+    parser.add_argument("-b", "--brick", action="store_true",
+                        help="plot brick defining only the perturbation, "
+                             "require PyVista")
+    parser.add_argument("-p", "--profile", action="store_true",
+                        help="plot 1D profile of the underlying velocity model")
+    parser.add_argument("--cmap", default="RdYlBu", type=str, nargs="?",
+                        help="colormap for matplotlib plots (map, cross)")
+    parser.add_argument("--levels", default=31, type=int, nargs="?",
+                        help="number of levels for colormap")
+    parser.add_argument("--show", action="store_true",
+                        help="show GUI for plots")
+                                              
+    return parser.parse_args()    
 
 
 def lonlat_utm(lon, lat, utm_zone=None):                 
@@ -165,15 +197,15 @@ def interp_1D_model(model, dz, zmin=None, zmax=None):
     return model_out
 
 
-def main(fid=None, model_choice=None, tag=None, path=None,
-        # Model definition parameters
+def main(model_choice=None, tag=None, path=None,
+         # Model definition parameters
          utm=None, xmin=None, xmax=None, ymin=None, ymax=None, 
          ZVALS=None, DX=None, DY=None, DZ=None, 
          # Perturbation flags
          perturbations=None, include_q=None, 
          # Perturbation control parameters
-         seed=None, a=None, mean_vel=None, std_vel=None, nmin=None, nmax=None,
-         zmin_pert=None, zmax_pert=None, perturb=None
+         seed=None, a=None, hv_ratio=None, mean_vel=None, std_vel=None, 
+         nmin=None, nmax=None, zmin_pert=None, zmax_pert=None, perturb=None
          ):
     """
     Main function to generate a 3D tomography model with stochastic perturbation
@@ -196,8 +228,12 @@ def main(fid=None, model_choice=None, tag=None, path=None,
     :type seed: int
     :param seed: Random seed for reproducibility of perturbations
     :type a: float
-    :param a: Von Karman spectral filter parameter, controls the scale of
-        perturbations. If None, defaults to 1000m (1km)
+    :param a: Von Karman spectral filter parameter, controls the vertical scale 
+        of perturbations. Use `hv_ratio` to select the horizontal scaling, 
+        select `hv_ratio`=1 to get a_h == a_v
+    :type hv_ratio: int
+    :param hv_ratio: ratio of perturbation length in the horizontal direction
+        to the vertical direction. 1 means a is the same for both
     :type mean_vel: float
     :param mean_vel: Mean velocity for the Gaussian perturbation distribution
     :type std_vel: float
@@ -241,12 +277,13 @@ def main(fid=None, model_choice=None, tag=None, path=None,
     :param perturb: List of parameters in `model` to apply perturbations to. 
         If None, defaults to all parameters in the model except 'depth'.
     """
-    parameters = set_parameters(fid)
+    args = parse_args()
+    parameters = set_parameters(args.fid)
 
     # Distribute the parameters to local variables because that's how the code
     # is written and I'm too lazy to change it to dictionary access
     model_choice = model_choice or parameters["model_choice"]
-    tag = tag or os.path.basename(fid).split(".")[0]
+    tag = tag or os.path.basename(args.fid).split(".")[0]
     path = path or parameters["path"]
 
     # Model grid parameters    
@@ -262,6 +299,7 @@ def main(fid=None, model_choice=None, tag=None, path=None,
 
     # Perturbation flags
     perturbations = perturbations or parameters["perturbations"]
+    hv_ratio = hv_ratio or parameters["hv_ratio"]
     include_q = include_q or parameters["include_q"]
 
     # Perturbation parameters
@@ -294,31 +332,13 @@ def main(fid=None, model_choice=None, tag=None, path=None,
     indexing = "ij"
     order = "F"
 
-    # Plotting parameters
-    plot_all = None
-    show = False
-    plot_cube = False     # model
-    plot_brick = False   # perturbation
-    plot_profile = False  # 1D vel. profile
-    plot_2d = False       # 2d cross-sections
-    cmap = "viridis"
-    # ==========================================================================
-    # Overwrite Flags
-    if plot_all is not None:
-        if plot_all:
-            plot_cube, plot_brick, plot_profile, plot_2d = \
-                True, True, True, True
-        else:
-            plot_cube, plot_brick, plot_profile, plot_2d = \
-                False, False, False, False
-
     # Choose the Model
     model = MODELS[model_choice]
 
     # Make directories
     if not os.path.exists(mod_path):
         os.makedirs(mod_path)
-    if any([plot_cube, plot_brick, plot_profile, plot_2d]):
+    if any([args.cube, args.brick, args.profile, args.map, args.cross, args.all]):
         if not os.path.exists(fig_path):
             os.makedirs(fig_path)
 
@@ -408,6 +428,19 @@ def main(fid=None, model_choice=None, tag=None, path=None,
             kz = fftshift(fftfreq(len(z_pert), d=dz))
             [KX, KY, KZ] = np.meshgrid(kx, ky, kz, indexing=indexing)
 
+            # Scale the wavenumber vectors so that the perturbations come out
+            # the same size, otherwise they will scale with the length of the 
+            # domain which is not what we want
+            scale_x = xmax - xmin
+            scale_y = ymax - ymin
+            scale_z = zmax_pert - zmin_pert
+            scale_factor = max([scale_x, scale_y, scale_z])
+
+            # Also allow horizontal-to-vertical scaling
+            KX *= hv_ratio * (scale_x / scale_factor)
+            KY *= hv_ratio * (scale_y / scale_factor)
+            KZ *= (scale_z / scale_factor)
+
             # Generate perburations as a function of the wavenumber domain 
             # (Table 1 [1])
             # Normalizations provide appropriate scaling (Appendix B [1])
@@ -428,10 +461,13 @@ def main(fid=None, model_choice=None, tag=None, path=None,
             S_pert = \
                 ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
 
-            # Plot volumetric cube with PyVista
-            if plot_brick:
+            # Plot volumetric cube with PyVistaw
+
+            if args.brick or args.all:
                 data = pv.wrap(S_pert)
-                data.plot(volume=True, cmap="seismic_r")
+                data.plot(volume=True, cmap=args.cmap)
+                if args.show:
+                    plt.show()
                 plt.close("all")
 
         # GENERATE VELOCITY MODEL
@@ -442,7 +478,7 @@ def main(fid=None, model_choice=None, tag=None, path=None,
         # Interpolate the 1D model to the required DZ
         model = interp_1D_model(model=model, dz=dz, zmin=zmin, zmax=zmax)
 
-        if plot_profile:
+        if args.profile or args.all:
             # Just plot one example parameter 
             f, ax = plt.subplots(figsize=(6,8))
             plt.plot(model["vs"], model["depth"], "ko-")
@@ -452,12 +488,13 @@ def main(fid=None, model_choice=None, tag=None, path=None,
             plt.title(f"Interpolated 1D Model {model_choice}\n{fids[l]}")
             plt.grid()
             plt.savefig(os.path.join(fig_path, f"1d_profile_{zmin}-{zmax}.png"))
-            if show:
+            if args.show:
                 plt.show()
             plt.close("all")
 
         # Build model for each of the model parameters. Add perturbations 
         model_dict = {}
+        map_plotted, cross_plotted = False, False
         for parameter in model.keys():
             # Ignore depth values, 
             if parameter == "depth":
@@ -489,9 +526,13 @@ def main(fid=None, model_choice=None, tag=None, path=None,
             model_dict[parameter] = np.flip(cube.ravel(order=order))
 
             # Plot test depth value and parameter
-            if plot_2d:
-                im = plt.imshow(cube[:,:,1], cmap=cmap, 
-                                extent=np.array([xmin, xmax, ymin, ymax]) * 1E-3)
+            if (args.map or args.all) and not map_plotted:
+                # Plot map view
+                cmap = plt.get_cmap(args.cmap, args.levels)
+                im = plt.imshow(
+                        cube[:,:,1], cmap=cmap, 
+                        extent=np.array([0, xmax-xmin, 0, ymax-ymin]) * 1E-3
+                        )
                 plt.colorbar(im, shrink=0.8, pad=0.025, label=parameter)
                 plt.grid()
                 plt.xlabel("X [km]")
@@ -500,19 +541,49 @@ def main(fid=None, model_choice=None, tag=None, path=None,
                 # ax.ticklabel_format(style="sci", axis="both", scilimits=(0,0))
                 ax.ticklabel_format(style="plain", axis="both")
                 ax.set_aspect("equal")
-                plt.title(f"Vs [m/s] at {arr[1]}m")
+                plt.title(f"{parameter} at {arr[1]:.2f}m")
                 plt.tight_layout()
                 plt.savefig(os.path.join(fig_path, 
                                         f"2d_plot_{parameter}_{zmin}-{zmax}.png")
                                         )
-                if show:
+                if args.show:
                     plt.show()
                 plt.close("all")
+                map_plotted = True
+                sys.exit()
+            
+            if (args.cross or args.all) and not cross_plotted:
+                # Plot cross section
+                breakpoint()
+                cmap = plt.get_cmap(args.cmap, args.levels)
+                im = plt.imshow(
+                        cube[:,:,1], cmap=cmap, 
+                        extent=np.array([0, xmax-xmin, 0, ymax-ymin]) * 1E-3
+                        )
+                plt.colorbar(im, shrink=0.8, pad=0.025, label=parameter)
+                plt.grid()
+                plt.xlabel("X [km]")
+                plt.ylabel("Y [km]")
+                ax = plt.gca()
+                # ax.ticklabel_format(style="sci", axis="both", scilimits=(0,0))
+                ax.ticklabel_format(style="plain", axis="both")
+                ax.set_aspect("equal")
+                plt.title(f"{parameter} at {arr[1]:.2f}m")
+                plt.tight_layout()
+                plt.savefig(os.path.join(fig_path, 
+                                        f"2d_plot_{parameter}_{zmin}-{zmax}.png")
+                                        )
+                if args.show:
+                    plt.show()
+                plt.close("all")
+                cross_plotted = True
 
         # Plot volumetric cube with PyVista
-        if plot_cube:
+        if args.cube or args.all:
             data = pv.wrap(cube[:,:,::-1])  # Flip the cube so Z positive down
-            data.plot(volume=True, cmap="rainbow_r")
+            data.plot(volume=True, cmap=args.cmap)
+            if args.show:
+                plt.show()
             plt.close("all")
 
         # EXPORT MODEL
@@ -555,5 +626,4 @@ def main(fid=None, model_choice=None, tag=None, path=None,
             
 
 if __name__ == "__main__":
-    fid = sys.argv[1]
-    main(fid=fid)
+    main()
