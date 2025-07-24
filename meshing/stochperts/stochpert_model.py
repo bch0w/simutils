@@ -357,6 +357,9 @@ def main(model_choice=None, tag=None, path=None,
         xmin, ymin = lonlat_utm(xmin, ymin, utm_zone=utm)
         xmax, ymax = lonlat_utm(xmax, ymax, utm_zone=utm)
 
+    print(f"vertical perturbation correlation length   a_v={a}m")
+    print(f"horizontal perturbation correlation length a_h={a*hv_ratio}m\n")
+
     # BEGIN PROCESSING HERE
     for l, zvals in enumerate(ZVALS):
         zmin, zmax = zvals
