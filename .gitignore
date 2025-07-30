@@ -1,6 +1,7 @@
 # Created files
 */figures/
 *.png
+*.xyz
 
 
 # MacOS

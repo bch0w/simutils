@@ -402,18 +402,18 @@ def main(model_choice=None, tag=None, path=None,
         # Generate the perturbation if it exists in this layer
         if pert_idx_start is not None:
             print(f"generating perturbation brick from {z[pert_idx_start]} to "
-                f"{z[pert_idx_end]}")
+                  f"{z[pert_idx_end]}")
 
             # Print some information
             print(f"dX = {(xmax - xmin) * 1E-3:.2f} km\n"
-                f"dY = {(ymax - ymin) * 1E-3:.2f} km\n"
-                f"dZ = {(zmax - zmin) * 1E-3:.2f} km\n"
-                f"dZ_pert = {(zmax_pert - zmin_pert) * 1E-3:.2f} km\n"
-                "\n"
-                f"nX = {len(x)}\n"
-                f"nY = {len(y)}\n"
-                f"nZ_pert = {len(z_pert)}\n"
-                )
+                  f"dY = {(ymax - ymin) * 1E-3:.2f} km\n"
+                  f"dZ = {(zmax - zmin) * 1E-3:.2f} km\n"
+                  f"dZ_pert = {(zmax_pert - zmin_pert) * 1E-3:.2f} km\n"
+                  "\n"
+                  f"nX = {len(x)}\n"
+                  f"nY = {len(y)}\n"
+                  f"nZ_pert = {len(z_pert)}\n"
+                  )
 
             # MAKE PERTURBATION BRICK
             # Create the 3D random velocity field with Gaussian distribution
@@ -511,6 +511,9 @@ def main(model_choice=None, tag=None, path=None,
 
             # Generate the 3D cube shape
             cube = np.ones((len(x), len(y), len(arr)))
+            
+            breakpoint()
+
 
             # Fill in the cube by multiplying the correct depth with their 
             # assigned value. This is pretty brute force but it works
