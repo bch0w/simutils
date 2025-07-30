@@ -18,8 +18,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 try:
     import pyvista as pv
+    PVFLAG = True
 except ImportError:
     print("PyVista is not installed, skipping 3D plotting")
+    PVFLAG = False
     pass
 
 from scipy.fft import fftn, ifftn
@@ -466,7 +468,7 @@ def main(model_choice=None, tag=None, path=None,
 
             # Plot volumetric cube with PyVistaw
 
-            if args.brick or args.all:
+            if (args.brick or args.all) and PVFLAG:
                 data = pv.wrap(S_pert)
                 data.plot(volume=True, cmap=args.cmap)
                 if args.show:
@@ -490,7 +492,8 @@ def main(model_choice=None, tag=None, path=None,
             plt.ylabel("Depth [m]")
             plt.title(f"Interpolated 1D Model {model_choice}\n{fids[l]}")
             plt.grid()
-            plt.savefig(os.path.join(fig_path, f"1d_profile_{zmin}-{zmax}.png"))
+            plt.savefig(os.path.join(fig_path, f"1d_profile_{zmin}-{zmax}.png"),
+                        dpi=200)
             if args.show:
                 plt.show()
             plt.close("all")
@@ -546,18 +549,17 @@ def main(model_choice=None, tag=None, path=None,
                 ax.set_aspect("equal")
                 plt.title(f"{parameter} at {arr[1]:.2f}m")
                 plt.tight_layout()
-                plt.savefig(os.path.join(fig_path, 
-                                        f"2d_plot_{parameter}_{zmin}-{zmax}.png")
-                                        )
+                plt.savefig(os.path.join(
+                    fig_path, f"2d_plot_{parameter}_{zmin}-{zmax}.png"), 
+                    dpi=200)
+
                 if args.show:
                     plt.show()
                 plt.close("all")
                 map_plotted = True
-                sys.exit()
             
             if (args.cross or args.all) and not cross_plotted:
                 # Plot cross section
-                breakpoint()
                 cmap = plt.get_cmap(args.cmap, args.levels)
                 im = plt.imshow(
                         cube[:,:,1], cmap=cmap, 
@@ -574,15 +576,15 @@ def main(model_choice=None, tag=None, path=None,
                 plt.title(f"{parameter} at {arr[1]:.2f}m")
                 plt.tight_layout()
                 plt.savefig(os.path.join(fig_path, 
-                                        f"2d_plot_{parameter}_{zmin}-{zmax}.png")
-                                        )
+                                        f"2d_plot_{parameter}_{zmin}-{zmax}.png"),
+                                        dpi=200, )
                 if args.show:
                     plt.show()
                 plt.close("all")
                 cross_plotted = True
 
         # Plot volumetric cube with PyVista
-        if args.cube or args.all:
+        if (args.cube or args.all) and PVFLAG:
             data = pv.wrap(cube[:,:,::-1])  # Flip the cube so Z positive down
             data.plot(volume=True, cmap=args.cmap)
             if args.show:
