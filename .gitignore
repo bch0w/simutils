@@ -1,6 +1,7 @@
 # Created files
-meshing/stochastic_perturbations/created
-meshing/stochastic_perturbations/figures
+*/figures/
+*.png
+
 
 # MacOS
 **.DS_Store
