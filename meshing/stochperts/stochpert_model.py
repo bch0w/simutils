@@ -206,7 +206,7 @@ def main(model_choice=None, tag=None, path=None,
          # Perturbation flags
          perturbations=None, include_q=None, 
          # Perturbation control parameters
-         seed=None, a=None, hv_ratio=None, mean_vel=None, std_vel=None, 
+         seed=None, a=None, hv_ratio=None, mean_vel=1.0, std_vel=0.1, 
          nmin=None, nmax=None, zmin_pert=None, zmax_pert=None, perturb=None
          ):
     """
@@ -396,7 +396,7 @@ def main(model_choice=None, tag=None, path=None,
                 except IndexError:
                     # Brick starts at the top of the layer
                     pert_idx_end = np.where(z == zmax)[0][0]
-        
+
         if pert_idx_start is None:
             print("no perturbations defined for this layer...")
 
@@ -513,7 +513,7 @@ def main(model_choice=None, tag=None, path=None,
 
             # Generate the 3D cube shape
             cube = np.ones((len(x), len(y), len(arr)))
-            
+
             # Fill in the cube by multiplying the correct depth with their 
             # assigned value. This is pretty brute force but it works
             for i, val in enumerate(arr):
@@ -521,7 +521,7 @@ def main(model_choice=None, tag=None, path=None,
                 if (parameter in perturb) and \
                     pert_idx_start is not None and \
                         pert_idx_end is not None and \
-                        (pert_idx_start <= i < pert_idx_end): 
+                        (pert_idx_start <= i <= pert_idx_end): 
                     j = i - pert_idx_start  # set correct index for perturbation
                     cube[:,:,i] *= (val + val * S_pert[:,:,j])
                 # If not, then we just assign the correct value
@@ -616,10 +616,17 @@ def main(model_choice=None, tag=None, path=None,
             # Header - number of grid points
             f.write(f"{int(len(x)):d} {int(len(y)):d} {int(len(z)):d}\n")
 
-            # Header - parameter min max values
-            f.write(f"{model['vp'].min():.1f} {model['vp'].max():.1f} "
-                    f"{model['vs'].min():.1f} {model['vs'].max():.1f} "
-                    f"{model['rho'].min():.1f} {model['rho'].max():.1f} ")
+            # Header - parameter min max values. Take either the perturbed 
+            # version (preferred) or the 1D model value (if not perturbed)
+            # !!! These cap the actual model values in SPECFEM so its important
+            # !!! that we get them right
+            for par in ["vp", "vs", "rho"]:
+                if par in model_dict:
+                    m = model_dict
+                else:
+                    m = model
+                f.write(f"{m[par].min():.1f} {m[par].max():.1f} ")
+
             # Note that Q does not need to be included in the header
             f.write("\n")
 
