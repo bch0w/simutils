@@ -364,8 +364,9 @@ def main(model_choice=None, tag=None, path=None,
 
     # BEGIN PROCESSING HERE
     for l, zvals in enumerate(ZVALS):
+        layer_fid = os.path.basename(fids[l])
         zmin, zmax = zvals
-        print(f"{fids[l]} from {zmin} to {zmax}")
+        print(f"\n{'='*80}\n'{layer_fid}' from {zmin} to {zmax}\n{'='*80}\n")
 
         # Assign the grid spacing and lower value
         dx, dy, dz = DX[l], DY[l], DZ[l]
@@ -380,15 +381,15 @@ def main(model_choice=None, tag=None, path=None,
         pert_idx_start, pert_idx_end = None, None
         if perturbations:
             # Determine where to start the perturbation brick, either the brick 
-            # lives inside the layer, or it starts at the top of the layer
-            if zmin_pert <= zmax:
+            # lives inside the layer, or it starts at the top of t layer
+            if zmin_pert <= zmax and zmax_pert >= zmin:
                 try:
                     # Brick lives inside the layer
                     pert_idx_start = np.where(z == zmin_pert)[0][0]
                 except IndexError:
                     # Brick starts at the top of the layer
                     pert_idx_start = np.where(z == zmin)[0][0]
-            if zmax_pert >= zmin:
+
                 try:
                     # Brick lives inside the layer
                     pert_idx_end = np.where(z == zmax_pert)[0][0]
@@ -397,7 +398,7 @@ def main(model_choice=None, tag=None, path=None,
                     pert_idx_end = np.where(z == zmax)[0][0]
         
         if pert_idx_start is None:
-            print("No perturbations defined for this layer...")
+            print("no perturbations defined for this layer...")
 
         # Generate the perturbation if it exists in this layer
         if pert_idx_start is not None:
@@ -405,19 +406,18 @@ def main(model_choice=None, tag=None, path=None,
                   f"{z[pert_idx_end]}")
 
             # Print some information
-            print(f"dX = {(xmax - xmin) * 1E-3:.2f} km\n"
-                  f"dY = {(ymax - ymin) * 1E-3:.2f} km\n"
-                  f"dZ = {(zmax - zmin) * 1E-3:.2f} km\n"
-                  f"dZ_pert = {(zmax_pert - zmin_pert) * 1E-3:.2f} km\n"
+            print(f"\nDX = {(xmax - xmin) * 1E-3:.2f} km\n"
+                  f"DY = {(ymax - ymin) * 1E-3:.2f} km\n"
+                  f"DZ = {(zmax - zmin) * 1E-3:.2f} km\n"
+                  f"DZ_pert = {(zmax_pert - zmin_pert) * 1E-3:.2f} km\n"
                   "\n"
-                  f"nX = {len(x)}\n"
-                  f"nY = {len(y)}\n"
-                  f"nZ_pert = {len(z_pert)}\n"
+                  f"NX = {len(x)}\n"
+                  f"NY = {len(y)}\n"
+                  f"NZ_pert = {len(z_pert)}\n"
                   )
 
             # MAKE PERTURBATION BRICK
             # Create the 3D random velocity field with Gaussian distribution
-            print("making meshgrid")
             [X, Y, Z_PERT] = np.meshgrid(x, y, z_pert, indexing=indexing)
             np.random.seed(seed)
             S = np.random.normal(mean_vel, std_vel, Z_PERT.shape)
@@ -467,18 +467,19 @@ def main(model_choice=None, tag=None, path=None,
                 ((nmax - nmin) * (arr-arr.min()) / (arr.max()-arr.min())) + nmin
 
             # Plot volumetric cube with PyVistaw
-
             if (args.brick or args.all) and PVFLAG:
                 data = pv.wrap(S_pert)
                 data.plot(volume=True, cmap=args.cmap)
                 if args.show:
                     plt.show()
                 plt.close("all")
+            print("finished making perturbation brick")
 
         # GENERATE VELOCITY MODEL
         # Now we generate the velocity model cube. First interpolate to our `dz`
+        print("generating velocity model")
         [X, Y, Z] = np.meshgrid(x, y, z, indexing=indexing)
-        print(f"layer '{fids[l]}' has {np.prod(X.shape)} points")
+        print(f"layer '{layer_fid}' has {np.prod(X.shape)} points")
 
         # Interpolate the 1D model to the required DZ
         model = interp_1D_model(model=model, dz=dz, zmin=zmin, zmax=zmax)
@@ -490,7 +491,7 @@ def main(model_choice=None, tag=None, path=None,
             plt.gca().invert_yaxis()
             plt.xlabel("Vs [m/s]")
             plt.ylabel("Depth [m]")
-            plt.title(f"Interpolated 1D Model {model_choice}\n{fids[l]}")
+            plt.title(f"Interpolated 1D Model {model_choice}\n'{layer_fid}'")
             plt.grid()
             plt.savefig(os.path.join(fig_path, f"1d_profile_{zmin}-{zmax}.png"),
                         dpi=200)
@@ -500,21 +501,19 @@ def main(model_choice=None, tag=None, path=None,
 
         # Build model for each of the model parameters. Add perturbations 
         model_dict = {}
-        map_plotted, cross_plotted = False, False
+        map_plotted, cross_plotted, cube_plotted = False, False, False
+
         for parameter in model.keys():
             # Ignore depth values, 
             if parameter == "depth":
                 continue
+            print(f"\t{parameter}")
             
-            print(f"making model for par: {parameter}")
             arr = model[parameter]
 
             # Generate the 3D cube shape
             cube = np.ones((len(x), len(y), len(arr)))
             
-            breakpoint()
-
-
             # Fill in the cube by multiplying the correct depth with their 
             # assigned value. This is pretty brute force but it works
             for i, val in enumerate(arr):
@@ -586,13 +585,15 @@ def main(model_choice=None, tag=None, path=None,
                 plt.close("all")
                 cross_plotted = True
 
-        # Plot volumetric cube with PyVista
-        if (args.cube or args.all) and PVFLAG:
-            data = pv.wrap(cube[:,:,::-1])  # Flip the cube so Z positive down
-            data.plot(volume=True, cmap=args.cmap)
-            if args.show:
-                plt.show()
-            plt.close("all")
+            # Plot volumetric cube with PyVista
+            if (args.cube or args.all) and not cube_plotted and PVFLAG:
+                data = pv.wrap(cube[:,:,::-1])  # Flip the cube so Z positive down
+                data.plot(volume=True, cmap=args.cmap)
+                if args.show:
+                    plt.show()
+                plt.close("all")
+                cube_plotted = True
+
 
         # EXPORT MODEL
         # Ravel turns the gridded data into 1D arrays that can be written
@@ -601,7 +602,7 @@ def main(model_choice=None, tag=None, path=None,
         x_list = np.flip(X.ravel(order=order))
         y_list = np.flip(Y.ravel(order=order))
         z_list = np.flip(-1 * Z.ravel(order=order))
-
+        print(f"writing {layer_fid} to text file")
         with open(fids[l], "w") as f:
             # Header - min and max range values
             f.write(
