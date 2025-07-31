@@ -212,11 +212,18 @@ def write_data(data, method, tag, path="./"):
     :type tag: str
     :param tag: tag for the file name, extension will be appended automatically
     """
+    if not os.path.exists(path):
+        os.makedirs(path)
+
     # Meshfem only requires a single value of Z-values
     if method == "meshfem":
         fid = os.path.join(path, f"{tag}_topography.dat")
-        np.savetxt(os.path.join(path, tag + '.dat'), data[:, 2], fmt='%d')
-        os.symlink(fid, os.path.join(path, "interface_topo.dat"))
+        np.savetxt(os.path.join(path, fid), data[:, 2], fmt='%d')
+
+        topo_fid = os.path.join(path, "interface_topo.dat")
+        if os.path.exists(topo_fid):
+            os.remove(topo_fid)
+        os.symlink(fid, topo_fid)
 
     # Trelis requires XYZ files. If a flat moho is required, it must be the same
     # sampling rate as the topo
@@ -298,14 +305,18 @@ def overwrite_interfaces_line(interfaces_fid, data):
     assert os.path.exists(interfaces_fid)
 
     x, y = data[:, :2].T
-    dx = x[1] - x[0]
-    dy = y[1] - y[0]
+    xvals = np.unique(x)
+    yvals = np.unique(y)
+    dx = xvals[1] - xvals[0]
+    dy = yvals[1] - yvals[0]
 
     print("replacing topography line in interfaces file")
+
     # Replacement topo line matching the created file. We use the UTM 
     # version because it probably has cleaner numbers
     topo_line = (
-        f" .true. {len(x)} {len(y)} {x.min():.0f}d0 {y.min():.0f}d0 "
+        f" .true. {len(xvals)} {len(yvals)} "
+        f"{xvals.min():.0f}d0 {yvals.min():.0f}d0 "
         f"{dx:.2f}d0 {dy:.2f}d0\n"
         )
 
@@ -382,6 +393,8 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, coords, spacing_m,
                                        utm_projection=utm_projection
                                        )
         print(f"\ttopography file has size {np.shape(topo_utm)}")
+        print(f"\txmin,xmax = {topo_utm[:,0].min()}, {topo_utm[:,0].max()}")
+        print(f"\tymin,ymax = {topo_utm[:,1].min()}, {topo_utm[:,1].max()}")
 
         # Cut the topography file to the desired mesh boundaries with some buffr
         print("\tcutting topography file to desired dimensions")
@@ -392,7 +405,6 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, coords, spacing_m,
                                   y_or_lat_max=y_max + border_m
                                   )
         print(f"\ttopography file cut to size {np.shape(topo_cut)}")
-
         if topography is None:
             topography = topo_cut
         else:
@@ -409,6 +421,16 @@ def main(tag, method, srtm_files, x_min, x_max, y_min, y_max, coords, spacing_m,
                                      plot=plot
                                      )
     print(f"\tinterpolated file has size {np.shape(topo_interp)}")
+    
+    # Check if output topography file has NaNs
+    if np.any(np.isnan(topo_interp)):
+        print(f"ERROR: NaNs found in output topography, check that the input "
+              f"nc files cover the bounding box you are cutting and use "
+              f"`border_m` to cut a larger bounding box than needed")   
+        # vals = topo_interp[np.isnan(topo_interp[:,-1])][:,:2]
+        # print(vals)
+
+        sys.exit()
 
     # Write the topo and moho files
     print(f"writing to {tag}")

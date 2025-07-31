@@ -6,33 +6,25 @@
     "lon_max": 129.9697, 
     "utm_projection": 52, 
     "suppress_utm_proj": false,   
-    "mesh_depth_km": 100.0, 
+    "mesh_depth_km": 5.0, 
     "mesh_top_km": 3.0,
     "doubling_layers": [
-        3, 11, 32
     ], 
     "interfaces": [
-        0, 2.5, 10, 30
+        0
     ],
     "interface_increase": [
-        1, 2, 2, 2
+        1
     ],
     "interface_fids": [
-        "interface_topo.dat",
-        "interface_1.dat",
-        "interface_2.dat",
-		"interface_3.dat"
+        "interface_topo.dat"
     ], 
     "regions": [
-        11, 32
     ],
     "materials": [
-        [4400, 7500, 4500, 9999, 1001],
-        [6500, 8500, 4500, 9999, 1000],
-        [6500, 8500, 4500, 9999, 1000]
     ],
     "nproc": 32, 
-    "grid_space_top_hv": [0.75, 0.75], 
+    "grid_space_top_hv": [0.5, 0.5], 
     "shortest_period_s": 3, 
     "vs_min_km_per_s": 1.5, 
     "vp_max_km_per_s": 8.8, 

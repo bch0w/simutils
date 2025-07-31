@@ -1,0 +1,7 @@
+# number of interfaces
+ 1
+# interface number 1
+ .true. 149 266 286700d0 4108650d0 2000.00d0 2000.00d0
+ interface_topo.dat
+# number of spectral elements per layer (from bottom)
+ 10

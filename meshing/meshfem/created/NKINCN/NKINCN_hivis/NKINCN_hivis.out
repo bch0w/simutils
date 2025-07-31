@@ -1,0 +1,85 @@
+PREPARING MESH FOR MESHFEM3D
+
+{'dir_name': './created/NKINCN/NKINCN_hivis', 'lat_min': 37.1035, 'lat_max': 41.9037, 'lon_min': 126.6244, 'lon_max': 129.9697, 'utm_projection': 52, 'suppress_utm_proj': False, 'mesh_depth_km': 5.0, 'mesh_top_km': 3.0, 'doubling_layers': [], 'interfaces': [0], 'interface_increase': [1], 'interface_fids': ['interface_topo.dat'], 'regions': [], 'materials': [], 'nproc': 32, 'grid_space_top_hv': [0.5, 0.5], 'shortest_period_s': 3, 'vs_min_km_per_s': 1.5, 'vp_max_km_per_s': 8.8, 'points_per_wl': 5, 'top_vertical_element_ratio': 1, 'tag': 'NKINCN_hivis'}
+
+PARAMETERS FOR: NKINCN_hivis
+	dir_name: ./created/NKINCN/NKINCN_hivis
+	lat_min: 37.1035
+	lat_max: 41.9037
+	lon_min: 126.6244
+	lon_max: 129.9697
+	utm_projection: 52
+	suppress_utm_proj: False
+	mesh_depth_km: 5.0
+	mesh_top_km: 3.0
+	doubling_layers: []
+	interfaces: [0]
+	interface_increase: [1]
+	interface_fids: ['interface_topo.dat']
+	regions: []
+	materials: []
+	nproc: 32
+	grid_space_top_hv: [0.5, 0.5]
+	shortest_period_s: 3
+	vs_min_km_per_s: 1.5
+	vp_max_km_per_s: 8.8
+	points_per_wl: 5
+	top_vertical_element_ratio: 1
+	tag: NKINCN_hivis
+CALCULATING MINIMUM GRID SPACE AT TOP OF MESH
+	Grid space XYZ given
+	MIN GRID SPACE HORIZONTAL: 0.5
+	MIN GRID SPACE VERTICAL: 0.5
+CALCULATING NUMBER OF PROCESSORS
+	x-axis length = 291.5309590111168
+	y-axis length = 530.5438388531544
+	short direction is 'x'
+	NPROC_X = 4
+	NPROC_Y = 8
+CALCULATING NUMBER OF ELEMENTS AT TOP OF MESH
+	integer multiple found as c=2
+	NEX_X = 608
+	NEX_Y = 1088
+	!!! enforcing NEX_PER_PROC_XI == 2c * 2 ** ndoublings
+		NEX_X: 608 -> 608
+	!!! enforcing NEX_PER_PROC_ETA == 2c * 2 ** ndoublings
+		NEX_Y: 1088 -> 1088
+	DX = 0.4795km
+	DY = 0.4876km
+	Note: if values below too large, adjust 'shortest_period_s'
+	Note: if values below too small, check  'suppress_utm_proj'
+	GRID_SPACE_H - DX = 0.020508291100136855
+	GRID_SPACE_H - DY = 0.012367795171733087
+SCALING VERTICAL ELEMENT SIZE BASED ON DX and DY
+	DZ = (dx + dy)/2 * 1 ~= 0.5
+CALCULATING NUMBER OF VERTICAL LAYERS (interfaces)
+	10 layers of 0.5km between 0km and 5.0km (5.0 km)
+	NLAYERS = 1
+	NELEMENTS_Z = 10
+	NUM ELEM PER LAYER FROM BOTTOM = [10]
+FORMATTING HORIZONTAL DOUBLING LAYERS (ndoublings)
+	NDOUBLING LAYERS = []
+FORMATTING NREGIONS AND NMATERIALS
+	nregions = nmaterials = 1
+	depth 3.0km is top of mesh 3.0km
+	REGION STARTING ELEMENT = [10]
+MESH HAS THE APPROXIMATE FORM
+	10/00; Z~=  3.00km
+		Top of Mesh
+		Interface (vertical x1)
+		Region 1 begins
+		dx=0.48, dy=0.49, dz=0.5
+	09/01; Z~=  2.50km
+	08/02; Z~=  2.00km
+	07/03; Z~=  1.50km
+	06/04; Z~=  1.00km
+	05/05; Z~=  0.50km
+	04/06; Z~=  0.00km
+	03/07; Z~= -0.50km
+	02/08; Z~= -1.00km
+	01/09; Z~= -1.50km
+WRITING Mesh_Par_file
+WRITING interfaces.dat
+WRITING INTERACE interface_topo.dat
+APPROXIMATING TOTAL NUMBER OF ELEMENTS IN MESH
+	APPRX_NUM_ELEM = 6615040

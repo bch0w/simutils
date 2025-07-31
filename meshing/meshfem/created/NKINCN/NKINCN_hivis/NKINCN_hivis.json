@@ -1,0 +1,33 @@
+{
+	"dir_name": "./created/NKINCN",
+    "lat_min": 37.1035,
+    "lat_max": 41.9037, 
+    "lon_min": 126.6244, 
+    "lon_max": 129.9697, 
+    "utm_projection": 52, 
+    "suppress_utm_proj": false,   
+    "mesh_depth_km": 5.0, 
+    "mesh_top_km": 3.0,
+    "doubling_layers": [
+    ], 
+    "interfaces": [
+        0
+    ],
+    "interface_increase": [
+        1
+    ],
+    "interface_fids": [
+        "interface_topo.dat"
+    ], 
+    "regions": [
+    ],
+    "materials": [
+    ],
+    "nproc": 32, 
+    "grid_space_top_hv": [0.5, 0.5], 
+    "shortest_period_s": 3, 
+    "vs_min_km_per_s": 1.5, 
+    "vp_max_km_per_s": 8.8, 
+    "points_per_wl": 5,
+    "top_vertical_element_ratio": 1
+}
