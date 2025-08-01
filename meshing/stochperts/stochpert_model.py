@@ -74,6 +74,33 @@ MODELS = {
             350., 350., 350., 350., 350., 350., 350., 200., 200., 200., 200., 200.
         ]),
         },
+    # LITHO1.0 at 41.3324 129.0297 until 50km then PREM below
+    "LITHO_NK": {
+        "depth": 1E3 * np.array([
+            -1.0, -0.75, 12.86, 25.72, 34.33, 53.89,  # < LITHO
+            220., 271., 371., 400.,  # < PREM
+        ]),  # km
+        "vp": 1E3 * np.array([
+            2.5, 4.0, 6.06, 6.53, 6.96, 8.01, 7.85,   # < LITHO
+            7.99, 8.56, 8.66, 8.85
+        ]),  # km/s
+        "vs": 1E3 * np.array([
+            1.07, 2.13, 3.52, 3.76, 3.97, 4.57, 4.27,
+            4.42, 4.62, 4.68, 4.75
+        ]),  # km/s
+        "rho": 1E3 * np.array([
+            2.11, 2.37, 2.72, 2.83, 2.94, 3.30, 3.30,
+            3.36, 3.44, 3.47, 3.53
+        ]),  # kg/m^3
+        "qmu": np.array([
+            600., 600., 600., 600., 200., 200.,
+            80., 143., 143., 143.,
+        ]),
+        # QK in PREM is inifinite, these values are inspired by Olsen et al 2018
+        "qkappa": np.array([
+            350., 350., 350., 350., 350., 200., 200., 200., 200., 200.
+        ]),
+        },
     # HOMOGENEOUS HALFSPACE values from SPECFEM3D_Cartesian HH example
     "homogeneous_halfspace": {
         "depth":  np.array([0, 6371E3]),
