@@ -32,7 +32,7 @@
         [6500, 8500, 4500, 9999, 1000]
     ],
     "nproc": 32, 
-    "grid_space_top_hv": [0.75, 0.75], 
+    "grid_space_top_hv": [0.6, 0.6], 
     "shortest_period_s": 3, 
     "vs_min_km_per_s": 1.5, 
     "vp_max_km_per_s": 8.8, 

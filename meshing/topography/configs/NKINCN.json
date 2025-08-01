@@ -7,7 +7,7 @@
     "utm_projection": 52,
     "spacing_m": 2000,
 	"topography_path": "/home/bhchow/work/data/topography/SRTM30P/NKINCN/*",
-    "path": "/home/bhchow/REPOS/simutils/meshing/meshfem/created/NKINCN/NKINCN_hivis",
+    "path": "/home/bhchow/REPOS/simutils/meshing/meshfem/created/NKINCN/NKINCN_topo",
     "method": "meshfem",
     "border_m": 2000,
     "buffer_m": 0,

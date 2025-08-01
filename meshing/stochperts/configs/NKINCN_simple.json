@@ -1,10 +1,10 @@
 {
     "model_choice": "PREM",
     "path": "./",
-    "perturbations": true,
+    "perturbations": false,
     "include_q": true,
-    "DX": [250, 1E3, 25E3],
-    "DY": [250, 1E3, 25E3],
+    "DX": [1E3, 1E3, 25E3],
+    "DY": [1E3, 1E3, 25E3],
     "DZ": [500, 1E3, 10E3],
     "ZVALS": [[0.0, 5000.0], [5000.0, 15000.0], [15000.0, 110000.0]],
     "xmin": 286700.0,
