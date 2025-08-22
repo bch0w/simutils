@@ -155,16 +155,14 @@ def lonlat_utm(lon, lat, utm_zone=None):
     :return y: y coordinate in UTM         
     """                                                                          
     # Determine if the projection is north or south                              
-    if utm_zone < 0:                                                             
-        direction = "south"                                                      
-    else:                                                                        
-        direction = "north"                                                      
+    is_south = bool(utm_zone < 0) 
+                                                  
     # Proj doesn't accept negative zones                                         
     utm_zone = abs(utm_zone)                                                                       
 
     # Initiate a Proj object and convert the coordinates                         
-    my_proj = Proj(proj="utm", zone=abs(utm_zone), south=True, ellps="WGS84",
-                   datum="WGS84", units="m", no_defs=True)
+    my_proj = Proj(proj="utm", zone=abs(utm_zone), south=is_south, 
+                   ellps="WGS84", datum="WGS84", units="m", no_defs=True)
     x, y = my_proj(lon, lat, inverse=False)            
                                                                                  
     return x, y         
