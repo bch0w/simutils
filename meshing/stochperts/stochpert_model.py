@@ -29,88 +29,64 @@ from numpy.fft import fftfreq, fftshift, ifftshift
 from pyproj import Proj
 
 
-MODELS = {
-    # 1D PREM from IRIS EMC (warning might be too slow)
-    "PREM": {
-        "depth": 1E3 * np.array([
-            -3.0, 0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
-        ]),  # km
-        "vp": 1E3 * np.array([
-            1.45, 1.45, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
-        ]),  # km/s
-        "vs": 1E3 * np.array([
-            1.0, 1.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
-        ]),  # km/s
-        "rho": 1E3 * np.array([
-            1.02, 1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
-        ]),  # kg/m^3
-        "qmu": np.array([
-            600., 600., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
+def get_model(key): 
+    """
+    Return a chosen model as a dictionary of values, for readability the
+    models are stored with each depth in list notation with its other parameters
+    but the returned object will be sorted as a dictionary
+    
+    Each layer is a list: [depth, vp, vs, rho, qmu, qkappa]
+
+    :type key: str
+    :param key: key matching available models
+    :rtype: dict
+    :return dictionary with each parameter as a numpy array
+    """
+    models = {
+    # 1D PREM (values from IRIS EMC). Warning might be too slow
+    "PREM": np.array([
+        #           depth     vp      vs      rho    qmu  qkappa
+        np.array([-3000.0, 1450.0, 1000.0, 1020.0, 600.0, 350.0]),
+        np.array([0.0,     1450.0, 1000.0, 1020.0, 600.0, 350.0]),
+        np.array([3000.0,  5800.0, 3200.0, 2600.0, 600.0, 350.0]),
+        np.array([15000.0, 6800.0, 3900.0, 2900.0, 600.0, 350.0]),
+        np.array([24400.0, 8110.0, 4490.0, 3380.0, 600.0, 350.0]),
+        np.array([71000.0, 8080.0, 4470.0, 3370.0, 600.0, 350.0]),
+        np.array([80000.0, 8080.0, 4470.0, 3370.0, 600.0, 350.0]),
+        np.array([171000.0, 8020.0, 4440.0, 3360.0, 80.0, 200.0]),
+        np.array([220000.0, 7990.0, 4420.0, 3360.0, 80.0, 200.0]),
+        np.array([271000.0, 8560.0, 4620.0, 3440.0, 143.0, 200.0]),
+        np.array([371000.0, 8660.0, 4680.0, 3470.0, 143.0, 200.0]),
+        np.array([400000.0, 8850.0, 4750.0, 3530.0, 143.0, 200.0]),
+    ]),
+    # LITHO1.0 queried at 41.3324 129.0297 until 50km, then PREM below
+    "LITHO_NK": np.array([
+            #           depth       vp       vs       rho      qmu  qkappa
+            np.array([-1000.0,  2500.0,  1070.0,  2110.0,  600.0,  350.0]),
+            np.array([-750.0,   4000.0,  2130.0,  2370.0,  600.0,  350.0]),
+            np.array([12860.0,  6060.0,  3520.0,  2720.0,  600.0,  350.0]),
+            np.array([25720.0,  6530.0,  3760.0,  2830.0,  600.0,  350.0]),
+            np.array([34330.0,  6960.0,  3970.0,  2940.0,  200.0,  350.0]),
+            np.array([53890.0,  8010.0,  4570.0,  3300.0,  200.0,  200.0]),
+            # PREM BELOW HERE
+            np.array([171000.0, 8020.0,  4440.0,  3360.0,  80.0,   200.0]), 
+            np.array([220000.0, 7990.0,  4420.0,  3360.0,  80.0,   200.0]),
+            np.array([271000.0, 8560.0,  4620.0,  3440.0,  143.0,  200.0]),
+            np.array([371000.0, 8660.0,  4680.0,  3470.0,  143.0,  200.0]),
+            np.array([400000.0, 8850.0,  4750.0,  3530.0,  143.0,  200.0]),
         ]),
-        # QK in PREM is inifinite, these values are inspired by Olsen et al 2018
-        "qkappa": np.array([
-            350., 350., 350., 350., 350., 350., 350., 200., 200., 200., 200., 200.
-        ]),
-        },
-    # 1D PREM from SPECFEM3D
-    "PREM_fast": {
-        "depth": 1E3 * np.array([
-            -3.0, 0, 3.0, 15., 24.4, 71., 80., 171., 220., 271., 371., 400.
-        ]),  # km
-        "vp": 1E3 * np.array([
-            3.0, 3.0, 5.80, 6.80, 8.11, 8.08, 8.08, 8.02, 7.99, 8.56, 8.66, 8.85
-        ]),  # km/s
-        "vs": 1E3 * np.array([
-            2.0, 2.0, 3.20, 3.90, 4.49, 4.47, 4.47, 4.44, 4.42, 4.62, 4.68, 4.75
-        ]),  # km/s
-        "rho": 1E3 * np.array([
-            1.02, 1.02, 2.6, 2.9, 3.38, 3.37, 3.37, 3.36, 3.36, 3.44, 3.47, 3.53
-        ]),  # kg/m^3
-        "qmu": np.array([
-            600., 600., 600., 600., 600., 600., 600., 80., 80., 143., 143., 143.
-        ]),
-        # QK in PREM is inifinite, these values are inspired by Olsen et al 2018
-        "qkappa": np.array([
-            350., 350., 350., 350., 350., 350., 350., 200., 200., 200., 200., 200.
-        ]),
-        },
-    # LITHO1.0 at 41.3324 129.0297 until 50km then PREM below
-    "LITHO_NK": {
-        "depth": 1E3 * np.array([
-            -1.0, -0.75, 12.86, 25.72, 34.33, 53.89,  # < LITHO
-            220., 271., 371., 400.,  # < PREM
-        ]),  # km
-        "vp": 1E3 * np.array([
-            2.5, 4.0, 6.06, 6.53, 6.96, 8.01, 7.85,   # < LITHO
-            7.99, 8.56, 8.66, 8.85
-        ]),  # km/s
-        "vs": 1E3 * np.array([
-            1.07, 2.13, 3.52, 3.76, 3.97, 4.57, 4.27,
-            4.42, 4.62, 4.68, 4.75
-        ]),  # km/s
-        "rho": 1E3 * np.array([
-            2.11, 2.37, 2.72, 2.83, 2.94, 3.30, 3.30,
-            3.36, 3.44, 3.47, 3.53
-        ]),  # kg/m^3
-        "qmu": np.array([
-            600., 600., 600., 600., 200., 200.,
-            80., 143., 143., 143.,
-        ]),
-        # QK in PREM is inifinite, these values are inspired by Olsen et al 2018
-        "qkappa": np.array([
-            350., 350., 350., 350., 350., 200., 200., 200., 200., 200.
-        ]),
-        },
     # HOMOGENEOUS HALFSPACE values from SPECFEM3D_Cartesian HH example
-    "homogeneous_halfspace": {
-        "depth":  np.array([0, 6371E3]),
-        "vp":     np.array([2.8E3, 2.8E3]),
-        "vs":     np.array([1.5E3, 1.5E3]),
-        "rho":    np.array([2.3E3, 2.3E3]),
-        "qmu":    np.array([300., 300.]),
-        "qkappa": np.array([2444.4, 2444.4]),
-        }
+    "homogeneous_halfspace": np.array([
+            #           depth       vp       vs       rho      qmu  qkappa
+            np.array([0.0,        2800.0,  1500.0,  2300.0,  300.0,  2444.4]),
+            np.array([-6371000.0, 2800.0,  1500.0,  2300.0,  300.0,  2444.4]),
+    ])
     }
+    model = models[key]
+    depth, vp, vs, rho, qmu, qkappa = model.T
+
+    return {"depth": depth, "vp": vp, "vs": vs, 
+            "rho": rho, "qmu": qmu, "qkappa": qkappa}
 
 
 def set_parameters(fid):
