@@ -1,0 +1,23 @@
+{
+    "model_choice": "LITHO_NK_LAYER",
+    "path": "./",
+    "perturbations": false,
+    "include_q": true,
+    "DX": [500, 1E3, 25E3],
+    "DY": [500, 1E3, 25E3],
+    "DZ": [250, 500, 10E3],
+    "ZVALS": [[-1000.0, 5000.0], [5000.0, 15000.0], [15000.0, 110000.0]],
+    "xmin": 286700.0,
+    "xmax": 583950.0,
+    "ymin": 4108650.0,
+    "ymax": 4639175.0,
+	"utm": null,
+    "a": 1000.0,
+	"hv_ratio": 5,
+    "nmin": -0.1,
+    "nmax": 0.1,
+    "perturb": ["vp", "vs", "rho"],
+    "zmin_pert": 0.0,
+    "zmax_pert": 10000.0,
+    "seed": 123
+}

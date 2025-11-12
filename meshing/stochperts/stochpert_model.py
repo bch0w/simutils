@@ -35,7 +35,8 @@ def get_model(key):
     models are stored with each depth in list notation with its other parameters
     but the returned object will be sorted as a dictionary
     
-    Each layer is a list: [depth, vp, vs, rho, qmu, qkappa]
+    Each layer is a list: 
+    depth [m], vp [m/s], vs [m/s], rho [kg/m^3], qmu, qkappa
 
     :type key: str
     :param key: key matching available models
@@ -46,20 +47,21 @@ def get_model(key):
     # 1D PREM (values from IRIS EMC). Warning might be too slow
     "PREM": np.array([
         #           depth     vp      vs      rho    qmu  qkappa
-        np.array([-3000.0, 1450.0, 1000.0, 1020.0, 600.0, 350.0]),
-        np.array([0.0,     1450.0, 1000.0, 1020.0, 600.0, 350.0]),
-        np.array([3000.0,  5800.0, 3200.0, 2600.0, 600.0, 350.0]),
-        np.array([15000.0, 6800.0, 3900.0, 2900.0, 600.0, 350.0]),
-        np.array([24400.0, 8110.0, 4490.0, 3380.0, 600.0, 350.0]),
-        np.array([71000.0, 8080.0, 4470.0, 3370.0, 600.0, 350.0]),
-        np.array([80000.0, 8080.0, 4470.0, 3370.0, 600.0, 350.0]),
-        np.array([171000.0, 8020.0, 4440.0, 3360.0, 80.0, 200.0]),
-        np.array([220000.0, 7990.0, 4420.0, 3360.0, 80.0, 200.0]),
+        np.array([-3000.0,  1450.0, 1000.0, 1020.0, 600.0, 350.0]),
+        np.array([0.0,      1450.0, 1000.0, 1020.0, 600.0, 350.0]),
+        np.array([3000.0,   5800.0, 3200.0, 2600.0, 600.0, 350.0]),
+        np.array([15000.0,  6800.0, 3900.0, 2900.0, 600.0, 350.0]),
+        np.array([24400.0,  8110.0, 4490.0, 3380.0, 600.0, 350.0]),
+        np.array([71000.0,  8080.0, 4470.0, 3370.0, 600.0, 350.0]),
+        np.array([80000.0,  8080.0, 4470.0, 3370.0, 600.0, 350.0]),
+        np.array([171000.0, 8020.0, 4440.0, 3360.0, 80.0,  200.0]),
+        np.array([220000.0, 7990.0, 4420.0, 3360.0, 80.0,  200.0]),
         np.array([271000.0, 8560.0, 4620.0, 3440.0, 143.0, 200.0]),
         np.array([371000.0, 8660.0, 4680.0, 3470.0, 143.0, 200.0]),
         np.array([400000.0, 8850.0, 4750.0, 3530.0, 143.0, 200.0]),
     ]),
     # LITHO1.0 queried at 41.3324 129.0297 until 50km, then PREM below
+    # $ ./bin/access_litho -p 41.3324 129.0297
     "LITHO_NK": np.array([
             #           depth       vp       vs       rho      qmu  qkappa
             np.array([-1000.0,  2500.0,  1070.0,  2110.0,  600.0,  350.0]),
@@ -68,6 +70,42 @@ def get_model(key):
             np.array([25720.0,  6530.0,  3760.0,  2830.0,  600.0,  350.0]),
             np.array([34330.0,  6960.0,  3970.0,  2940.0,  200.0,  350.0]),
             np.array([53890.0,  8010.0,  4570.0,  3300.0,  200.0,  200.0]),
+            # PREM BELOW HERE
+            np.array([171000.0, 8020.0,  4440.0,  3360.0,  80.0,   200.0]), 
+            np.array([220000.0, 7990.0,  4420.0,  3360.0,  80.0,   200.0]),
+            np.array([271000.0, 8560.0,  4620.0,  3440.0,  143.0,  200.0]),
+            np.array([371000.0, 8660.0,  4680.0,  3470.0,  143.0,  200.0]),
+            np.array([400000.0, 8850.0,  4750.0,  3530.0,  143.0,  200.0]),
+        ]),
+    # Putting the layer boundaries at regular intervals
+    # Remove one of the sed layers (SEDS2) because it was super thin (30m)
+    "LITHO_NK_LAYER": np.array([
+            #           depth       vp       vs       rho      qmu  qkappa
+            np.array([-1000.0,  2500.0,  2130.0,  2110.0,  600.0,  350.0]),
+            np.array([-750.0,   2500.0,  2130.0,  2370.0,  600.0,  350.0]),
+            np.array([-750.0,   4000.0,  3524.0,  2370.0,  600.0,  350.0]),
+            np.array([12750.0,  6061.0,  3524.0,  2720.0,  600.0,  350.0]),
+            np.array([12750.0,  6529.0,  3757.0,  2720.0,  600.0,  350.0]),
+            np.array([25750.0,  6529.0,  3757.0,  2830.0,  600.0,  350.0]),
+            np.array([25750.0,  6960.0,  3966.0,  2830.0,  600.0,  350.0]),
+            np.array([34250.0,  6960.0,  3966.0,  2940.0,  200.0,  350.0]),
+            np.array([34250.0,  8012.0,  4565.0,  2940.0,  200.0,  350.0]),
+            # PREM BELOW HERE
+            np.array([80000.0,  8080.0,  4470.0, 3370.0,   600.0,  350.0]),
+            np.array([171000.0, 8020.0,  4440.0,  3360.0,  80.0,   200.0]), 
+            np.array([220000.0, 7990.0,  4420.0,  3360.0,  80.0,   200.0]),
+            np.array([271000.0, 8560.0,  4620.0,  3440.0,  143.0,  200.0]),
+            np.array([371000.0, 8660.0,  4680.0,  3470.0,  143.0,  200.0]),
+            np.array([400000.0, 8850.0,  4750.0,  3530.0,  143.0,  200.0]),
+        ]),
+    # Lee et al. (2020) Mod_Land until 30 km, then PREM below. 
+    # Density values interpolated from PREM for the given depth values 
+    "NK_MOD_LAND": np.array([
+            #           depth       vp       vs       rho      qmu  qkappa
+            np.array([-1000.0,  5780.0,  3360.0,  1020.0,  600.0,  350.0]),
+            np.array([0.0,      5780.0,  3360.0,  1020.0,  600.0,  350.0]),
+            np.array([6500.0,   6220.0,  4340.0,  3404.0,  600.0,  350.0]),
+            np.array([30000.0,  7640.0,  5820.0,  3378.0,  600.0,  350.0]),
             # PREM BELOW HERE
             np.array([171000.0, 8020.0,  4440.0,  3360.0,  80.0,   200.0]), 
             np.array([220000.0, 7990.0,  4420.0,  3360.0,  80.0,   200.0]),
@@ -171,7 +209,7 @@ def lonlat_utm(lon, lat, utm_zone=None):
 def interp_1D_model(model, dz, zmin=None, zmax=None):
     """
     1D interpolation of the 1D model between major depth values to get gradients 
-    in between rather than just step functions.
+    in between rather than just step functions. 
     """
     z = model["depth"]  # Convert to meters with positive up
     
@@ -196,6 +234,54 @@ def interp_1D_model(model, dz, zmin=None, zmax=None):
         y = model[key] 
         yinterp = np.interp(zs, z, y)
         model_out[key] = yinterp
+
+    return model_out
+
+
+def layer_1D_model(model, dz, zmin=None, zmax=None):
+    """
+    NOTE this is not actually needed because we can just set top and bottom
+    of a layer to be the same to get the layer to stay constant. Leaving it
+    cause I spent some time on it
+    
+    Make a 1D model consistent with a layered halfspace, no interpolation.
+    Note that this will not use the bottom value because that is technically
+    a boundary value not a layer value
+    """
+    z = model["depth"]  # Convert to meters with positive up
+    
+    # User can set the bounds of the 1D model but if not just use entire model
+    if zmin is None:
+        zmin = z.min()
+    if zmax is None:
+        zmax = z.max()
+
+    # Define the new depth values to intepolate against
+    zs = np.arange(zmin, zmax + dz, dz)
+    print(f"{len(zs)} total values along a 1D depth profile")
+
+    # Create a new dictionary to store the interpolated values
+    model_out = {key: [] for key in model.keys()}
+    model_out["depth"] = zs
+
+    # Go by each depth block and assign single values for each parameter
+    for i, depth_top in enumerate(model["depth"][:-1]):
+        depth_bot = model["depth"][i+1]  
+        nlayer = len(np.where((model_out['depth'] >= depth_top) & 
+                              (model_out['depth'] < depth_bot))[0]
+                              )
+        # Fudge factor we are off by 1 for the last layer so we drop an extra 1
+        if depth_bot == model["depth"][-1]:
+            nlayer += 1
+
+        for key in model.keys():
+            if key == "depth":
+                continue
+            val = float(model[key][i])
+            model_out[key] += [val] * nlayer
+     
+    # Convert all entries to numpy arrays for consistency
+    model_out = {key: np.array(val) for key, val in model_out.items()}
 
     return model_out
 
@@ -336,7 +422,7 @@ def main(model_choice=None, tag=None, path=None,
     order = "F"
 
     # Choose the Model
-    model = MODELS[model_choice]
+    model = get_model(model_choice)
 
     # Make directories
     if not os.path.exists(mod_path):
@@ -482,7 +568,7 @@ def main(model_choice=None, tag=None, path=None,
         [X, Y, Z] = np.meshgrid(x, y, z, indexing=indexing)
         print(f"layer '{layer_fid}' has {np.prod(X.shape)} points")
 
-        # Interpolate the 1D model to the required DZ
+        # Layer or Interpolate the 1D model to the required DZ
         model = interp_1D_model(model=model, dz=dz, zmin=zmin, zmax=zmax)
 
         if args.profile or args.all:
