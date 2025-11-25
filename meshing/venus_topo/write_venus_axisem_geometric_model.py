@@ -33,32 +33,40 @@ def build_venus_topo(nlat=180, nlon=360, downsample=4, save=True, plot=False):
 
     # Read or create radii data
     if os.path.exists(fid):
+        print(f"{fid} exists, reading")
         radii = np.load(fid)
     else:
         # Generate the depth arrays for each line of constant longitude to get
         # a 2D array
-        radii = np.zeros((nlon, nlat))
-        for i, lon in enumerate(lons):
-            fixed_lon = np.ones(len(lats)) * lon
-            print(f"Lon={lon} {i}/{len(lons)}")
-            radii[i] = clm.expand(lat=lats, lon=fixed_lon)
+        radii = np.zeros((nlat, nlon))
+        for i, lat in enumerate(lats):
+            fixed_lat = np.ones(len(lons)) * lat
+            print(f"Lat={lat} {i}/{len(lats)}")
+            radii[i] = clm.expand(lat=fixed_lat, lon=lons)
 
         # Save because calculating takes a while
         if save:
-            np.save(radii, fid)
+            np.save(fid, radii)
 
     # Simple imshow to confirm resolution
     if plot:
-        plt.imshow(np.flipup(radii.T))
-        plt.title(f"nlat={nlat}, nlon={nlon}")
+        # radii_plot = np.flipud(radii.T * 1E-3)  # m -> km, shift over
+        radii_plot = radii * 1E-3
+        im = plt.imshow(radii_plot, cmap="cividis")
+        plt.xlabel("nLat")
+        plt.ylabel("nLon")
+        plt.title(f"VenusTopo (nlat={nlat}, nlon={nlon})")
+        plt.colorbar(im, fraction=0.024, pad=0.005, label="radis [km]")
         plt.show()
+
+    a=1/0
 
     return lats, lons, radii
 
 
 def write_data_to_netcdf_file(lats, lons, depth_m=None, radii_m=None, 
                               ref_val_m=6052E3, smooth_sigma=None, 
-                              output="venustopo.nc",):
+                              output="venus_topo.nc",):
     """
     Writes lat/lon/depth to NetCDF used by AxiSEM3D for topo implementation.
     Modified from AxiSEM3D example `moho.py`
@@ -77,7 +85,7 @@ def write_data_to_netcdf_file(lats, lons, depth_m=None, radii_m=None,
     :type output: str
     :param output: filename for file to be written
     """
-    assert(depth_m or radii_m)
+    assert((depth_m is not None) or (radii_m is not None))
 
     # Smooth the entire grid with a Gaussian however at the poles you will have
     # offset values due to the tails of the Gaussian
@@ -115,15 +123,45 @@ def write_data_to_netcdf_file(lats, lons, depth_m=None, radii_m=None,
     
     ncfile.close()
 
+    return output
 
-def plot_ncfile(fid):
+
+def read_ncfile(fid):
     """
-    Read in a target ncfile and plot the values in there for confirmation    
+    Read in the ncfile and return its outputs
     """
-    ncfile  = Dataset(fid)
+    model  = Dataset(fid)
+    latitude = model.variables["latitude"]
+    longitude = model.variables["latitude"]
+    rel_topo  = model.variables["relative_topo_radius"]
+
+    return latitude, longitude, rel_topo
+
+
+def plot_ncfile(x, y, z):
+    """
+    Read in a target ncfile and plot the values in there for confirmation.
+    Assuming parameter keys are the same as the written file
+    """
+    X, Y = np.meshgrid(x, y)
+    plt.pcolor(X, Y, z)
     
 
 
 if __name__ == "__main__":
-    lats, lons, radii = build_venus_topo()
-    write_data_to_netcdf_file(lats, lons, radii)
+    # PARAMETERS
+    nlon = 360  
+    nlat = 180
+    downsample = 1
+
+    plot = True
+    save = True
+
+    # ---
+
+    lats, lons, radii = build_venus_topo(nlat, nlon, downsample, 
+                                         save=True, plot=plot)
+    output = write_data_to_netcdf_file(lats, lons, radii)
+    x, y, z = read_ncfile(output)
+    if plot:
+        plot_ncfile(x, y, z)
