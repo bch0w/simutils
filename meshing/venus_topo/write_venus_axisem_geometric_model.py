@@ -116,6 +116,14 @@ def write_data_to_netcdf_file(lats, lons, depth_m=None, radii_m=None,
     ncfile.close()
 
 
+def plot_ncfile(fid):
+    """
+    Read in a target ncfile and plot the values in there for confirmation    
+    """
+    ncfile  = Dataset(fid)
+    
+
+
 if __name__ == "__main__":
     lats, lons, radii = build_venus_topo()
     write_data_to_netcdf_file(lats, lons, radii)
