@@ -68,6 +68,6 @@ def read_axisem(fid, time_fid="data_time.ascii",
 
 if __name__ == "__main__":
     import sys
-    st = read_axisem(sys.argv[1])
-    print(st)
-    breakpoint()
+    st = read_axisem(f"VN.S{sys.argv[1]}.ascii")
+    st.filter("lowpass", freq=1/60)
+    st.plot()
