@@ -13,7 +13,7 @@
  .true. 149 266 286700d0 4108650d0 2000.00d0 2000.00d0
  interface_topo.dat
 # number of spectral elements per layer (from bottom)
- 18
+ 11
+ 7
+ 4
  10
- 8
- 6
