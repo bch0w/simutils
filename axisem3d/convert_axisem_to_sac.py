@@ -12,7 +12,7 @@ from obspy import UTCDateTime
 from pysep import RecordSection
 from obspy import Stream, Catalog, Trace
 from obspy.core.event import Event, Origin, Magnitude
-from pysep import read_stations
+from pysep import read_stations, RecordSection
 from pysep.utils.cap_sac import append_sac_headers
 from pysep.utils.fmt import channel_code
 from pysep.utils.mt import seismic_moment, moment_magnitude
@@ -130,22 +130,82 @@ def read_axisource(fid="./inparam.source.yaml"):
 
 
 if __name__ == "__main__":
-    path = sys.argv[1]
-    AXISEM = glob(f"{path}/ascii/VN.*.ascii")
-    TIME   = f"{path}/ascii/data_time.ascii"
+    PLOT = False
     SRCFID = "inparam.source.yaml"
-    STAFID = "STATIONS_GRID"
-    OUT    = path
+    STAFID = "stations.txt"
 
     cat = read_axisource(SRCFID)
     assert(len(cat) == 1)  # currently only 1 src allowed
     event = cat[0]
     inv = read_stations(STAFID)
 
-    for fid in AXISEM:
-        print(fid)
-        st = read_axisem(fid, time_fid=TIME)  # 3-C
-        st = append_sac_headers(st, event, inv)
-        for tr in st:
-            tr.write(f"{OUT}/{tr.get_id()}.SAC", format="SAC")
+    # Single Run
+    if False:
+        path = sys.argv[1]
+        AXISEM = glob(f"{path}/VN.*.ascii")
+        TIME   = f"{path}/data_time.ascii"
+        OUT    = f"output/{os.path.basename(path)}/"
+
+        for fid in AXISEM:
+            print(fid)
+            st = read_axisem(fid, time_fid=TIME)  # 3-C
+            st = append_sac_headers(st, event, inv)
+            for tr in st:
+                tr.write(f"{OUT}/{tr.get_id()}.SAC", format="SAC")
+    # Auto Run
+    else:
+        basepath = "/import/c1/ERTHQUAK/bhchow/work/venusseis/RUNS"
+        for path in glob(os.path.join(basepath, "?_*", "output", "stations", 
+                                      "VENUS")):
+    
+            AXISEM = glob(f"{path}/VN.*.ascii")
+            TIME   = f"{path}/data_time.ascii"
+            TAG = path.split("/")[8]
+            OUT    = f"output/{TAG}/"
+            VAL = f"{TAG.split('_')[0]:0>2}"
+            if os.path.exists(OUT):
+                continue
+            else:
+                os.makedirs(OUT)
+
+            st_plot = Stream()
+            for fid in AXISEM:
+                st = read_axisem(fid, time_fid=TIME)  # 3-C
+                st = append_sac_headers(st, event, inv)
+                st.resample(1)
+                st.trim(UTCDateTime("2000-01-01T00:00:00.000000Z"),
+                        UTCDateTime("2000-01-01T00:59:59.000000Z"))
+                for tr in st:
+                    tr.stats.location = VAL
+                    tr.write(f"{OUT}/{tr.get_id()}.SAC", format="SAC")
+                    st_plot.append(tr)
+            if PLOT:
+                comp = "Z"
+                recsec = RecordSection(
+                                 st=st,
+                                 min_period_s=60,
+                                 preprocess=True,
+                                 amplitude_scale_factor=3.5,
+                                 scale_by="geometric_spreading",
+                                 sort_by="distance",
+                                 components=comp,
+                                 linewidth=.3,
+                                 tick_linewidth=0.,
+                                 title=TAG,
+                                 y_axis_spacing=1,
+                                 # xlim_s=[0, 400],
+                                 # move_out=4,
+                                 spine_top=False,
+                                 spine_left=False,
+                                 spine_right=False,
+                                 y_label_loc=None,
+                                 dpi=100,
+                                 figsize=(7,11),
+                                 transparent=False,
+                                 show=False,
+                                 save=f"{TAG}_{comp}.png",
+                                 overwrite=True,
+                                 ).run()
+
+                    
 
