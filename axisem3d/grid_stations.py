@@ -3,7 +3,7 @@ Create a uniform grid of points for a given domain and output an AxiSEM3D
 STATIONS file with unique station naming 
 """
 import numpy as np
-import pyshtools as pysh
+# import pyshtools as pysh
 
 
 def uniform_grid_latlon(lat_min, lat_max, lon_min, lon_max, dlat, dlon):
@@ -87,14 +87,15 @@ def write_grid_to_stations(lat_min, lat_max, lon_min, lon_max, dlat, dlon,
 
 if __name__ == "__main__":
     network = "VN"
-    kwargs = {"lat_min": -85.,
-              "lat_max": 86.,
-              "lon_min": -175.,
-              "lon_max": 176.0,
-              "dlat": 10,
-              "dlon": 10}
+    kwargs = {"lat_min": -30.,
+              "lat_max": 60.,
+              "lon_min": -140.,
+              "lon_max": -20.0,
+              "dlat": 1,
+              "dlon": 1}
     if True:
-        write_grid_to_stations(network=network, fid="./STATIONS_GRID", **kwargs)
+        write_grid_to_stations(network=network, fid="./STATIONS_GRID", 
+                               elevation=False, **kwargs)
 
     if False:
         lat_grid, lon_grid = uniform_grid_latlon(**kwargs)
