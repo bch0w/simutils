@@ -4,6 +4,7 @@ Apply stochastic perturbations to an .xyz velocity  model
 NEXT STEPS
 write only the top layer and allow changing dz parameters and making new models
 """
+import sys
 import numpy as np
 from scipy.fft import fftn, ifftn
 from numpy.fft import fftfreq, fftshift, ifftshift
@@ -41,7 +42,7 @@ def cosine_taper_axis(data, axis=0, left_frac=0.05, right_frac=0.05):
     return data * taper_reshaped
 
 
-def make_perturbation(x, y, z, seed=123, a=1E3, hv_ratio=1, mean_vel=1.,
+def make_perturbation(x, y, z, seed=123, a=1E3, hv_ratio=5, mean_vel=1.,
                       std_vel=0.1, nmin=-.1, nmax=.1,
                       left_frac=0.4, right_frac=0.0,
                       indexing="ij", plot=False):
@@ -58,6 +59,11 @@ def make_perturbation(x, y, z, seed=123, a=1E3, hv_ratio=1, mean_vel=1.,
     :param left_frac: fraction to start tapering off the bottom of the model
     :param right_frac: fraction to start tapering off the top of the model
     """
+    print(f"Perturbation Scale Length = {a}m\n"
+          f"Perturbation Strength     = {std_vel * 100}%\n"
+          f"H/V Ratio                 = {hv_ratio}\n"
+          )
+
     dx = x[1] - x[0]
     dy = y[1] - y[0]
     dz = z[1] - z[0]
@@ -125,10 +131,12 @@ def make_perturbation(x, y, z, seed=123, a=1E3, hv_ratio=1, mean_vel=1.,
     return S_pert.ravel()
 
 
-def main(path=None):
+def main(path, path_out="./tomography_model.xyz"):
     """
     Main function to generate a 3D tomography model with stochastic perturbation
     and export it to a format compatible with SPECFEM3D_Cartesian.
+
+    :param path: full  path to t he .xyz tomography model
     """
     with open(path, "r") as f:
         header = f.readlines()[:4]
@@ -158,7 +166,7 @@ def main(path=None):
         qmu = qmu + (qmu * perturbation)
         qkappa = qkappa + (qkappa * perturbation)
 
-    with open("tomography_model_perturbed.xyz", "w") as f:
+    with open(path_out, "w") as f:
         # Header - min and max range values
         f.write(
             f"{xvals.min():.1f} {yvals.min():.1f} {zvals.min():.1f} "
@@ -195,4 +203,4 @@ def main(path=None):
 
 
 if __name__ == "__main__":
-    main("tomography_model.xyz")
+    main(*sys.argv[1:])
