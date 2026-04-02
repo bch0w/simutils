@@ -1,9 +1,9 @@
 #!/bin/sh
 
 #SBATCH --job-name=xgenerate_databases
-#SBATCH --ntasks=48
+#SBATCH --ntasks=8
 #SBATCH --partition=defq
-#SBATCH --time=00:15:00
+#SBATCH --time=01:00:00
 #SBATCH --output=generate_databases_%j.out
 
 # get the number of processors, ignoring comments in the Par_file

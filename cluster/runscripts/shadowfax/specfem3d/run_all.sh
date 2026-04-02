@@ -3,7 +3,7 @@
 #SBATCH --job-name=xmeshfem3D
 #SBATCH --ntasks=8
 #SBATCH --partition=defq
-#SBATCH --time=00:10:00
+#SBATCH --time=01:00:00
 #SBATCH --output=meshfem3D_%j.out
 
 # Get the number of processors from the Par_file, ignore comments
@@ -21,5 +21,5 @@ echo "xmeshfem3D on ${NPROC} processors"
 echo
 echo "`date`"
 time mpiexec -n ${NPROC} ./bin/xmeshfem3D
-echo
-echo "finished at: `date`"
+time mpiexec -n ${NPROC} ./bin/xgenerate_databases
+time mpiexec -n ${NPROC} ./bin/xspecfem3D
