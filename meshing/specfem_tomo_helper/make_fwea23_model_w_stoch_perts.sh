@@ -20,19 +20,19 @@ rm -rf TMP/*
 cp -r CONFIGS EXPORT
 
 # Make tomography and mesh files
-tomo-helper -c CONFIGS/whole_model_config_fwea23.yaml 
-tomo-helper -c CONFIGS/shallow_only_config_fwea23.yaml
+tomo-helper -c CONFIGS/whole_model_config_FWEA23.yaml 
+tomo-helper -c CONFIGS/shallow_only_config_FWEA23.yaml
 
 # Set up unperturbed model for ref. seismograms
 cp -r TMP/WHOLE/tomo_files/tomography_model.xyz EXPORT/tomo_files_unperturbed/tomography_model_2.xyz
 cp -r TMP/SHALLOW/tomo_files/tomography_model.xyz EXPORT/tomo_files_unperturbed/tomography_model_1.xyz
 
 # Add attenuation to the unperturbed models
-python /Users/chow/Repos/simutils/meshing/model_utils/append_attenuation.py EXPORT/tomo_files_unperturbed/tomography_model_1.xyz
-python /Users/chow/Repos/simutils/meshing/model_utils/append_attenuation.py EXPORT/tomo_files_unperturbed/tomography_model_2.xyz
+python ./simutils/meshing/model_utils/append_attenuation.py EXPORT/tomo_files_unperturbed/tomography_model_1.xyz
+python ./simutils/meshing/model_utils/append_attenuation.py EXPORT/tomo_files_unperturbed/tomography_model_2.xyz
 
 # Apply stochastic perturbations
-python /Users/chow/Repos/simutils/meshing/stochperts/apply_stochpert_xyz.py \
+python ./simutils/meshing/stochperts/apply_stochpert_xyz.py \
 	TMP/SHALLOW/tomo_files/tomography_model.xyz \
 	EXPORT/tomo_files/tomography_model_1.xyz
 
