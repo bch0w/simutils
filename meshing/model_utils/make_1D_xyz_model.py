@@ -34,6 +34,48 @@ def PREM():
 
     return prem
 
+def extract_1d_profile(xyz_fid, xselect, yselect):
+    """
+    Extract a 1D velocity profile from a 3D velocity model. Allows generating
+    arbitrary 1D profiles depending on the model. Must be loaded from a
+    SPECFEM .xyz external tomography model
+
+    NK6 in UTM = 502485.224644004, 4575658.10875230
+    """
+    x, y, z, vp, vs, rho, *q = np.loadtxt(xyz_fid, skiprows=4).T
+    if q:
+        qp, qs = q
+    else:
+        qp, qs = None, None
+
+    # Find nearest model x and y values to the selected points
+    xclosest = x[(np.abs(x - xselect)).argmin()]
+    yclosest = y[(np.abs(y - yselect)).argmin()]
+    
+    # Select indices that only match the chosen x/y position
+    idxs = np.where((x==xclosest) & (y==yclosest))[0]
+
+    # If no attenuation in model then we input a homogeneous Q model
+    if q:
+        qp = q[0][idxs]
+        qs = q[1][idxs]
+    else:
+        qp_0 = 350
+        qs_0 = 350
+        qp = np.array([qp_0] * len(idxs))
+        qs = np.array([qs_0] * len(idxs))
+    
+    # Interpolate onto given depth values
+    model = {"depth": z[idxs], "vp": vp[idxs], "vs": vs[idxs],
+             "rho": rho[idxs], "qp": qp, "qs": qs
+             }
+    dx = np.unique(x)[1] - np.unique(x)[0]
+    dy = np.unique(y)[1] - np.unique(y)[0]
+    dz = np.unique(z)[1] - np.unique(z)[0]
+
+    return model, dx, dy, dz
+    
+
 def interp_1D_model(model, dz):
     """
     1D interpolation of the 1D model between major depth values to get gradients 
@@ -57,6 +99,7 @@ def interp_1D_model(model, dz):
         model_out[key] = yinterp
     
     return model_out
+
 
 def make_model(model, X, Y, fid="tomography_model.xyz"):
     """
@@ -85,27 +128,37 @@ def make_model(model, X, Y, fid="tomography_model.xyz"):
                 for x in X:
                     f.write(f"{x:.1f} {y:.1f} {z:.1f} "
                             f"{model["vp"][i]:.1f} {model["vs"][i]:.1f} "
-                            f"{model["rho"][i]:.1f} {model["qmu"][i]:.1f} "
-                            f"{model["qkappa"][i]:.1f}\n"
+                            f"{model["rho"][i]:.1f} {model["qp"][i]:.1f} "
+                            f"{model["qs"][i]:.1f}\n"
                             )
      
 
 if __name__ == "__main__":
     # User input parameter - all units in meters
-    dx = 50E3 
-    dy = 50E3 
-    dz = 1E3  
+    xmin = 425_000.
+    xmax = 656_000.
+    ymin = 4_490_000.
+    ymax = 4_680_000.
 
-    xmin = 245.750E3
-    xmax = 890.650E3
-    ymin = 4487.550E3 
-    ymax = 5050.670E3
+    # ---
 
+
+    # Make model here
+    if False:
+        dx = 5E3 
+        dy = 5E3 
+        dz = 1E3  
+        model = PREM()
+    else:
+        # NK6 location for SimBlast paper
+        xselect = 502485
+        yselect = 4575658
+        model, dx, dy, dz = extract_1d_profile(xyz_fid="tomography_model_2.xyz",
+                                               xselect=xselect, yselect=yselect)
+        
     # Creates the horizontal grid of points
     X = np.arange(xmin - dx, xmax + dx, dx)
     Y = np.arange(ymin - dx, ymax + dy, dy)
 
-    # Make model here
-    model = PREM()
     interp_model = interp_1D_model(model, dz=dz)
     make_model(interp_model, X=X, Y=Y)
