@@ -1,9 +1,15 @@
 """
 Create a uniform grid of points for a given domain and output a Specfem3D
 STATIONS file with unique station naming 
+
+Note that station numbering will be 6 characters long,
 """
 import numpy as np
 from pyproj import Proj
+
+# Expected format for STATIONS file
+TEMPLATE = "{s:>6}{n:>6}{lat:12.4f}{lon:12.4f}{d:7.1f}{e:7.1f}\n"
+
 
 def lonlat_utm(lon_or_x, lat_or_y, utm_zone=-60, inverse=False):
     """
@@ -40,12 +46,11 @@ def uniform_grid_latlon(lat_min, lat_max, lon_min, lon_max, dlat, dlon):
     return lat_grid, lon_grid
 
 
-def write_to_stations(lat_grid, lon_grid, network="NN", sta_tag="S{:0>3}",
+def write_to_stations(lat_grid, lon_grid, network="NN", sta_tag="{:0>5}",
                       fid="./STATIONS"):
     """
     Given two 2D arrays, write a STATIONS file with unique station naming
     """
-    template = "{s:>6}{n:>6}{lat:12.4f}{lon:12.4f}{d:7.1f}{e:7.1f}\n"
     i = 1
     with open(fid, "w") as f:
         for lat, lon in zip(lat_grid, lon_grid):
@@ -57,28 +62,57 @@ def write_to_stations(lat_grid, lon_grid, network="NN", sta_tag="S{:0>3}",
     print(f"{i} stations written")
 
 
+def main():
+    choice = "NK2026_PAPER"
+
+    if choice == "NK2026_PAPER":
+        lon_min = 420_000
+        lon_max = 565_000
+        lat_min = 4_490_000
+        lat_max = 4_680_000
+        nlatlon = (100, 100)
+        dlatlon = None
+        utm_zone = 52
+        network = "XX"
+        fid_out = ("/home/bhchow/REPOS/spectral/research/watc/simblast/"
+                   "SPECFEM_DATA/STATIONS/STATIONS_PAPER_NK_GRID")
+    else:
+        lat_min = 0
+        lat_max = 0
+        lon_min = 0
+        lon_max = 0
+        nlatlon = None
+        dlatlon = (0, 0)
+        utm_zone = None
+        network = "XX"
+        fid_out = "STATIONS"
+
+    # Convert from UTM to Lon/Lat 
+    if utm_zone:
+        lon_min, lat_min = lonlat_utm(lon_min, lat_min, utm_zone, True)
+        lon_max, lat_max = lonlat_utm(lon_max, lat_max, utm_zone, True)
+
+    #  Create grid
+    if nlatlon:
+        nlat, nlon = nlatlon
+        lats = np.linspace(lat_min, lat_max, nlat)
+        lons = np.linspace(lon_min, lon_max, nlon)
+    elif dlatlon:
+        dlat, dlon = dlatlon
+        lats = np.arange(lat_min, lat_max, dlat)
+        lons = np.arange(lon_min, lon_max, dlon)
+    print(f"writing {len(lats)*len(lons)} stations")
+
+    with open(fid_out, "w") as f:
+        for i, lat in enumerate(lats):
+            for j, lon in enumerate(lons):
+                station_name = f"{i:0>2}{j:0>2}"  # e.g., 0000 is the ULHC
+                f.write(TEMPLATE.format(s=station_name, n=network,
+                                        lat=lat, lon=lon, d=0., e=0.))
+
+
 if __name__ == "__main__":
-    kwargs = {"lat_min": 4483695.801447477,
-              "lat_max": 4683695.801447477, 
-              "lon_min": 418796.1202446909,
-              "lon_max": 568796.1202446909,
-              "dlat": 0.05,
-              "dlon": 0.05}
-    
-    utm_zone = 52  # if not None, conerts coordinates to or from lat lon
-    if utm_zone is not None:
-        kwargs["lon_min"], kwargs["lat_min"] = lonlat_utm(kwargs["lon_min"],
-                                                          kwargs["lat_min"],
-                                                          utm_zone,
-                                                          inverse=True)
-
-        kwargs["lon_max"], kwargs["lat_max"] = lonlat_utm(kwargs["lon_max"],
-                                                          kwargs["lat_max"],
-                                                          utm_zone,
-                                                          inverse=True)
-
-    lat_grid, lon_grid = uniform_grid_latlon(**kwargs)
-    write_to_stations(lat_grid, lon_grid)
+    main()
 
 
 

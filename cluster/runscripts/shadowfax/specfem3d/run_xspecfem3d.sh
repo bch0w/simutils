@@ -1,9 +1,9 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=xspecfem3D
-#SBATCH --ntasks=12
+#SBATCH --ntasks=8
 #SBATCH --partition=defq
-#SBATCH --time=01:00:00
+#SBATCH --time=02:00:00
 #SBATCH --output=specfem3D_%j.out
 
 # Get the number of processors from Par_file, ignore comments
