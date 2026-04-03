@@ -1,4 +1,4 @@
-#1/bin/bash -e
+#!/bin/bash -e
 # Used to make perturbed FWEA23 model for Simblast work
 # 2/10/26
 # 1) Update CONFIGS/* for the shallow (perturbed) model and rest of mesh
@@ -26,6 +26,10 @@ tomo-helper -c CONFIGS/shallow_only_config_fwea23.yaml
 # Set up unperturbed model for ref. seismograms
 cp -r TMP/WHOLE/tomo_files/tomography_model.xyz EXPORT/tomo_files_unperturbed/tomography_model_2.xyz
 cp -r TMP/SHALLOW/tomo_files/tomography_model.xyz EXPORT/tomo_files_unperturbed/tomography_model_1.xyz
+
+# Add attenuation to the unperturbed models
+python /Users/chow/Repos/simutils/meshing/model_utils/append_attenuation.py EXPORT/tomo_files_unperturbed/tomography_model_1.xyz
+python /Users/chow/Repos/simutils/meshing/model_utils/append_attenuation.py EXPORT/tomo_files_unperturbed/tomography_model_2.xyz
 
 # Apply stochastic perturbations
 python /Users/chow/Repos/simutils/meshing/stochperts/apply_stochpert_xyz.py \
