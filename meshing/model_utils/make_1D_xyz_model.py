@@ -109,7 +109,8 @@ def make_model(model, X, Y, fid="tomography_model.xyz"):
     """
     # Flip the Z axis because positive is up which means arange flipped it 
     # previously
-    Z = model["depth"][::-1]
+    # Z = model["depth"][::-1]  # Not needed for extract model
+    Z = model["depth"]
     with open(fid, "w") as f:
         # Header - min and max range values
         f.write(f"{X.min():.1f} {Y.min():.1f} {Z.min():.1f} "
