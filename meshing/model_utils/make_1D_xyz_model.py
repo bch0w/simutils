@@ -154,7 +154,7 @@ if __name__ == "__main__":
         # NK6 location for SimBlast paper
         xselect = 502485
         yselect = 4575658
-        model, dx, dy, dz = extract_1d_profile(xyz_fid="tomography_model_2.xyz",
+        model, dx, dy, dz = extract_1d_profile(xyz_fid="tomography_model_whole.xyz",
                                                xselect=xselect, yselect=yselect)
         
     # Creates the horizontal grid of points
