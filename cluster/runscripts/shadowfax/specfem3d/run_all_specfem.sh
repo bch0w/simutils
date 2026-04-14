@@ -44,19 +44,22 @@ echo "======== Running xspecfem3D ========"
 if ! compgen -G "${OUTPUT_FILES}/*.semv" > /dev/null; then
 	time mpiexec -n ${NPROC} ./bin/xspecfem3D
 	cp ${OUTPUT_FILES}/output_solver.txt ${RESULTS}
+	mv ${OUTPUT_FILES}/*semv ${RESULTS}
 	echo "finished at: `date`"
 fi
 
 # Make ParaView movie files if needed
 echo "======== Running xcreate_move_shakemap_AVS_DX_GMT ========"
 if ! compgen -G "${OUTPUT_FILES}/moviedata*" > /dev/null; then
-	./bin/xcreate_movie_shakemap_AVS_DX_GMT << EOF
+    ./bin/xcreate_movie_shakemap_AVS_DX_GMT <<- EOF
 	2
 	1
 	${NSTEP}
 	2
 	4
 	EOF
-
+	mv ${OUTPUT_FILES}/moviedata* ${RESULTS}
+	mv ${OUTPUT_FILES}/*inp ${RESULTS}
+fi
 
 
