@@ -43,5 +43,5 @@ cp -r TMP/WHOLE/meshfem3D_files/* EXPORT/meshfem3D_files
 cp -r TMP/WHOLE/tomo_files/tomography_model.xyz EXPORT/tomo_files/tomography_model_whole.xyz
 
 # Last minute fixes of the meshfem3D file
-python ${SIMUTILS}/meshing/specfem_tomo_helper/modify_mesh_par_file.py
+python ./modify_mesh_par_file.py
 

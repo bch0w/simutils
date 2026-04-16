@@ -39,7 +39,7 @@ mesh_output_dir: './TMP/WHOLE/meshfem3D_files'  # Directory for mesh files
 max_depth: 80.0  # in km
 dx_target_km: 0.45
 dz_target_km: 0.45
-max_cpu: 16
+max_cpu: 4
 doubling_layers: [12.5, 35.0]  # in km
 
 # Topography generation options

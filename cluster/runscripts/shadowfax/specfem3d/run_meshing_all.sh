@@ -4,7 +4,7 @@
 #SBATCH --ntasks=16
 #SBATCH --partition=defq
 #SBATCH --time=02:30:00
-#SBATCH --output=LOGS/simblastmesh_%j.out
+#SBATCH --output=LOGS/meshblast_%j.out
 
 # Get the number of processors from the Par_file, ignore comments
 NPROC=${SLURM_NTASKS}

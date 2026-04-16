@@ -3,7 +3,7 @@
 #SBATCH --job-name=combine_vol_data_vtk
 #SBATCH --ntasks=1
 #SBATCH --time=00:05:00                                                          
-#SBATCH --output=combine_vol_data_vtk_%j.out
+#SBATCH --output=LOGS/combine_vol_data_vtk_%j.out
                                                                                  
                                                                                  
 ulimit -s unlimited                                                              
