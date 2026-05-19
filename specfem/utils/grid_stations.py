@@ -76,6 +76,7 @@ def main():
         network = "XX"
         fid_out = ("/home/bhchow/REPOS/spectral/research/watc/simblast/"
                    "SPECFEM_DATA/STATIONS/STATIONS_PAPER_NK_GRID")
+        fid_out = "test.txt"
     else:
         lat_min = 0
         lat_max = 0
@@ -97,10 +98,16 @@ def main():
         nlat, nlon = nlatlon
         lats = np.linspace(lat_min, lat_max, nlat)
         lons = np.linspace(lon_min, lon_max, nlon)
+        dlat = lats[1] - lats[0]
+        dlon = lons[1] - lons[0]
     elif dlatlon:
         dlat, dlon = dlatlon
         lats = np.arange(lat_min, lat_max, dlat)
         lons = np.arange(lon_min, lon_max, dlon)
+        nlat = len(lats)
+        nlon = len(lons)
+    print(f"NLAT={nlat}; NLON={nlon}")
+    print(f"DLAT={dlat}; DLON={dlon}")
     print(f"writing {len(lats)*len(lons)} stations")
 
     with open(fid_out, "w") as f:
