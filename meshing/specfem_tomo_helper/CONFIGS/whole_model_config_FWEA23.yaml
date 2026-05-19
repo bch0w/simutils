@@ -3,7 +3,7 @@
 # SIMBLAST
 
 # Path to NetCDF model
-data_path: '/home/bhchow/work/data/models/FWEA23.r0.0-n4.nc'
+data_path: '/import/c1/ERTHQUAK/bhchow/data/iris_emc/FWEA23.r0.0-n4.nc'
 # Optional: URL to download the model if not present
 model_url:       
 
@@ -39,7 +39,7 @@ mesh_output_dir: './TMP/WHOLE/meshfem3D_files'  # Directory for mesh files
 max_depth: 80.0  # in km
 dx_target_km: 0.45
 dz_target_km: 0.45
-max_cpu: 4
+max_cpu: 192
 doubling_layers: [12.5, 35.0]  # in km
 
 # Topography generation options

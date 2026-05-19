@@ -1,8 +1,9 @@
 #!/bin/sh
 
 #SBATCH --job-name=xgenerate_databases
-#SBATCH --ntasks=40
-#SBATCH --partition=t2small
+#SBATCH --ntasks=160
+#SBATCH --nodes=4
+#SBATCH --partition=t2standard
 #SBATCH --time=00:02:00
 #SBATCH --output=generate_databases_%j.out
 
@@ -19,9 +20,6 @@ mkdir -p ${BASEMPIDIR}
 
 # This is a MPI simulation
 echo "`date`"
-echo "xmeshfem3D ${NPROC} processors"
-echo
-time mpiexec -n ${NPROC} ./bin/xmeshfem3D
 echo "xgenerate_databases ${NPROC} processors"
 echo
 time mpiexec -n ${NPROC} ./bin/xgenerate_databases

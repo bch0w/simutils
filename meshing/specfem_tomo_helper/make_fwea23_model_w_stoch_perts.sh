@@ -11,7 +11,7 @@
 # 6) Manually upload to SPECFEM DATA/ directory
 # 7) Modify SPECFEM Par_file to match `NPROC`
 
-SIMUTILS="/home/bhchow/REPOS/simutils"
+SIMUTILS="/import/home/bhchow/REPOS/simutils"
 
 # Set up file system
 rm -rf EXPORT
