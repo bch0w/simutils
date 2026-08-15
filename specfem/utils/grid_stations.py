@@ -70,13 +70,23 @@ def main():
         lon_max = 565_000
         lat_min = 4_490_000
         lat_max = 4_680_000
-        nlatlon = (100, 100)
+        nlatlon = (32, 32)
         dlatlon = None
         utm_zone = 52
         network = "XX"
         fid_out = ("/home/bhchow/REPOS/spectral/research/watc/simblast/"
                    "SPECFEM_DATA/STATIONS/STATIONS_PAPER_NK_GRID")
-        fid_out = "test.txt"
+        fid_out = ("./STATIONS")
+    elif choice == "DAG4":
+        lon_min = 317_350
+        lon_max = 592_340
+        lat_min = 4_043_560
+        lat_max = 4_293_560
+        nlatlon = (16,16)
+        dlatlon = None
+        utm_zone = 11
+        network = "XX"
+        fid_out = "./STATIONS_DAG4"
     else:
         lat_min = 0
         lat_max = 0
@@ -109,6 +119,8 @@ def main():
     print(f"NLAT={nlat}; NLON={nlon}")
     print(f"DLAT={dlat}; DLON={dlon}")
     print(f"writing {len(lats)*len(lons)} stations")
+    print(f"lat min/max = {lats.min()}, {lats.max()}")
+    print(f"lon min/max = {lons.min()}, {lons.max()}")
 
     with open(fid_out, "w") as f:
         for i, lat in enumerate(lats):

@@ -2,7 +2,7 @@
                                                                                  
 #SBATCH --job-name=combine_vol_data_vtk
 #SBATCH --ntasks=1
-#SBATCH --partition=debug                                                        
+#SBATCH --partition=t1small
 #SBATCH --time=00:05:00                                                          
 #SBATCH --output=combine_vol_data_vtk_%j.out
                                                                                  
@@ -40,7 +40,7 @@ QUANTITY=$1
 # 0 for low-res, outputting points at the element corners
 # 1 for hi-res, outputting points for each GLL point, takes longer and 
 #   much larger file sizes
-RES=$2
+RES=0
 
 # Dynamically get the number of processors from the Par_file
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`

@@ -1,10 +1,10 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=simblast
-#SBATCH --ntasks=160
-#SBATCH --nodes=5
+#SBATCH --ntasks=256
+#SBATCH --nodes=8
 #SBATCH --partition=t2standard
-#SBATCH --time 03:00:00
+#SBATCH --time 05:00:00
 #SBATCH --output=LOGS/simblast_%j.out
 
 ulimit -s unlimited
@@ -45,10 +45,10 @@ if [ ! -f "${DATABASES}/proc000000_vs.bin" ]; then
 fi
 cp ${OUTPUT_FILES}/output_generate_databases.txt ${RESULTS}
 
-# if [ -z "$1" ]; then
-#     echo "User-requests stop after meshing"
-#     exit 1
-# fi
+if [ -z "$1" ]; then
+    echo "User-requests stop after meshing"
+    exit 1
+fi
 
 # Run the solver if no waveform files exist
 echo "======== Running xspecfem3D ========"

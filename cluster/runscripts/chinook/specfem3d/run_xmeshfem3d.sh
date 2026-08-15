@@ -2,8 +2,8 @@
 
 #SBATCH --job-name=xmeshfem3D
 #SBATCH --ntasks=1
-#SBATCH --partition=debug
-#SBATCH --time=00:02:00
+#SBATCH --partition=t2small
+#SBATCH --time=00:25:00
 #SBATCH --output=meshfem3D_%j.out
 
 ulimit -s unlimited

@@ -2,9 +2,9 @@
 
 #SBATCH --job-name=xgenerate_databases
 #SBATCH --ntasks=160
-#SBATCH --nodes=4
+#SBATCH --nodes=5
 #SBATCH --partition=t2standard
-#SBATCH --time=00:02:00
+#SBATCH --time=00:25:00
 #SBATCH --output=generate_databases_%j.out
 
 ulimit -s unlimited
