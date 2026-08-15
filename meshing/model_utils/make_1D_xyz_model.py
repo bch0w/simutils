@@ -3,6 +3,7 @@ Generate a 1D velocity model (e.g., PREM) as a 3D external tomography model
 exportable to SPECFEM3D_Cartesian. 
 """
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def PREM():
@@ -30,9 +31,48 @@ def PREM():
         "qkappa": np.array([57323.] * 11)
         }
     
-    prem["depth"] *= -1E3  # Convert to meters with positive up
+    prem["depth"] *= 1E3  # Convert to meters with positive up
 
     return prem
+
+def AK135F(depth_cutoff_km=80, plot=False):
+    """
+    Read and parse AK135F model as gathered directly from IRIS EMC
+    """
+    ak135f = np.loadtxt("/Users/prof/Data/models/AK135F/AK135F_AVG.csv",
+                        delimiter=",", dtype=float)
+    depth_km, density, vp_kms, vs_kms, qk, qm = ak135f.T
+
+    # Determine where the cutoff depth index is
+    idxs = np.where(depth_km < depth_cutoff_km)
+
+    depth = depth_km[idxs] * 1E3  # m, -Z up
+    density = density[idxs] * 1E3
+    vp = vp_kms[idxs] * 1E3  # m
+    vs = vs_kms[idxs] * 1E3  # m
+    qp = qk[idxs]  # this is the wrong name but .xyz file takes qk and qm
+    qs = qm[idxs]
+
+    # Turn the water and mud layer into solid layer. This matches what is done
+    # for AK135-f Syngine model, where 0-10km is a single-valued layer
+    # Solid layer starts at index 4, above that is water and mud
+    density[:4] = density[4]
+    vp[:4] = vp[4]
+    vs[:4] = vs[4]
+    qp[:4] = qp[4]
+    qs[:4] = qs[4]
+
+    if plot:
+        plt.plot(vp, depth, "bo-", label="Vp")
+        plt.plot(vs, depth, "ro-", label="Vs")
+        plt.show()
+        a=1/0
+    
+    # Remove values below depths we don't care about
+    ak135f = {"depth": depth, "vp": vp, "vs": vs, 
+              "rho": density, "qp": qp, "qs": qs}
+
+    return ak135f
 
 def extract_1d_profile(xyz_fid, xselect, yselect):
     """
@@ -76,13 +116,12 @@ def extract_1d_profile(xyz_fid, xselect, yselect):
     return model, dx, dy, dz
     
 
-def interp_1D_model(model, dz):
+def interp_1D_model(model, dz, plot=True):
     """
-    1D interpolation of the 1D model between major depth values to get gradients 
-    in between rather than just step functions.
+    1D interpolation of the 1D model to get regular step sizes
     """
     # Define the new depth values to intepolate against
-    z = model["depth"]
+    z = model["depth"]  # Assume -Z up
     zs = np.arange(z.min(), z.max() + dz, dz)
     print(f"{len(zs)} total values along a 1D depth profile")
 
@@ -97,7 +136,18 @@ def interp_1D_model(model, dz):
         y = model[key] 
         yinterp = np.interp(zs, z, y)
         model_out[key] = yinterp
-    
+
+    # Re-define Z-axis, +Z up
+    model_out["depth"] *= -1  # m
+
+    # Flip every array so that it conforms with the structure required by SPECFEM
+    model_out = {key: val[::-1] for key, val in model_out.items()}
+
+    if plot:
+        plt.plot(model_out["vp"], model_out["depth"], "bo-", label="Vp")
+        plt.plot(model_out["vs"], model_out["depth"], "ro-", label="Vs")
+        plt.show()
+
     return model_out
 
 
@@ -109,8 +159,8 @@ def make_model(model, X, Y, fid="tomography_model.xyz"):
     """
     # Flip the Z axis because positive is up which means arange flipped it 
     # previously
-    # Z = model["depth"][::-1]  # Not needed for extract model
     Z = model["depth"]
+
     with open(fid, "w") as f:
         # Header - min and max range values
         f.write(f"{X.min():.1f} {Y.min():.1f} {Z.min():.1f} "
@@ -136,25 +186,27 @@ def make_model(model, X, Y, fid="tomography_model.xyz"):
 
 if __name__ == "__main__":
     # User input parameter - all units in meters
-    xmin = 425_000.
-    xmax = 656_000.
-    ymin = 4_490_000.
-    ymax = 4_680_000.
+    xmin = 492_485.2
+    xmax = 557_079.1
+    ymin = 4_565_658.1
+    ymax = 4_950_643.3
 
-    # ---
+    extract = False  # if True, pull 1D model from a 3D tomography model
 
+    print(f"X={(xmax-xmin)*1E-3:.2f}km")
+    print(f"Y={(ymax-ymin)*1E-3:.2f}km")
 
     # Make model here
-    if False:
-        dx = 5E3 
-        dy = 5E3 
-        dz = 1E3  
-        model = PREM()
+    if not extract:
+        dx = 0.25E3  # m
+        dy = 0.25E3 
+        dz = .1E3  # small enough so we can get the sharp jumps across layers
+        model = AK135F()
     else:
         # NK6 location for SimBlast paper
         xselect = 502485
         yselect = 4575658
-        model, dx, dy, dz = extract_1d_profile(xyz_fid="tomography_model_whole.xyz",
+        model, dx, dy, dz = extract_1d_profile(xyz_fid="tomography_model.xyz",
                                                xselect=xselect, yselect=yselect)
         
     # Creates the horizontal grid of points
