@@ -104,7 +104,7 @@ lat_max = 44.8
 lon_min = 128.8
 lon_max = 129.8
 utm_zone = 52
-plot_cmtsolutions = True
+plot_cmtsolutions = False
 plot_stations = True
 fontsize = 4
 # =============================================================================

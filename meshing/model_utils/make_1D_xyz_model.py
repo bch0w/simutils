@@ -186,10 +186,17 @@ def make_model(model, X, Y, fid="tomography_model.xyz"):
 
 if __name__ == "__main__":
     # User input parameter - all units in meters
-    xmin = 492_485.2
-    xmax = 557_079.1
-    ymin = 4_565_658.1
-    ymax = 4_950_643.3
+    # ABC MODEL
+    xmin = 425_000.
+    xmax = 656_000.
+    ymin = 4_490_000.
+    ymax = 4_680_000.
+    
+    # CORRIDOR MODEL
+    # xmin = 492_485.2
+    # xmax = 557_079.1
+    # ymin = 4_565_658.1
+    # ymax = 4_950_643.3
 
     extract = False  # if True, pull 1D model from a 3D tomography model
 
