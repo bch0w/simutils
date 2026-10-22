@@ -1,10 +1,11 @@
 #!/bin/bash -e
 
 #SBATCH --job-name=simblast
-#SBATCH --ntasks=256
-#SBATCH --nodes=8
+#SBATCH --ntasks=247
+#SBATCH --nodes=9
+#SBATCH --constraint="Broadwell"
 #SBATCH --partition=t2standard
-#SBATCH --time 05:00:00
+#SBATCH --time 14:00:00
 #SBATCH --output=LOGS/simblast_%j.out
 
 ulimit -s unlimited

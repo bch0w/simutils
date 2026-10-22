@@ -35,12 +35,14 @@ def PREM():
 
     return prem
 
-def AK135F(depth_cutoff_km=80, plot=False):
+def AK135F(depth_cutoff_km=80, top=None, plot=False):
     """
     Read and parse AK135F model as gathered directly from IRIS EMC
     """
-    ak135f = np.loadtxt("/Users/prof/Data/models/AK135F/AK135F_AVG.csv",
+    ak135f = np.loadtxt("/import/c1/ERTHQUAK/bhchow/data/models/AK135F_AVG.csv",
                         delimiter=",", dtype=float)
+    # ak135f = np.loadtxt("/Users/prof/Data/models/AK135F/AK135F_AVG.csv",
+    #                     delimiter=",", dtype=float)
     depth_km, density, vp_kms, vs_kms, qk, qm = ak135f.T
 
     # Determine where the cutoff depth index is
@@ -61,6 +63,16 @@ def AK135F(depth_cutoff_km=80, plot=False):
     vs[:4] = vs[4]
     qp[:4] = qp[4]
     qs[:4] = qs[4]
+
+    # Extend the model upward above the pre-defined 0km top
+    if top is not None:
+        print("adding top layer to model")
+        depth = np.insert(depth, 0, top, axis=0)
+        density = np.insert(density, 0, density[0], axis=0)
+        vp = np.insert(vp, 0, vp[0], axis=0)
+        vs = np.insert(vs, 0, vs[0], axis=0)
+        qp = np.insert(qp, 0, qp[0], axis=0)
+        qs = np.insert(qs, 0, qs[0], axis=0)
 
     if plot:
         plt.plot(vp, depth, "bo-", label="Vp")
@@ -205,10 +217,10 @@ if __name__ == "__main__":
 
     # Make model here
     if not extract:
-        dx = 0.25E3  # m
-        dy = 0.25E3 
-        dz = .1E3  # small enough so we can get the sharp jumps across layers
-        model = AK135F()
+        dx = 0.5E3  # m
+        dy = 0.5E3 
+        dz = 0.1E3  # small enough so we can get the sharp jumps across layers
+        model = AK135F(top=-3000)
     else:
         # NK6 location for SimBlast paper
         xselect = 502485

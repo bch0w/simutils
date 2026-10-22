@@ -72,7 +72,7 @@ def depth_cutoff_taper(zvals, cutoff_depth, taper_width=0.0):
     return taper
 
 
-def make_perturbation(x, y, z, seed=123, a=1E3, hv_ratio=5, mean_vel=1.,
+def make_perturbation(x, y, z, seed=123, a=100, hv_ratio=5, mean_vel=1.,
                       std_vel=0.1, nmin=-.1, nmax=.1,
                       left_frac=0.4, right_frac=0.0,
                       cutoff_depth=None, taper_width=0.0,
@@ -295,13 +295,13 @@ if __name__ == "__main__":
     parser.add_argument("path", help="path to the input .xyz tomography model")
     parser.add_argument("path_out", nargs="?", default="./tomography_model.xyz",
                          help="path to write the perturbed .xyz model")
-    parser.add_argument("--cutoff_depth", type=float, default=None,
+    parser.add_argument("--cutoff_depth", type=float, default=10E3,
                          help="depth below the top of the model (same "
                               "units as the model's z column, e.g. "
                               "meters) within which perturbations are "
                               "applied; below this they taper to zero. "
                               "Default: perturb the whole model")
-    parser.add_argument("--taper_width", type=float, default=0.0,
+    parser.add_argument("--taper_width", type=float, default=2.5E3,
                          help="thickness (same units as z) of the smooth "
                               "ramp-down applied just past --cutoff_depth. "
                               "Default: 0 (hard cutoff)")
