@@ -24,7 +24,7 @@ cd specfem2d
 ```
 3. Configure and compile binaries
 ```
-./configure F90=ifort FC=ifort MPIFC=mpiifort CC=icc MPICC=mpiicc
+./configure F90=ifort FC=ifort MPIFC=mpiifort CC=icc MPICC=mpiicc --with-mpi
 make all
 ```
 4. Set up your SPECFEM working directory (`bin/`, `DATA/`, `OUTPUT_FILES`) somewhere on `center1` (`cd /center1/ERTHQUAK/$USER`).
