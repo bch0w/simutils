@@ -659,6 +659,19 @@ rm -rf OUTPUT_FILES/*
 ln -sf {specfem_bin}/xmeshfem2D bin/xmeshfem2D
 ln -sf {specfem_bin}/xspecfem2D bin/xspecfem2D
 
+# the solver must be built with fortran/define_external_model.f90
+if [ ! -x bin/xspecfem2D ]; then
+  echo "ERROR: {specfem_bin}/xspecfem2D not found"
+  exit 1
+fi
+if ! grep -aq "Venus 1-D table" bin/xspecfem2D; then
+  echo "ERROR: {specfem_bin}/xspecfem2D was not built with the Venus model"
+  echo "reader. Copy fortran/define_external_model.f90 into"
+  echo "src/specfem2D/ of that SPECFEM2D and run 'make xspecfem2D'"
+  echo "(step 1 of the README)."
+  exit 1
+fi
+
 # partition for the number of processes used on this machine
 sed "s/^NPROC *=.*/NPROC = {nproc}/" DATA/Par_file > DATA/Par_file.tmp
 mv DATA/Par_file.tmp DATA/Par_file
