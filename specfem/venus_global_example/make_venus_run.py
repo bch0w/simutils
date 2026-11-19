@@ -73,6 +73,10 @@ DEFAULTS = dict(
     AIR_STATION_ALT_KM=[1, 10, 30, 50, 60],
     NPROC=168,
     SLURM={},
+    LOCAL_NPROC=4,
+    LOCAL_SPECFEM_BIN=None,
+    LOCAL_FC=None,
+    LOCAL_MPIRUN="mpirun",
     US_PER_ELEMENT_STEP=(1.0, 3.0),
 )
 
@@ -92,7 +96,9 @@ def die(msg):
 
 def path_from_config(cfg, key):
     """
-    Resolve a path from the config relative to the config file location.
+    Resolve a path from the config. Relative paths set in the config file
+    are relative to that file; built-in defaults (templates/, data/) are
+    relative to this tool's folder, so a config can live anywhere.
 
     :type cfg: dict
     :param cfg: configuration dictionary
@@ -104,7 +110,10 @@ def path_from_config(cfg, key):
     value = cfg[key]
     if os.path.isabs(value):
         return value
-    return os.path.join(cfg["_CONFIG_DIR"], value)
+    base = cfg["_CONFIG_DIR"] if key in cfg["_USER_KEYS"] else HERE
+    if key == "OUTPUT_DIR":
+        base = cfg["_CONFIG_DIR"]
+    return os.path.join(base, value)
 
 
 def load_config(config_path):
@@ -125,6 +134,7 @@ def load_config(config_path):
     if unknown:
         die(f"unknown setting(s) in config: {', '.join(unknown)}")
     cfg["_CONFIG_DIR"] = os.path.dirname(os.path.abspath(config_path))
+    cfg["_USER_KEYS"] = {k for k in user if k.isupper()}
     return cfg
 
 
@@ -615,44 +625,92 @@ def write_nummaterial(path):
                 "1 4 65.d0 400.d0 0.d0 9999.d0 9999.d0 0\n")
 
 
-def write_run_script(cfg, case_dir):
+def run_script_body(specfem_bin, fc, fc_flags, nproc, mpirun):
     """
-    Write a job script that builds the mesh and runs the solver. It is not
-    submitted; edit the #SBATCH lines if needed and submit it yourself.
+    Shell commands that build the mesh and run the solver. They must be
+    run from inside the run folder. NPROC in DATA/Par_file is reset to
+    ``nproc`` first, so one run folder works on any machine.
+
+    :type specfem_bin: str
+    :param specfem_bin: SPECFEM2D bin directory on this machine
+    :type fc: str
+    :param fc: Fortran compiler for the stand-alone mesher
+    :type fc_flags: str
+    :param fc_flags: compiler flags
+    :type nproc: int
+    :param nproc: number of MPI processes
+    :type mpirun: str
+    :param mpirun: MPI launcher command; empty string for a serial
+        (non-MPI) SPECFEM2D build, which then requires nproc = 1
+    :rtype: str
+    :return: script body
+    """
+    if not mpirun and nproc != 1:
+        die("a serial run (LOCAL_MPIRUN = '') needs LOCAL_NPROC = 1")
+    launch = f"{mpirun} -np {nproc} " if mpirun else ""
+    return f"""
+set -e
+if [ ! -f DATA/Par_file ]; then
+  echo "run this script from inside the run folder (DATA/ not found)"
+  exit 1
+fi
+mkdir -p OUTPUT_FILES MESH bin
+rm -rf OUTPUT_FILES/*
+ln -sf {specfem_bin}/xmeshfem2D bin/xmeshfem2D
+ln -sf {specfem_bin}/xspecfem2D bin/xspecfem2D
+
+# partition for the number of processes used on this machine
+sed "s/^NPROC *=.*/NPROC = {nproc}/" DATA/Par_file > DATA/Par_file.tmp
+mv DATA/Par_file.tmp DATA/Par_file
+
+echo "building the mesh: $(date)"
+{fc} {fc_flags} -o bin/xcreate_mesh create_mesh_venus.F90
+./bin/xcreate_mesh > OUTPUT_FILES/output_create_mesh.txt
+
+cp DATA/Par_file DATA/SOURCE DATA/STATIONS DATA/venus_model.txt \\
+   OUTPUT_FILES/
+echo "partitioning: $(date)"
+{launch}./bin/xmeshfem2D
+echo "solver: $(date)"
+{launch}./bin/xspecfem2D
+echo "done: $(date)"
+"""
+
+
+def write_run_scripts(cfg, case_dir):
+    """
+    Write two scripts that build the mesh and run the solver: one for the
+    cluster (SLURM header; submit with sbatch from inside the run folder)
+    and one for a laptop or workstation (run it from inside the folder).
+    Neither is run or submitted by this tool.
 
     :type cfg: dict
     :param cfg: configuration
     :type case_dir: str
     :param case_dir: run directory
     """
-    sl = dict(cfg["SLURM"])
     head = ["#!/bin/bash"]
-    for key, value in sl.items():
+    for key, value in dict(cfg["SLURM"]).items():
         head.append(f"#SBATCH --{key.replace('_', '-')}={value}")
-    body = f"""
-set -e
-cd "$(dirname "$0")"
-mkdir -p OUTPUT_FILES MESH bin
-rm -rf OUTPUT_FILES/*
-ln -sf {cfg['SPECFEM_BIN']}/xmeshfem2D bin/xmeshfem2D
-ln -sf {cfg['SPECFEM_BIN']}/xspecfem2D bin/xspecfem2D
-
-echo "building the mesh: $(date)"
-{cfg['FC']} {cfg['FC_FLAGS']} -o bin/xcreate_mesh create_mesh_venus.F90
-./bin/xcreate_mesh > OUTPUT_FILES/output_create_mesh.txt
-
-cp DATA/Par_file DATA/SOURCE DATA/STATIONS DATA/venus_model.txt \\
-   OUTPUT_FILES/
-echo "partitioning: $(date)"
-mpirun -np {cfg['NPROC']} ./bin/xmeshfem2D
-echo "solver: $(date)"
-mpirun -np {cfg['NPROC']} ./bin/xspecfem2D
-echo "done: $(date)"
-"""
-    path = os.path.join(case_dir, "run_venus.sh")
-    with open(path, "w") as f:
-        f.write("\n".join(head) + "\n" + body)
-    os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
+    head.append("# submit from inside this folder:  sbatch "
+                "run_venus_cluster.sh")
+    cluster = "\n".join(head) + "\n" + run_script_body(
+        cfg["SPECFEM_BIN"], cfg["FC"], cfg["FC_FLAGS"], cfg["NPROC"],
+        "mpirun")
+    local = ("#!/bin/bash\n# run from inside this folder:  "
+             "./run_venus_local.sh > run.log 2>&1\n" + run_script_body(
+                 cfg["LOCAL_SPECFEM_BIN"] or cfg["SPECFEM_BIN"],
+                 cfg["LOCAL_FC"] or cfg["FC"], cfg["FC_FLAGS"],
+                 cfg["LOCAL_NPROC"], cfg["LOCAL_MPIRUN"]))
+    for name, text in (("run_venus_cluster.sh", cluster),
+                       ("run_venus_local.sh", local)):
+        path = os.path.join(case_dir, name)
+        with open(path, "w") as f:
+            f.write(text)
+        os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
+    old = os.path.join(case_dir, "run_venus.sh")
+    if os.path.exists(old):
+        os.remove(old)
 
 
 # ---------------------------------------------------------------------------
@@ -748,7 +806,7 @@ def make_runs(cfg):
             "Mxx": "1.", "Mzz": "1.", "Mxz": "0.",
             "factor": f"{cfg['SOURCE_FACTOR']:g}",
         }, os.path.join(d, "DATA", "SOURCE"), "SOURCE")
-        write_run_script(cfg, d)
+        write_run_scripts(cfg, d)
 
         summary = f"""Venus run '{cfg['EXPERIMENT']}/{case}'
 air density scale       : {scale:g}
@@ -771,7 +829,9 @@ one-way vertical air travel time to the top: {tau_air:.0f} s
   -> echoes off the top return ~{2 * tau_air:.0f} s after an arrival at a
      ground station; analyze before that if the sponge is off
 estimated cost          : {lo:,.1f}-{hi:,.1f} core-hours; \
-{lo / cfg['NPROC']:.2f}-{hi / cfg['NPROC']:.2f} h on {cfg['NPROC']} cores
+{lo / cfg['NPROC']:.2f}-{hi / cfg['NPROC']:.2f} h on {cfg['NPROC']} cores \
+(cluster), {lo / cfg['LOCAL_NPROC']:.1f}-{hi / cfg['LOCAL_NPROC']:.1f} h on \
+{cfg['LOCAL_NPROC']} cores (local)
 """
         with open(os.path.join(d, "run_summary.txt"), "w") as f:
             f.write(summary)

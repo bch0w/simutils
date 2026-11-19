@@ -3,19 +3,21 @@ Settings for one Venus global AXISYM experiment.
 
 Edit this file, then run:  python make_venus_run.py venus_config.py
 Every case in CASES becomes its own run folder under OUTPUT_DIR/EXPERIMENT.
-Nothing is run or submitted; copy the folders to the cluster and submit
-run_venus.sh in each one.
+Nothing is run or submitted. Each run folder gets two scripts, run from
+inside that folder:
+    run_venus_cluster.sh  ->  sbatch run_venus_cluster.sh
+    run_venus_local.sh    ->  ./run_venus_local.sh > run.log 2>&1
 """
 
 # --- where things live ------------------------------------------------------
-SPECFEM_BIN = "/home/irseppi/REPOS/specfem2d/bin"   # rebuilt with the new
+SPECFEM_BIN = "/home/bhchow/REPOS/specfem2d/bin"   # rebuilt with the new
                                                      # define_external_model
 FC = "gfortran"            # compiler for the stand-alone mesher
 OUTPUT_DIR = "runs"
-EXPERIMENT = "venus_T20"   # folder name for this set of runs
+EXPERIMENT = "venus_T60"   # folder name for this set of runs
 
 # --- resolution -------------------------------------------------------------
-MIN_PERIOD_S = 20.0        # shortest period resolved; Ricker f0 = 1/(2.5*T)
+MIN_PERIOD_S = 60.0        # shortest period resolved; Ricker f0 = 1/(2.5*T)
 POINTS_PER_WAVELENGTH = 5.0
 MULTIPLICATION_FACTOR = None   # None = choose automatically from the period
 INTERIOR_RADIAL_FACTOR = 8     # radial element count factor in the mantle
@@ -57,3 +59,12 @@ SLURM = dict(
     time="12:00:00",
     output="log.txt",
 )
+
+# --- laptop / workstation (run_venus_local.sh) -------------------------------
+LOCAL_NPROC = 4            # MPI processes on the laptop
+LOCAL_SPECFEM_BIN = None   # laptop SPECFEM2D bin dir; None = SPECFEM_BIN
+LOCAL_FC = None            # laptop Fortran compiler; None = FC
+LOCAL_MPIRUN = "mpirun"    # "" only if SPECFEM2D was built without MPI
+                           # (then LOCAL_NPROC must be 1)
+# Laptop runs: use long periods, e.g. MIN_PERIOD_S = 60 to 100. The cost
+# line in run_summary.txt gives the expected laptop run time.

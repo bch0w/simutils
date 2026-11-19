@@ -79,7 +79,8 @@ python make_venus_run.py venus_config.py
 # writes runs/venus_T20/air/ and runs/venus_T20/noair/, each with:
 #   DATA/Par_file  DATA/SOURCE  DATA/STATIONS  DATA/venus_model.txt
 #   MESH/Nummaterial_velocity_file_NO_MUD
-#   create_mesh_venus.F90   run_venus.sh   run_summary.txt
+#   create_mesh_venus.F90   run_summary.txt
+#   run_venus_cluster.sh    run_venus_local.sh
 ```
 
 Read `run_summary.txt` first. It lists the element size against the size
@@ -87,16 +88,30 @@ needed, the time step, the number of steps and the estimated cost. The
 script stops with a message if a mesher setting would fail the mesher's
 own checks.
 
-### 4. Submit on the cluster
+### 4. Run on the cluster or a laptop
+
+Both scripts compile and run the stand-alone mesher, then run
+`xmeshfem2D` and `xspecfem2D`. Run them from inside the run folder. Each
+one first sets `NPROC` in `DATA/Par_file` to its own process count, so
+the same folder works on either machine.
+
+On the cluster (edit the `#SBATCH` lines if needed):
 
 ```bash
-cd runs/venus_T20/air   && sbatch run_venus.sh
-cd ../noair             && sbatch run_venus.sh
+cd runs/venus_T20/air   && sbatch run_venus_cluster.sh
+cd ../noair             && sbatch run_venus_cluster.sh
 ```
 
-`run_venus.sh` compiles and runs the stand-alone mesher, then runs
-`xmeshfem2D` and `xspecfem2D`. Edit its `#SBATCH` lines if your cluster
-needs different settings.
+On a laptop or workstation, use long periods (`MIN_PERIOD_S` of 60–100 s)
+and set `LOCAL_NPROC`, plus `LOCAL_SPECFEM_BIN` if SPECFEM2D lives in a
+different place there:
+
+```bash
+cd runs/venus_T60/air   && ./run_venus_local.sh > run.log 2>&1
+cd ../noair             && ./run_venus_local.sh > run.log 2>&1
+```
+
+`run_summary.txt` gives the expected run time for both.
 
 ### 5. Check the first few minutes of the solver log
 

@@ -39,10 +39,10 @@ use_gui: false # Force GUI even if extent is set
 generate_mesh: true
 mesh_output_dir: './TMP/WHOLE/meshfem3D_files'  # Directory for mesh files
 max_depth: 80.0  # in km
-dx_target_km: 0.4
-dz_target_km: 0.4
+dx_target_km: 0.45
+dz_target_km: 0.45
 max_cpu: 256
-doubling_layers: [18.0]  # in km
+doubling_layers: [18.0, 30.]  # in km
 
 # Topography generation options
 generate_topography: true
