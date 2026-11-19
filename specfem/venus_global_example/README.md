@@ -28,6 +28,7 @@ them yourself.
 | `make_venus_run.py` | The generator (Python standard library only, Python ≥ 3.7) |
 | `compare_runs.py` | Overlays seismograms from two runs (needs numpy and matplotlib) |
 | `fortran/define_external_model.f90` | Model reader you install once in SPECFEM2D |
+| `fortran/axisym_viscoacoustic_fix.patch` | SPECFEM2D bug fix that makes fluid attenuation (the sponge) work in AXISYM runs |
 | `data/venus_interior.txt` | Solid planet and core, region-tagged, SI units |
 | `data/venus_air_profile.txt` | Approximate VIRA atmosphere (replace it if you have a published table) |
 | `templates/create_mesh_Venus.F90` | Stand-alone mesher, adapted from the SPECFEM2D global AK135F example with Venus layering |
@@ -35,23 +36,47 @@ them yourself.
 
 ## Steps
 
-### 1. Install the model reader in SPECFEM2D (once)
+### 1. Prepare SPECFEM2D (once per machine)
 
-The model comes from a text file in each run folder
+Two changes, then one rebuild.
+
+**Model reader.** The model comes from a text file in each run folder
 (`DATA/venus_model.txt`) instead of arrays compiled into the solver, so
-changing the model never requires editing Fortran or recompiling.
+changing the model never requires editing Fortran or recompiling. The
+routine only interpolates between table rows of an element's own region,
+so values are never blended across the core–mantle boundary or the
+ground–air interface.
+
+**Attenuation fix (needed for the sponge).** In AXISYM runs, SPECFEM2D
+adds the fluid-attenuation term without the radius weight that every
+other term carries, so attenuation in fluids is about r (~10⁶) times too
+weak and the sponge does nothing. The patch adds the missing factor in
+`src/specfem2D/compute_forces_viscoacoustic.F90` (four lines).
 
 ```bash
 cd /path/to/specfem2d
 cp src/specfem2D/define_external_model.f90 \
    src/specfem2D/define_external_model.f90.orig
-cp /path/to/venus_specfem/fortran/define_external_model.f90 src/specfem2D/
+cp src/specfem2D/compute_forces_viscoacoustic.F90 \
+   src/specfem2D/compute_forces_viscoacoustic.F90.orig
+cp /path/to/venus_global_example/fortran/define_external_model.f90 \
+   src/specfem2D/
+patch -p1 < /path/to/venus_global_example/fortran/axisym_viscoacoustic_fix.patch
 make xspecfem2D
 ```
 
-The routine only interpolates between table rows of an element's own
-region, so values are never blended across the core–mantle boundary or
-the ground–air interface.
+If `patch` reports a failed hunk (a different SPECFEM2D version), make the
+edit by hand. In the AXISYM part of the attenuation block near the end of
+`compute_forces_viscoacoustic.F90`, the term
+`wzgll(j) * wxglj(i) * tempx3(i,j)` (axis elements) gets an extra factor
+`r_xiplus1(i,j)`, and `wzgll(j) * wxgll(i) * tempx3(i,j)` (other elements)
+gets `coord(1,iglob)`. The same applies to the two `tempx3_e1` lines.
+
+The sponge was verified with a column of stations above the source. The
+pulse decays smoothly through the 70–100 km sponge, nothing changes below
+it, and the echo off the top of the air drops by 10–14 dB. Without the
+patch, leave `SPONGE = False` and analyze each record only before the
+top echo returns (the time is in `run_summary.txt`).
 
 ### 2. Edit `venus_config.py`
 

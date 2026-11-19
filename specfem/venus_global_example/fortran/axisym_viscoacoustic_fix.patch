@@ -1,0 +1,30 @@
+--- a/src/specfem2D/compute_forces_viscoacoustic.F90
++++ b/src/specfem2D/compute_forces_viscoacoustic.F90
+@@ -376,9 +376,11 @@
+               ! sums contributions from each element to the global values
+               iglob = ibool(i,j,ispec)
+               if (.not. iglob_is_forced(iglob)) then
+-                potential_dot_dot_acoustic(iglob) = potential_dot_dot_acoustic(iglob) + wzgll(j) * wxglj(i) * tempx3(i,j)
++                potential_dot_dot_acoustic(iglob) = potential_dot_dot_acoustic(iglob) &
++                  + r_xiplus1(i,j) * wzgll(j) * wxglj(i) * tempx3(i,j)
+                 ! loop over all relaxation mechanisms
+-                if (time_stepping_scheme > 1) dot_e1(iglob,:) = dot_e1(iglob,:) - wzgll(j) * wxglj(i) * tempx3_e1(i,j,:)
++                if (time_stepping_scheme > 1) dot_e1(iglob,:) = dot_e1(iglob,:) &
++                  - r_xiplus1(i,j) * wzgll(j) * wxglj(i) * tempx3_e1(i,j,:)
+               endif
+             enddo
+           enddo
+@@ -388,9 +390,11 @@
+               ! sums contributions from each element to the global values
+               iglob = ibool(i,j,ispec)
+               if (.not. iglob_is_forced(iglob)) then
+-                potential_dot_dot_acoustic(iglob) = potential_dot_dot_acoustic(iglob) + wzgll(j) * wxgll(i) * tempx3(i,j)
++                potential_dot_dot_acoustic(iglob) = potential_dot_dot_acoustic(iglob) &
++                  + coord(1,iglob) * wzgll(j) * wxgll(i) * tempx3(i,j)
+                 ! loop over all relaxation mechanisms
+-                if (time_stepping_scheme > 1) dot_e1(iglob,:) = dot_e1(iglob,:) - wzgll(j) * wxgll(i) * tempx3_e1(i,j,:)
++                if (time_stepping_scheme > 1) dot_e1(iglob,:) = dot_e1(iglob,:) &
++                  - coord(1,iglob) * wzgll(j) * wxgll(i) * tempx3_e1(i,j,:)
+               endif
+             enddo
+           enddo
