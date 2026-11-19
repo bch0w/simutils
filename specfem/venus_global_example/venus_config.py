@@ -9,10 +9,17 @@ inside that folder:
     run_venus_local.sh    ->  ./run_venus_local.sh > run.log 2>&1
 """
 
-# --- where things live ------------------------------------------------------
-SPECFEM_BIN = "/home/bhchow/REPOS/specfem2d/bin"   # rebuilt with the new
-                                                     # define_external_model
-FC = "gfortran"            # compiler for the stand-alone mesher
+# --- SPECFEM2D builds ---------------------------------------------------------
+# bin/ folder of SPECFEM2D on each machine. Both builds must include
+# fortran/define_external_model.f90 (step 1 of the README).
+CLUSTER_SPECFEM_BIN = "/home/bhchow/REPOS/specfem2d/bin"  # run_venus_cluster.sh
+LOCAL_SPECFEM_BIN = "/path/to/laptop/specfem2d/bin"       # run_venus_local.sh
+
+# Fortran compiler for the stand-alone mesher on each machine
+CLUSTER_FC = "gfortran"
+LOCAL_FC = "gfortran"
+
+# --- output -------------------------------------------------------------------
 OUTPUT_DIR = "runs"
 EXPERIMENT = "venus_T60"   # folder name for this set of runs
 
@@ -25,7 +32,7 @@ INTERIOR_RADIAL_FACTOR = 8     # radial element count factor in the mantle
 
 # --- atmosphere -------------------------------------------------------------
 AIR_TOP_KM = 100.0         # top of the mesh above the ground
-SPONGE = True              # absorbing Q sponge at the top of the air
+SPONGE = False              # absorbing Q sponge at the top of the air
 SPONGE_BOTTOM_KM = 70.0    # sponge from here to AIR_TOP_KM
 SPONGE_Q_MIN = 3.0         # Q at the very top (1/Q ramps up linearly)
 
@@ -62,8 +69,6 @@ SLURM = dict(
 
 # --- laptop / workstation (run_venus_local.sh) -------------------------------
 LOCAL_NPROC = 4            # MPI processes on the laptop
-LOCAL_SPECFEM_BIN = None   # laptop SPECFEM2D bin dir; None = SPECFEM_BIN
-LOCAL_FC = None            # laptop Fortran compiler; None = FC
 LOCAL_MPIRUN = "mpirun"    # "" only if SPECFEM2D was built without MPI
                            # (then LOCAL_NPROC must be 1)
 # Laptop runs: use long periods, e.g. MIN_PERIOD_S = 60 to 100. The cost

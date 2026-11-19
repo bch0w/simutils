@@ -59,7 +59,10 @@ Most defaults are already set for the standard experiment. Set the paths
 and the cluster block.
 
 ```python
-SPECFEM_BIN = "/path/to/specfem2d/bin"
+CLUSTER_SPECFEM_BIN = "/path/to/cluster/specfem2d/bin"
+LOCAL_SPECFEM_BIN = "/path/to/laptop/specfem2d/bin"
+CLUSTER_FC = "gfortran"                 # compiler for the stand-alone mesher
+LOCAL_FC = "gfortran"
 MIN_PERIOD_S = 20.0                     # sets mesh size and f0
 CASES = {"air": 1.0, "noair": 1.0e-3}   # air-density factor per run
 SPONGE = True                           # 70-100 km, Q down to 3
@@ -102,9 +105,12 @@ cd runs/venus_T20/air   && sbatch run_venus_cluster.sh
 cd ../noair             && sbatch run_venus_cluster.sh
 ```
 
+`run_venus_cluster.sh` uses `CLUSTER_SPECFEM_BIN` and `CLUSTER_FC`;
+`run_venus_local.sh` uses `LOCAL_SPECFEM_BIN` and `LOCAL_FC`. If only one
+path is set, both scripts use it.
+
 On a laptop or workstation, use long periods (`MIN_PERIOD_S` of 60–100 s)
-and set `LOCAL_NPROC`, plus `LOCAL_SPECFEM_BIN` if SPECFEM2D lives in a
-different place there:
+and set `LOCAL_NPROC`:
 
 ```bash
 cd runs/venus_T60/air   && ./run_venus_local.sh > run.log 2>&1

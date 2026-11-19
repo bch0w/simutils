@@ -39,8 +39,10 @@ GLL_MIN_SPACING = 0.1727   # smallest GLL spacing / element width, NGLL=5
 DT_CALIBRATION = 1.44
 
 DEFAULTS = dict(
-    SPECFEM_BIN="/path/to/specfem2d/bin",
-    FC="gfortran",
+    CLUSTER_SPECFEM_BIN=None,
+    SPECFEM_BIN=None,          # older name for CLUSTER_SPECFEM_BIN
+    CLUSTER_FC=None,
+    FC="gfortran",             # older name for CLUSTER_FC
     FC_FLAGS="-O3",
     MESHER_TEMPLATE="templates/create_mesh_Venus.F90",
     PARFILE_TEMPLATE="templates/Par_file",
@@ -707,13 +709,19 @@ def write_run_scripts(cfg, case_dir):
         head.append(f"#SBATCH --{key.replace('_', '-')}={value}")
     head.append("# submit from inside this folder:  sbatch "
                 "run_venus_cluster.sh")
+    cluster_bin = cfg["CLUSTER_SPECFEM_BIN"] or cfg["SPECFEM_BIN"]
+    local_bin = cfg["LOCAL_SPECFEM_BIN"]
+    if not cluster_bin and not local_bin:
+        die("set CLUSTER_SPECFEM_BIN and/or LOCAL_SPECFEM_BIN in the config")
+    cluster_bin = cluster_bin or local_bin
+    local_bin = local_bin or cluster_bin
+    cluster_fc = cfg["CLUSTER_FC"] or cfg["FC"]
+    local_fc = cfg["LOCAL_FC"] or cluster_fc
     cluster = "\n".join(head) + "\n" + run_script_body(
-        cfg["SPECFEM_BIN"], cfg["FC"], cfg["FC_FLAGS"], cfg["NPROC"],
-        "mpirun")
+        cluster_bin, cluster_fc, cfg["FC_FLAGS"], cfg["NPROC"], "mpirun")
     local = ("#!/bin/bash\n# run from inside this folder:  "
              "./run_venus_local.sh > run.log 2>&1\n" + run_script_body(
-                 cfg["LOCAL_SPECFEM_BIN"] or cfg["SPECFEM_BIN"],
-                 cfg["LOCAL_FC"] or cfg["FC"], cfg["FC_FLAGS"],
+                 local_bin, local_fc, cfg["FC_FLAGS"],
                  cfg["LOCAL_NPROC"], cfg["LOCAL_MPIRUN"]))
     for name, text in (("run_venus_cluster.sh", cluster),
                        ("run_venus_local.sh", local)):
